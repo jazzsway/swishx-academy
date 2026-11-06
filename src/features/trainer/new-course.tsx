@@ -12,6 +12,7 @@ import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
 import { LUMORA_LAUNCH_MODULES } from "@/data/courses/lumora-launch";
 import { DURATION, shapeOutline } from "@/lib/outline";
+import { suggestCompetencies } from "@/lib/suggest-competencies";
 import type { Module, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
@@ -83,7 +84,12 @@ export function NewCourseWizard() {
   const removeUpload = useApp((s) => s.removeUpload);
   const [preview, setPreview] = useState<Source | null>(null);
   const [sourceIds, setSourceIds] = useState<string[]>(["src-lum-pi", "src-lum-obj", "src-lum-payer", "src-code"]);
-  const [comps, setComps] = useState<string[]>(["c-access", "c-objections", "c-safety", "c-compliance"]);
+  const [comps, setComps] = useState<string[]>([]);
+  /* Suggested from the title and objective each time the trainer reaches the step, until they change the picks themselves. */
+  const [compsTouched, setCompsTouched] = useState(false);
+  const suggestions = suggestCompetencies(title, objective, scope.mode === "product" && !!productId);
+  useEffect(() => { if (step === 2 && !compsTouched) setComps(suggestions.map((x) => x.id)); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleComp = (id: string) => { setCompsTouched(true); setComps(comps.includes(id) ? comps.filter((x) => x !== id) : [...comps, id]); };
   const [outline, setOutline] = useState<Module[] | null>(null);
   const [outlineLoading, setOutlineLoading] = useState(false);
   const [shapeNote, setShapeNote] = useState<{ left: string[]; added: string[] }>({ left: [], added: [] });
@@ -99,12 +105,11 @@ export function NewCourseWizard() {
   useEffect(() => {
     const pr = product(productId);
     setSourceIds(productId === "p-cardexa" ? ["src-cdx-pi", "src-cdx-va", "src-code"] : productId === "p-lumora" ? ["src-lum-pi", "src-lum-obj", "src-lum-payer", "src-code"] : pr ? [pr.piSourceId, "src-code"] : scope.mode === "area" ? ["src-ad-guide", "src-code"] : ["src-code"]);
-    if (productId === "p-cardexa") { setTitle("Cardexa: updated label in practice"); setComps(["c-safety", "c-dosing", "c-compliance"]); }
-    else if (productId === "p-lumora") { setTitle("Lumora: handling access & cost objections"); setComps(["c-access", "c-objections", "c-safety", "c-compliance"]); }
+    if (productId === "p-cardexa") setTitle("Cardexa: updated label in practice");
+    else if (productId === "p-lumora") setTitle("Lumora: handling access & cost objections");
     else if (pr) {
       setTitle(`${pr.brand}: label essentials`);
       setObjective(`Reps can state what ${pr.brand} is approved for in the label's own words, know its presentations, and deliver its safety information in balance.`);
-      setComps(["c-efficacy", "c-dosing", "c-safety", "c-compliance"]);
     }
     setTeams(pr?.divisionId ? [pr.divisionId] : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,7 +299,7 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Which competencies does this build?</Text>
-            <Text tone="subtle" size="body-lg">SwishX picked these from your objective. Screening, personalisation and analytics all run on them.</Text>
+            <Text tone="subtle" size="body-lg">SwishX picked these from your title and objective. Each one gets its own questions and screening score, and reports roll up by them.</Text>
           </div>
           <div className="flex flex-col gap-4">
             {Array.from(new Set(COMPETENCIES.map((c) => c.domain))).map((d) => (
@@ -303,11 +308,20 @@ export function NewCourseWizard() {
                 <div className="flex flex-wrap gap-2">
                   {COMPETENCIES.filter((c) => c.domain === d).map((c) => (
                     <Chip key={c.id} size="lg" selected={comps.includes(c.id)} iconLeft={comps.includes(c.id) ? <Sparkles className="size-3.5" aria-hidden="true" /> : undefined}
-                      onClick={() => setComps(comps.includes(c.id) ? comps.filter((x) => x !== c.id) : [...comps, c.id])}>{c.name}</Chip>
+                      onClick={() => toggleComp(c.id)}>{c.name}</Chip>
                   ))}
                 </div>
               </div>
             ))}
+          </div>
+          <div className="squircle flex flex-col gap-1.5 rounded-panel bg-subtle px-4 py-3">
+            <Text size="caption" weight="bold" tone="subtle">Why these</Text>
+            {suggestions.map((x) => (
+              <Text key={x.id} size="body" tone={comps.includes(x.id) ? "muted" : "subtle"} className={comps.includes(x.id) ? undefined : "line-through"}>
+                <strong className="text-ink">{competency(x.id)?.name}</strong> · {x.why}
+              </Text>
+            ))}
+            {compsTouched && <button type="button" onClick={() => { setComps(suggestions.map((x) => x.id)); setCompsTouched(false); }} className="self-start text-body font-semibold text-brand-deep hover:underline">Reset to suggestions</button>}
           </div>
         </Card>
       )}

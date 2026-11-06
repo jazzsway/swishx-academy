@@ -16,6 +16,7 @@ import { Field } from "@/components/ui/field";
 import { Card, Avatar, ProgressChip, Meter, BandChip, KeyValue, EmptyState } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { TabNav } from "@/components/patterns/tab-nav";
+import { CourseProgress } from "./course-progress";
 
 /** Needs attention first: overdue, coaching, waiting, in progress, not started, certified. */
 function rank(p: Progress) {
@@ -176,6 +177,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
                 ...(p.certifiedAt ? [{ k: "Certified", v: `${fmtDate(p.certifiedAt, true)} · valid to ${fmtDate(p.certExpiresAt, true)}` }] : []),
               ]} />
             </Card>
+            <CourseProgress p={p} course={course} mods={mods} user={u} />
             {p.screening && (
               <Card title="Screening → latest" eyebrow="By competency">
                 <div className="flex flex-col gap-3">

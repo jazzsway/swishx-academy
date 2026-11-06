@@ -27,14 +27,15 @@ export const DOMAINS: Domain[] = [
   { id: "compliance", name: "Compliance", short: "Compliance" },
 ];
 
+/* Skills, not products: the same framework measures every course. Product specifics live in the courses. */
 export const COMPETENCIES: Competency[] = [
-  { id: "c-disease", name: "Atopic dermatitis & unmet need", domain: "disease", description: "Pathophysiology, burden and why moderate-to-severe patients stay uncontrolled." },
-  { id: "c-moa", name: "Mechanism of action", domain: "clinical", description: "How relvokimab works, in plain HCP language." },
-  { id: "c-efficacy", name: "Efficacy data", domain: "clinical", description: "LUMEN-1/2 and LUMEN-EXT results, stated exactly as approved." },
-  { id: "c-dosing", name: "Dosing & administration", domain: "safety", description: "Loading dose, maintenance, missed doses, storage, special populations." },
-  { id: "c-safety", name: "Safety & fair balance", domain: "safety", description: "Contraindication, warnings, adverse reactions, and delivering them in balance." },
-  { id: "c-competitive", name: "Competitive landscape", domain: "competitive", description: "Where Lumora fits without making unapproved comparative claims." },
-  { id: "c-access", name: "Access & prior authorization", domain: "access", description: "Coverage, PA criteria, and the Corvana Access Hub." },
+  { id: "c-disease", name: "Disease state & unmet need", domain: "disease", description: "The condition, its burden, and why patients stay uncontrolled on current treatment." },
+  { id: "c-moa", name: "Mechanism of action", domain: "clinical", description: "How the product works, in plain HCP language." },
+  { id: "c-efficacy", name: "Clinical data", domain: "clinical", description: "Trial design and results, stated exactly as approved." },
+  { id: "c-dosing", name: "Dosing & administration", domain: "safety", description: "Starting and maintenance dosing, missed doses, storage and special populations." },
+  { id: "c-safety", name: "Safety & fair balance", domain: "safety", description: "Contraindications, warnings, adverse reactions, and delivering them in balance." },
+  { id: "c-competitive", name: "Competitive landscape", domain: "competitive", description: "Where the product fits without making unapproved comparative claims." },
+  { id: "c-access", name: "Access & prior authorization", domain: "access", description: "Coverage, prior authorization criteria and patient support programs." },
   { id: "c-opening", name: "Opening & needs discovery", domain: "conversation", description: "Opening on the right patient type and asking good questions." },
   { id: "c-objections", name: "Objection handling", domain: "conversation", description: "Handling the top HCP objections with approved responses." },
   { id: "c-compliance", name: "Promotional compliance", domain: "compliance", description: "On-label only, medical information requests, adverse event reporting." },

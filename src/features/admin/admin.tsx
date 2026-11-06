@@ -2,10 +2,11 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Upload, Plus, Search, FileText, ChevronDown, Send } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Upload, Plus, Search, ChevronDown, Send } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { fmtDate, useMe } from "@/store/selectors";
-import { COMPETENCIES, DIVISIONS, DOMAINS, ORG, PRODUCTS, REGIONS, source } from "@/data/org";
+import { COMPETENCIES, DIVISIONS, DOMAINS, ORG, PRODUCTS, REGIONS } from "@/data/org";
 import type { Role, User } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,10 @@ import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { DataTable } from "@/components/patterns/data-table";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
-import { Card, Avatar } from "@/components/patterns/academy";
+import { Card, Avatar, BandChip, Meter } from "@/components/patterns/academy";
+import { SCENARIOS } from "@/data/scenarios";
 import { useToast, Toast } from "@/components/patterns/toast";
+import { pinnedFirst } from "@/features/shared/people";
 
 function Intro({ description, actions }: { description: ReactNode; actions?: ReactNode }) {
   return (
@@ -200,7 +203,7 @@ export function AdminPeople() {
   const [role, setRole] = useState<Role | "all">("all");
   const [add, setAdd] = useState(false);
   const [csv, setCsv] = useState(false);
-  const rows = s.users.filter((u) => (role === "all" || u.roles.includes(role)) && (!q || u.name.toLowerCase().includes(q.toLowerCase())));
+  const rows = s.users.filter((u) => (role === "all" || u.roles.includes(role)) && (!q || u.name.toLowerCase().includes(q.toLowerCase()))).sort(pinnedFirst);
   return (
     <div className="flex flex-col gap-6">
       <Intro description={`${s.users.length} people across ${s.districts.length} districts. Access belongs to the role.`}
@@ -289,10 +292,9 @@ function CsvImport({ onClose, onDone }: { onClose: () => void; onDone: (n: numbe
 export function AdminProducts() {
   const [q, setQ] = useState("");
   const [div, setDiv] = useState("all");
-  const [open, setOpen] = useState<string | null>(null);
+  const router = useRouter();
   const term = q.trim().toLowerCase();
   const rows = PRODUCTS.filter((p) => (div === "all" || p.divisionId === div) && (!term || `${p.brand} ${p.generic} ${p.therapyAreas.join(" ")} ${p.indications.map((i) => i.short).join(" ")}`.toLowerCase().includes(term)));
-  const sel = PRODUCTS.find((p) => p.id === open);
   return (
     <div className="flex flex-col gap-6">
       <Intro description={`${PRODUCTS.length} products across ${DIVISIONS.length} divisions. Courses are checked against each product's exact approved indication wording.`} />
@@ -304,7 +306,7 @@ export function AdminProducts() {
       <DataTable
         rows={rows}
         rowKey={(p) => p.id}
-        onRowClick={(p) => setOpen(p.id)}
+        onRowClick={(p) => router.push(`/trainer/products/${p.id}`)}
         columns={[
           { key: "b", header: "Product", cell: (p) => (
             <div className="flex items-center gap-3">
@@ -318,38 +320,48 @@ export function AdminProducts() {
           { key: "s", header: "Status", cell: (p) => <Chip size="xs" tone={p.status === "Awaiting approval" ? "warn" : p.status === "Launch" ? "brand" : "ok"}>{p.status}</Chip> },
         ]}
       />
-      {sel && (
-        <Modal open onClose={() => setOpen(null)} title={`${sel.brand} (${sel.generic})`} description={`${DIVISIONS.find((d) => d.id === sel.divisionId)?.name} · ${sel.form} · ${sel.status}`} size="lg">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5"><Text size="caption" weight="bold" tone="subtle">VARIANTS</Text><div className="flex flex-wrap gap-1.5">{sel.variants.map((v) => <Chip key={v} size="md">{v}</Chip>)}</div></div>
-            {sel.indications.length === 0 && <Text tone="warn" weight="semibold">No approved label yet. Trainers can't build product courses on it until it's approved.</Text>}
-            {sel.indications.map((i) => (
-              <div key={i.short} className="squircle flex flex-col gap-1 rounded-panel border border-hair bg-subtle px-4 py-3">
-                <Text size="caption" weight="bold" tone="subtle">Indication · {i.short}{i.isNew ? " · Newly approved" : ""}{i.variants?.length ? ` · ${i.variants.join(", ")} only` : ""}</Text>
-                <Text size="body-lg" className="leading-relaxed">{i.full}</Text>
-                <Text size="caption" tone="subtle">{i.therapyAreas.join(" · ")}</Text>
-              </div>
-            ))}
-            {source(sel.piSourceId) && <div className="flex items-center gap-2 text-body text-ink-2"><FileText className="size-4" aria-hidden="true" />{source(sel.piSourceId)?.title} · {source(sel.piSourceId)?.docNumber}</div>}
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
 
 export function AdminCompetencies() {
+  const s = useApp();
+  /* Where each competency is used, and how the organisation scores on it today. */
+  const rubric = new Map<string, Set<string>>();
+  for (const sc of SCENARIOS) for (const r of sc.rubric) rubric.set(r.competency, new Set([...(rubric.get(r.competency) ?? []), r.id]));
+  const latest = s.progress.map((p) => p.attempts.at(-1)?.competencyScores ?? p.screening?.scores).filter(Boolean) as Record<string, number>[];
+  const stats = (id: string) => {
+    const courses = s.courses.filter((c) => c.competencyIds.includes(id) || c.modules.some((m) => m.competency === id)).length;
+    const questions = s.courses.reduce((a, c) => a + c.items.filter((i) => i.competency === id).length, 0);
+    const scores = latest.map((x) => x[id]).filter((v) => v !== undefined);
+    return { courses, questions, criteria: rubric.get(id)?.size ?? 0, avg: scores.length ? Math.round(scores.reduce((a, v) => a + v, 0) / scores.length) : null, n: scores.length };
+  };
   return (
     <div className="flex max-w-[960px] flex-col gap-6">
-      <Intro description="Every block, question and rubric criterion is tagged to these. Screening, personalisation and analytics run on them. Your SwishX team sets the framework up with you during onboarding." />
+      <Intro description="The skills every rep is measured on. Each lesson, question and roleplay rubric point is tagged to one, so screening, personalised paths and skill-gap reports all run on these. They describe skills, not products, so one framework works across your portfolio. Your SwishX team sets it up with you during onboarding." />
       {DOMAINS.map((d) => (
         <Card key={d.id} title={d.name}>
-          {COMPETENCIES.filter((c) => c.domain === d.id).map((c) => (
-            <div key={c.id} className="flex items-start gap-3 border-b border-hair pb-3 last:border-0">
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5"><Text size="body-lg" weight="semibold">{c.name}</Text><Text size="body" tone="subtle">{c.description}</Text></div>
-              {["c-safety", "c-dosing"].includes(c.id) && <Chip size="sm" tone="warn">Critical by default</Chip>}
-            </div>
-          ))}
+          {COMPETENCIES.filter((c) => c.domain === d.id).map((c) => {
+            const st = stats(c.id);
+            return (
+              <div key={c.id} className="flex flex-wrap items-start gap-x-6 gap-y-2 border-b border-hair pb-3 last:border-0">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-center gap-2"><Text size="body-lg" weight="semibold">{c.name}</Text>{["c-safety", "c-dosing"].includes(c.id) && <Chip size="xs" tone="warn">Must-pass by default</Chip>}</span>
+                  <Text size="body" tone="subtle">{c.description}</Text>
+                  <Text size="caption" tone="faint">Used in {st.courses} course{st.courses === 1 ? "" : "s"} · {st.questions} question{st.questions === 1 ? "" : "s"}{st.criteria ? ` · ${st.criteria} roleplay rubric point${st.criteria === 1 ? "" : "s"}` : ""}</Text>
+                </div>
+                <div className="flex w-[140px] shrink-0 flex-col items-end gap-1">
+                  {st.avg === null ? <Text size="caption" tone="subtle">No scores yet</Text> : (
+                    <>
+                      <span className="flex items-center gap-2"><Text size="subhead" weight="extrabold" tabular>{st.avg}</Text><BandChip score={st.avg} size="xs" /></span>
+                      <Meter value={st.avg} height={5} tone={st.avg >= 80 ? "ok" : st.avg >= 50 ? "brand-2" : "danger"} label={`Organisation average ${st.avg}`} />
+                      <Text size="micro" tone="subtle">Average · {st.n} scored</Text>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </Card>
       ))}
     </div>

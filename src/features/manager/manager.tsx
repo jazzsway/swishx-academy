@@ -12,12 +12,12 @@ import { average } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { PageHeading } from "@/components/patterns/page-heading";
-import { DataTable } from "@/components/patterns/data-table";
-import { Card, Meter, Avatar, ProgressChip, bandCellClass, EmptyState, Ring } from "@/components/patterns/academy";
+import { Card, Meter, Avatar, bandCellClass, EmptyState, Ring } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { RepDetail } from "@/features/shared/rep-detail";
 import { pathProgress } from "@/features/rep/use-rep";
+import { PeopleTable, personRows } from "@/features/shared/people";
 
 function useTeam() {
   const me = useMe();
@@ -140,23 +140,13 @@ export function ManagerHome() {
 
 export function ManagerTeam() {
   const router = useRouter();
-  const { s, team, progress } = useTeam();
-  const rows = useMemo(() => team.map((u) => ({ u, p: progress.find((p) => p.userId === u.id && p.courseId === "c-lumora-launch") })), [team, progress]);
+  const { s, team } = useTeam();
+  const rows = useMemo(() => personRows(s, team), [s, team]);
+  const behind = rows.filter((r) => r.urgent.state !== "certified").length;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Team" description="Where each rep is on Lumora launch readiness. Practice is private and never shown here." />
-      <DataTable
-        rows={rows}
-        rowKey={(r) => r.u.id}
-        onRowClick={(r) => router.push(`/manager/team/${r.u.id}`)}
-        columns={[
-          { key: "n", header: "Rep", cell: (r) => <div className="flex items-center gap-2.5"><Avatar initials={r.u.initials} size={32} /><div className="flex flex-col"><span className="font-semibold text-ink">{r.u.name}</span><span className="text-caption text-ink-3">{r.u.territory}</span></div></div> },
-          { key: "st", header: "Stage", cell: (r) => r.p ? <ProgressChip state={r.p.state} overdue={isOverdue(r.p)} label={STATE_LABEL[r.p.state]} /> : "—" },
-          { key: "path", header: "Path", secondary: true, cell: (r) => { if (!r.p?.path) return "—"; const c = s.courses.find((x) => x.id === "c-lumora-launch")!; const pr = pathProgress(r.p, c); return <div className="flex items-center gap-2"><Ring value={pr.pct} size={28} stroke={3.5} label={`${pr.pct}%`} /><span className="text-body">{pr.modulesDone}/{pr.modules}</span></div>; } },
-          { key: "sc", header: "Screening → latest", cell: (r) => r.p?.screening ? <span className="tabular-nums">{r.p.screening.overall}{r.p.attempts.length ? ` → ${r.p.attempts.at(-1)!.overall}` : ""}</span> : "—" },
-          { key: "due", header: "Due", secondary: true, cell: (r) => <span className={r.p && isOverdue(r.p) ? "font-semibold text-danger" : undefined}>{fmtDate(r.p?.dueAt)}</span> },
-        ]}
-      />
+      <PageHeading title="Team" description={`${rows.length} people · ${behind ? `${behind} with a course still open` : "everyone certified"}. Open someone to see each course step by step. Practice is private and never shown here.`} />
+      <PeopleTable s={s} rows={rows} onOpen={(r) => router.push(`/manager/team/${r.u.id}`)} sub={(u) => u.territory ?? ""} />
     </div>
   );
 }

@@ -147,7 +147,8 @@ function initial() {
     settings: DEFAULT_SETTINGS,
     nudges: {} as Record<string, string>,
     materials: SEED_MATERIALS,
-    explored: {} as Record<string, string[]>,
+    /* Priya opened a few Lumora blocks from the Library while AD 101 keeps screening locked. */
+    explored: { "u-priya": ["lm3-b1", "lm3-b2", "lm4-b1"] } as Record<string, string[]>,
     libraryViews: SEED_LIBRARY_VIEWS,
     searches: SEED_SEARCHES,
     presenter: false,
@@ -567,7 +568,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 9,
+      version: 10,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
