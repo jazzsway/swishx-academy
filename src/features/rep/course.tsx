@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, Lock, ChevronDown, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
-import { useMe, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
+import { useMe, fmtDate, daysFromToday, isOverdue, ASSIGN_LABEL } from "@/store/selectors";
 import { competency } from "@/data/org";
 import type { Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -16,8 +16,6 @@ import { Ring, EmptyState } from "@/components/patterns/academy";
 import { modulesOf, nextStepFor, pathDone, pathModules, pathProgress } from "./use-rep";
 import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { MediaSummary } from "./watch";
-
-const ASSIGN_LABEL: Record<Progress["assignType"], string> = { required: "Required", default: "Foundation", recommended: "Recommended", self: "Self-enrolled" };
 
 export function RepLearn() {
   const me = useMe();

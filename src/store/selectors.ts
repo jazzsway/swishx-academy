@@ -161,6 +161,16 @@ export function badgesFor(s: AppState, userId: string): Badge[] {
   ];
 }
 
+/** Why a course is on someone's list. */
+export const ASSIGN_LABEL: Record<Progress["assignType"], string> = { required: "Required", default: "Onboarding", recommended: "Recommended", self: "Opted in" };
+/** Tag tone and a one-line "where it came from" for each way a course lands on someone's list. */
+export const ASSIGN_TAG: Record<Progress["assignType"], { tone: "brand" | "default" | "ok"; from: string }> = {
+  required: { tone: "brand", from: "Assigned by the training team" },
+  default: { tone: "default", from: "Every new rep gets it on day one" },
+  recommended: { tone: "default", from: "Suggested, not required" },
+  self: { tone: "ok", from: "Chose it from the Library" },
+};
+
 export const STATE_LABEL: Record<Progress["state"], string> = {
   not_started: "Not started",
   screening: "Screening",
