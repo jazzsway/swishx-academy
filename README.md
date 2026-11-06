@@ -9,7 +9,7 @@ bun install        # or: npm install
 bun run dev        # or: npm run dev
 ```
 
-Open http://localhost:3100 and pick a role. Switch roles any time from the avatar menu (top right), which also has **Reset demo data**.
+Open http://localhost:3100. It opens on the trainer home (Maya). Switch to Manager, Rep or Admin from the avatar menu (top right), which also has **Reset demo data**. The design system is under Reference in the trainer sidebar.
 
 ## The 12-minute demo (PRD §12.4)
 

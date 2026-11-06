@@ -68,7 +68,7 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
             );
           })}
           <div className="my-1.5 border-t border-hair" />
-          <button type="button" onClick={() => { resetDemo(); setOpen(false); router.push("/"); }}
+          <button type="button" onClick={() => { resetDemo(); setOpen(false); router.push("/trainer"); }}
             className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
             <RotateCcw className="size-4" aria-hidden="true" /> Reset demo data
           </button>

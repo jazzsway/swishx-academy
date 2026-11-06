@@ -67,7 +67,7 @@ export function DesignSystem() {
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-30 flex h-(--screen-header-h) items-center justify-between border-b border-hair bg-card/95 px-5 backdrop-blur">
-        <div className="flex items-center gap-4"><Link href="/" className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Back</Link><BrandLockup sub="Design system" /></div>
+        <div className="flex items-center gap-4"><Link href="/trainer" className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Back to Academy</Link><BrandLockup sub="Design system" /></div>
         <Text size="caption" tone="subtle" className="font-mono">/design-system</Text>
       </header>
       <div className="mx-auto flex max-w-[1080px] flex-col gap-10 px-5 py-10">
