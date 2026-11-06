@@ -1,0 +1,238 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Check, Lock, ChevronDown, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { useApp } from "@/store/app-store";
+import { useMe, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
+import { competency } from "@/data/org";
+import type { Progress } from "@/data/types";
+import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Ring, EmptyState } from "@/components/patterns/academy";
+import { modulesOf, nextStepFor, pathDone, pathModules, pathProgress } from "./use-rep";
+
+export function RepLearn() {
+  const me = useMe();
+  const s = useApp();
+  const mine = s.progress.filter((p) => p.userId === me.id);
+  const groups: { label: string; items: Progress[] }[] = [
+    { label: "Required", items: mine.filter((p) => p.assignType === "required" && p.state !== "certified") },
+    { label: "Start here", items: mine.filter((p) => p.assignType === "default" && p.state !== "certified") },
+    { label: "Recommended", items: mine.filter((p) => p.assignType === "recommended" && p.state !== "certified") },
+    { label: "Certified", items: mine.filter((p) => p.state === "certified") },
+  ].filter((g) => g.items.length);
+  return (
+    <div className="flex flex-col gap-5 px-4 pt-5">
+      <Text as="h1" size="hero" weight="extrabold" tracking="tight">Learn</Text>
+      {groups.map((g) => (
+        <section key={g.label} className="flex flex-col gap-2">
+          <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">{g.label}</Text>
+          {g.items.map((p) => {
+            const c = s.courses.find((x) => x.id === p.courseId)!;
+            const pr = pathProgress(p, c);
+            return (
+              <Link key={p.id} href={`/rep/course/${c.id}`} className="squircle flex items-center gap-3.5 rounded-panel border border-hair bg-card p-4 hover:bg-subtle">
+                {p.state === "certified" ? <span className="grid size-11 place-items-center rounded-full bg-ok-bg text-ok"><Award className="size-5" aria-hidden="true" /></span> : <Ring value={p.state === "not_started" ? 0 : pr.pct} size={44} label={`${pr.pct}%`}><Text size="micro" weight="bold">{p.state === "not_started" ? "0" : pr.pct}%</Text></Ring>}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <Text size="subhead" weight="bold">{c.title}</Text>
+                  <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"}>
+                    {p.state === "certified" ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : `${c.type === "personalised" ? "Personalised" : "Linear"} · ${p.dueAt ? (isOverdue(p) ? `overdue since ${fmtDate(p.dueAt)}` : `due ${fmtDate(p.dueAt)}`) : "no due date"}`}
+                  </Text>
+                </div>
+              </Link>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+export function RepCourse() {
+  const { id } = useParams<{ id: string }>();
+  const search = useSearchParams();
+  const router = useRouter();
+  const me = useMe();
+  const s = useApp();
+  const [showOut, setShowOut] = useState(false);
+  const p = s.progress.find((x) => x.userId === me.id && x.courseId === id);
+  const c = s.courses.find((x) => x.id === id);
+  if (!p || !c) return <div className="p-4"><EmptyState title="This course isn't assigned to you" /></div>;
+  const mods = modulesOf(c);
+  const ver = c.versions.find((v) => v.version === p.version);
+  const step = nextStepFor(p, c);
+  const pr = pathProgress(p, c);
+  const pm = pathModules(p, c);
+  const out = p.path ? mods.filter((m) => !p.path!.moduleIds.includes(m.id)) : [];
+  const manager = s.users.find((u) => u.id === me.managerId);
+  const lastAttempt = p.attempts.at(-1);
+  const attemptsLeft = c.settings.attempts - p.attempts.filter((a) => !a.passed).length;
+  const celebrate = search.get("celebrate") === "1" && p.state === "certified";
+
+  return (
+    <div className="flex flex-col gap-5 px-4 pt-4">
+      <Link href="/rep/learn" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />Learn</Link>
+      <div className="flex flex-col gap-1.5">
+        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
+        <Text size="body" tone="subtle">v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""} · {p.assignType}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
+      </div>
+
+      {p.state === "certified" && (
+        <div className="relative overflow-hidden">
+          {celebrate && <Confetti />}
+          <div className="squircle flex flex-col items-center gap-3 rounded-card border border-ok-line bg-ok-bg p-6 text-center">
+            <div className="success-pop grid size-16 place-items-center rounded-full bg-ok text-white"><Award className="size-8" aria-hidden="true" /></div>
+            <Text size="display" weight="extrabold">You&apos;re certified</Text>
+            <Text size="body-lg" tone="muted">{c.title} · v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""}</Text>
+            <Text size="body" tone="subtle">Certified {fmtDate(p.certifiedAt, true)} · valid to {fmtDate(p.certExpiresAt, true)}{p.verify?.by ? ` · verified by ${s.users.find((u) => u.id === p.verify!.by)?.name}` : ""}</Text>
+            <Link href="/rep/me" className="text-body-lg font-semibold text-ok underline">View certificate</Link>
+          </div>
+        </div>
+      )}
+
+      {p.state === "awaiting_verify" && (
+        <div className="squircle flex items-start gap-3 rounded-card border border-warn-line bg-warn-bg p-5">
+          <Hourglass className="mt-0.5 size-5 shrink-0 text-warn" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <Text size="subhead" weight="bold">You passed. {manager?.first ?? "Your manager"} is reviewing your call.</Text>
+            <Text size="body" tone="muted">Score {lastAttempt?.overall}%. You'll be certified as soon as it's signed off, usually within 3 days.</Text>
+          </div>
+        </div>
+      )}
+
+      {p.state === "needs_coaching" && (
+        <div className="squircle flex flex-col gap-2 rounded-card border border-tint-line bg-tint p-5">
+          <div className="flex items-center gap-2"><MessageSquareQuote className="size-5 text-brand-deep" aria-hidden="true" /><Text size="subhead" weight="bold">Coaching from {s.users.find((u) => u.id === p.verify?.by)?.first ?? "your manager"}</Text></div>
+          <Text size="body-lg" className="leading-relaxed">“{p.verify?.note}”</Text>
+          <div className="flex flex-wrap gap-1.5">{p.verify?.focus?.map((f) => <Chip key={f} tone="brand" size="md">{competency(f)?.name}</Chip>)}</div>
+          <Text size="body" tone="muted">Work through the modules below, then resubmit your roleplay.</Text>
+        </div>
+      )}
+
+      {p.state === "remediation" && lastAttempt && !lastAttempt.passed && (
+        <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">
+          <Text size="subhead" weight="bold">Your retake path · {pm.length} modules · ~{pr.minutesLeft} min</Text>
+          <Text size="body" tone="muted">Built from what held you back last time{lastAttempt.call?.flags.some((f) => f.critical) ? ", including the compliance flag" : ""}. {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} left.</Text>
+        </div>
+      )}
+
+      {p.state === "not_started" && c.settings.screening && (
+        <div className="squircle flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
+          <Text size="display" weight="extrabold" tone="inverse">Start with a screening</Text>
+          <Text size="body-lg" tone="inverse" className="opacity-80">A ~10-minute quiz and a 5-minute call with an AI doctor. It isn't graded. It finds what you already know so your path covers only your gaps, plus the safety content everyone takes.</Text>
+          <div className="flex flex-wrap gap-2 text-caption">
+            <span className="rounded-chip bg-white/10 px-2.5 py-1">Full course {pr.fullMinutes} min</span>
+            <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} modules</span>
+            <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.filter((m) => m.required).length} required for everyone</span>
+          </div>
+          <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(`/rep/course/${c.id}/screening`); }}>Start screening</Button>
+          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="text-body font-semibold text-white/70 underline">Take the full course instead</button>
+        </div>
+      )}
+
+      {step && p.state !== "not_started" && (
+        <Link href={step.href} className="squircle flex items-center gap-3 rounded-card bg-brand-deep p-5 text-white">
+          <PlayCircle className="size-8 shrink-0" aria-hidden="true" />
+          <div className="flex min-w-0 flex-1 flex-col"><Text size="caption" tone="inverse" className="opacity-75">Up next</Text><Text size="title" weight="bold" tone="inverse">{step.title}</Text><Text size="caption" tone="inverse" className="opacity-80">{step.why}</Text></div>
+        </Link>
+      )}
+      {p.state === "not_started" && !c.settings.screening && step && (
+        <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button>
+      )}
+
+      {pathDone(p, c) && c.settings.completion.assessment && ["learning", "remediation", "needs_coaching"].includes(p.state) && (
+        <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">
+          <Text size="subhead" weight="bold">Final assessment</Text>
+          <Text size="body" tone="muted">{c.settings.assessmentItems} questions{c.settings.assessmentCall ? " plus a short call" : ""}. Pass: {c.settings.passOverall}% overall, {c.settings.passCritical}% on {c.settings.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}, and no critical compliance flag. {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} left.</Text>
+        </div>
+      )}
+
+      {p.state === "certified" && (
+        <section className="flex flex-col gap-2">
+          <button type="button" onClick={() => setShowOut(!showOut)} className="flex items-center gap-1.5 self-start text-body-lg font-semibold text-ink-2">
+            <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />Review any module ({mods.length})
+          </button>
+          {showOut && mods.map((m) => (
+            <Link key={m.id} href={`/rep/course/${c.id}/learn?module=${m.id}&optional=1`} className="squircle flex items-center justify-between gap-3 rounded-panel border border-hair bg-card px-4 py-3">
+              <Text size="body-lg" weight="semibold">{m.title}</Text><Text size="caption" tone="subtle">{m.minutes} min</Text>
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {p.path && p.state !== "certified" && (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <Text as="h2" size="subhead" weight="bold">{p.path.kind === "full" ? "All modules" : p.path.kind === "remediation" ? "Retake path" : "Your path"}</Text>
+            <Text size="caption" tone="subtle">{pr.modulesDone} of {pr.modules} done · ~{pr.minutesLeft} min left</Text>
+          </div>
+          <ol className="flex flex-col gap-2">
+            {pm.map((m, i) => {
+              const done = m.blocks.every((b) => p.completedBlocks.includes(b.id));
+              const reason = p.path!.reasons[m.id];
+              return (
+                <li key={m.id}>
+                  <Link href={`/rep/course/${c.id}/learn?module=${m.id}`} className={cn("squircle flex items-center gap-3 rounded-panel border p-3.5", done ? "border-ok-line bg-ok-bg/60" : "border-hair bg-card")}>
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-caption font-bold", done ? "bg-ok text-white" : "bg-black/[0.06] text-ink-2")}>{done ? <Check className="size-4" aria-hidden="true" /> : i + 1}</span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <Text size="body-lg" weight="semibold">{m.title}</Text>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Chip size="xs" tone={reason?.startsWith("Required") ? "warn" : reason?.startsWith("Coaching") ? "brand" : "default"} iconLeft={reason?.startsWith("Required") ? <Lock className="size-2.5" aria-hidden="true" /> : undefined}>{reason}</Chip>
+                        <Text size="micro" tone="subtle">{m.minutes} min</Text>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+          {out.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <button type="button" onClick={() => setShowOut(!showOut)} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-2">
+                <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />{out.length} modules you tested out of (optional)
+              </button>
+              {showOut && out.map((m) => (
+                <Link key={m.id} href={`/rep/course/${c.id}/learn?module=${m.id}&optional=1`} className="squircle flex items-center gap-3 rounded-panel border border-dashed border-hair-2 bg-subtle p-3">
+                  <CircleCheck className="size-5 text-ok" aria-hidden="true" />
+                  <div className="flex flex-col"><Text size="body" weight="semibold" tone="muted">{m.title}</Text><Text size="micro" tone="subtle">{p.path!.reasons[m.id]}</Text></div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {p.screening && (
+        <Link href={`/rep/course/${c.id}/results`} className="squircle flex items-center justify-between rounded-panel border border-hair bg-card px-4 py-3">
+          <div className="flex flex-col"><Text size="body-lg" weight="semibold">My screening results</Text><Text size="caption" tone="subtle">{fmtDate(p.screening.at)} · {p.screening.overall}% overall</Text></div>
+          <Text size="body" weight="semibold" tone="brand-deep">View</Text>
+        </Link>
+      )}
+      {p.coachingNotes.length > 0 && p.state !== "needs_coaching" && (
+        <section className="flex flex-col gap-2">
+          <Text as="h2" size="subhead" weight="bold">Notes from your manager</Text>
+          {p.coachingNotes.map((n, i) => <div key={i} className="squircle rounded-panel bg-subtle px-4 py-3"><Text size="body-lg">“{n.text}”</Text><Text size="caption" tone="subtle">{fmtDate(n.at)}</Text></div>)}
+        </section>
+      )}
+      {p.dueAt && p.state !== "certified" && <Text size="caption" tone="subtle" className="text-center">{daysFromToday(p.dueAt) >= 0 ? `${daysFromToday(p.dueAt)} days until your due date` : "Past your due date. Your manager has been notified."}</Text>}
+    </div>
+  );
+}
+
+export function Confetti() {
+  const colors = ["var(--color-brand)", "var(--color-brand-2)", "var(--color-ok)", "var(--color-lime)", "var(--color-ink)"];
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0" aria-hidden="true">
+      {Array.from({ length: 36 }, (_, i) => (
+        <span key={i} className="confetti-piece" style={{
+          left: `${(i * 37) % 100}%`, background: colors[i % colors.length], animationDelay: `${(i % 9) * 60}ms`,
+          ["--confetti-drift" as string]: `${((i * 53) % 120) - 60}px`, ["--confetti-spin" as string]: `${(i * 97) % 720}deg`,
+        }} />
+      ))}
+    </div>
+  );
+}

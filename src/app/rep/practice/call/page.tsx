@@ -1,0 +1,8 @@
+"use client";
+
+import { Suspense } from "react";
+import { LibraryCall } from "@/features/rep/practice";
+
+export default function Page() {
+  return <Suspense><LibraryCall /></Suspense>;
+}

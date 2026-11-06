@@ -1,0 +1,778 @@
+@import "tailwindcss";
+
+/* Tokens ported from SwishX for biz (src/app/globals.css). See docs/DESIGN.md. */
+@theme static {
+  /* Brand */
+  --color-brand:      #fd4816;
+  --color-brand-2:    #ff8a4c;
+  --color-brand-deep: #b82f0c;
+  --color-brand-ink:  #7a1f06;
+  --color-brand-light: #ff9e80;
+
+  /* Surfaces */
+  --color-canvas: #fbfaf9;
+  --color-card:   #ffffff;
+  --color-subtle: #f7f8f6;
+
+  /* Ink ramp — ink is strongest, ink-4 is faintest */
+  --color-ink:   #0a0d14;
+  --color-ink-2: #3c414d;
+  --color-ink-3: #6b7280;
+  --color-ink-4: #9aa0ac;
+
+  /* Hairlines / borders */
+  --color-hair:   rgba(10,13,20,.08);
+  --color-hair-2: rgba(10,13,20,.14);
+  --color-hair-3: rgba(10,13,20,.22);
+
+  /* Brand tints */
+  --color-tint:      #fff5f1;
+  --color-tint-2:    #fff9f6;
+  --color-tint-strong: #ffece5;
+  --color-tint-line:   #ffe3d8;
+
+  /* Status */
+  --color-ok:        #12784a;
+  --color-ok-bg:     #e9f8f0;
+  --color-ok-line:   #c3ebd7;
+  --color-warn:      #a15c07;
+  --color-warn-bg:   #fff5e6;
+  --color-warn-line: #f5dfb8;
+  --color-danger:      #9f3a38;
+  --color-danger-deep: #842e2d;   /* was inline in button.tsx's danger hover */
+  --color-danger-bg: #fceae8;
+  /* border-danger-line was in use in three places with no token behind it, so
+     those borders were drawing as currentColor. Same relationship to danger
+     that ok-line has to ok. */
+  --color-danger-line: #f2c9c6;
+
+  /* Status colours for dark grounds. The video canvas and its overlays are
+     dark, where --color-ok (#12784a) is unreadable. Values are the Tailwind
+     shades already in use there, so adopting these changes nothing. */
+  --color-ok-on-dark:   #34d399;
+  --color-warn-on-dark: #fbbf24;
+  --color-info-on-dark: #7dd3fc;
+
+  /* Info (blue) as a full role set. The first pass only had a base colour
+     here, so a pale bg-blue-50 badge collapsed onto the solid accent and its
+     text became the same colour — invisible. Values are the Tailwind shades
+     that were in use, so this restores the original appearance. */
+  --color-info:        #1d4ed8;   /* was blue-700 */
+  --color-info-strong: #2563eb;   /* was blue-600, solid fills */
+  --color-info-bg:     #eff6ff;   /* was blue-50  */
+  --color-info-line:   #bfdbfe;   /* was blue-200 */
+
+  /* Lime, likewise — it is an accent on dark, not a surface. */
+  --color-lime-bg:   #f7fee7;
+  --color-lime-line: #d9f99d;
+  --color-lime-ink:  #3f6212;
+
+  /* Accents — prefixed so they never read as Tailwind's blue-500 scale */
+  --color-accent-blue:   #1d4ed8;
+  --color-accent-violet: #5b21b6;
+  --color-accent-amber:  #b45309;
+
+  --color-lime: #d8f05d;
+
+  /* Greens left over from the pre-orange brand. --color-live is genuinely
+     semantic (an online/streaming indicator) and keeps its value;
+     --color-canvas-grid is the studio artboard ground, a design decision
+     rather than a bug, so it also keeps its value — both are tokenised
+     here only so they can be changed from one place. The focus ring and
+     the demo orbit were simply stale and now follow the brand. */
+  --color-live:        #22c07a;
+  --color-canvas-grid: #e7ebe8;
+  --color-scroll-thumb: #c2c6cc;
+
+  /* ── Type scale ────────────────────────────────────────────────
+     Same eleven token names as SwishX for biz, re-based for Academy so the
+     DESIGN.md minimums hold: body copy 15–16px, nothing functional below 12px.
+     Reps read on phones between calls; trainers read dense dashboards. */
+  --text-micro:      12px;
+  --text-caption:   13px;
+  --text-label:     13px;
+  --text-body:      14px;
+  --text-body-lg:   15px;
+  --text-subhead:   16px;
+  --text-title:     18px;
+  --text-display:   22px;
+  --text-display-lg:26px;
+  --text-hero:      32px;
+  --text-hero-lg:   40px;
+
+  /* Content widths. Four steps for new work — max-w-[Npx] currently appears
+     47 times across 25 values, but unlike the type scale those are largely
+     bespoke per context (a 380px rail is not a coarse 440px dialog), so
+     existing widths are deliberately NOT force-migrated. Use these for
+     anything new; see AGENTS.md.
+
+     NOTE: never name one of these `full`, `auto`, `screen`, `min`, `max`,
+     `fit` or `px`. Tailwind v4 resolves the width utilities against the
+     --container- namespace, so a --container-full token silently overrides
+     the built-in w-full utility with a fixed width — which broke 163 call
+     sites before this was caught. */
+  --container-narrow:  440px;
+  --container-measure: 620px;
+  --container-wide:    880px;
+  --container-page:   1140px;
+
+  /* Chrome */
+  --screen-header-h: 60px;
+
+  /* Radii — named for what they wrap, not by t-shirt size */
+  /* A fifth, smaller step. The four roles below start at 10px, but small
+     inner elements — a size-5 icon tile, a micro badge, a menu option —
+     read as a CIRCLE at 10px. This is the step for anything under ~24px. */
+  --radius-glyph:    6px;
+  --radius-chip:    10px;
+  --radius-control: 14px;
+  --radius-panel:   18px;
+  --radius-card:    24px;
+
+  /* Elevation */
+  --shadow-hair:  0 1px 2px rgba(10,13,20,.05);
+  --shadow-soft:  0 1px 2px rgba(10,13,20,.05), 0 10px 26px -14px rgba(10,13,20,.22);
+  --shadow-float: 0 2px 6px rgba(10,13,20,.05), 0 26px 60px -26px rgba(10,13,20,.34);
+  --shadow-modal: 0 40px 110px -40px rgba(10,13,20,.5), 0 12px 34px -18px rgba(10,13,20,.28);
+
+  /* Purposeful elevations that the four neutral steps cannot express, each
+     derived from shadows already in the app rather than invented:
+       brand-soft  an ambient brand halo under primary surfaces   (5 uses)
+       brand-lift  a tight brand shadow under primary controls    (4 uses)
+       panel-left  the left-edge shadow on right-hand rail panels (4 uses)
+       on-dark     elevation over the dark video canvas, where the
+                   neutral steps are invisible                    (5 uses) */
+  --shadow-brand-soft: 0 16px 40px rgba(253, 72, 22, .14);
+  --shadow-brand-lift: 0 4px 14px rgba(253, 72, 22, .35);
+  --shadow-panel-left: -4px 0 20px rgba(10, 13, 20, .04);
+  --shadow-on-dark:    0 16px 40px rgba(0, 0, 0, .32);
+
+  /* Easings. --ease-entrance/--ease-exit were already the de-facto pair
+     used inline across ~14 animations in this file; now they have names. */
+  --ease-swish:    cubic-bezier(.22,.61,.36,1);
+  --ease-spring:   cubic-bezier(.34,1.4,.64,1);
+  --ease-entrance: cubic-bezier(.2,.8,.2,1);
+  --ease-exit:     cubic-bezier(.4,0,1,1);
+}
+
+/* ── Aliases: keep every already-shipped var(--x) reference working ── */
+:root {
+  --brand:      var(--color-brand);
+  --brand-2:    var(--color-brand-2);
+  --brand-deep: var(--color-brand-deep);
+  --brand-ink:  var(--color-brand-ink);
+  --canvas:     var(--color-canvas);
+  --card:       var(--color-card);
+  --ink:        var(--color-ink);
+  --ink-2:      var(--color-ink-2);
+  --ink-3:      var(--color-ink-3);
+  --ink-4:      var(--color-ink-4);
+  --hair:       var(--color-hair);
+  --hair-2:     var(--color-hair-2);
+  --hair-3:     var(--color-hair-3);
+  --tint:       var(--color-tint);
+  --tint-2:     var(--color-tint-2);
+  --tint-line:  var(--color-tint-line);
+  --ok:         var(--color-ok);
+  --ok-bg:      var(--color-ok-bg);
+  --ok-line:    var(--color-ok-line);
+  --warn:       var(--color-warn);
+  --warn-bg:    var(--color-warn-bg);
+  --warn-line:  var(--color-warn-line);
+  --blue:       var(--color-accent-blue);
+  --violet:     var(--color-accent-violet);
+  --amber:      var(--color-accent-amber);
+
+  --r-s:  var(--radius-chip);
+  --r:    var(--radius-control);
+  --r-l:  var(--radius-panel);
+  --r-xl: var(--radius-card);
+
+  --sh-1: var(--shadow-hair);
+  --sh-2: var(--shadow-soft);
+  --sh-3: var(--shadow-float);
+  --sh-4: var(--shadow-modal);
+
+  --e:      var(--ease-swish);
+  --spring: var(--ease-spring);
+
+  /* Older screen aliases */
+  --background:     var(--color-canvas);
+  --surface:        var(--color-card);
+  --surface-subtle: var(--color-subtle);
+  --ink-muted:      var(--color-ink-3);
+  --line:           var(--color-hair);
+  --line-strong:    var(--color-hair-2);
+  --brand-strong:   var(--color-brand-deep);
+  --brand-soft:     var(--color-tint);
+  --lime:           var(--color-lime);
+  --warning:        var(--color-warn);
+  --warning-soft:   var(--color-warn-bg);
+  --danger:         var(--color-danger);
+  --danger-soft:    var(--color-danger-bg);
+  --danger-line:    var(--color-danger-line);
+
+  /* NOTE: these two are not aliases — they are deliberate overrides of
+     Tailwind's own scale. v4 compiles shadow-sm to var(--shadow-sm), so
+     these already reskin every shadow-sm (28 uses) and shadow-lg (7 uses)
+     in the app to brand elevation. Preserved as-is; changing them is a
+     visual change across all 35 call sites. */
+  --shadow-sm: var(--shadow-hair);
+  --shadow-lg: var(--shadow-float);
+
+  /* Referenced across the app but never defined until now — every one of
+     these was resolving to nothing: the amber trio left the warning
+     callouts in step1-format / step4-script-review with no background,
+     border or text colour, and --tint-strong left several studio-screen
+     hover states inert. Mapped onto the existing warn/brand/tint families
+     rather than introducing a parallel palette. --brand-light adopts the
+     #ff9e80 literal that was already inline as its fallback. */
+  --amber-bg:    var(--color-warn-bg);
+  --amber-line:  var(--color-warn-line);
+  --amber-text:  var(--color-warn);
+  --brand-light: var(--color-brand-light);
+  --tint-strong: var(--color-tint-strong);
+
+  --live:        var(--color-live);
+  --canvas-grid: var(--color-canvas-grid);
+
+  --squircle-control: var(--radius-control);
+  --squircle-panel:   var(--radius-panel);
+  --squircle-card:    var(--radius-card);
+}
+
+/* ── Base resets ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-figtree), "Figtree", -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* NOTE: there used to be an UNLAYERED `button, input, textarea { font: inherit }`
+   here. It duplicated what Tailwind's own preflight already does inside
+   @layer base — but unlayered, so it outranked every layered utility, and a
+   text-* class on a form control was silently ignored. Every button and input
+   in the app rendered at the inherited 16px: measured 0 of 44 controls with a
+   size class actually honouring it. Deleted rather than re-layered, because
+   Tailwind's preflight covers the intent (form controls take the app's font
+   rather than the browser's) and does it in the right layer. */
+
+button {
+  cursor: pointer;
+  corner-shape: squircle;
+}
+
+/* This rule is unlayered, so it beat every `cursor-not-allowed` utility a
+   button ever carried — a control that refuses the click still showed the
+   hand that says it will take it. */
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+button.rounded-full {
+  corner-shape: round;
+}
+
+[role="dialog"] > div {
+  corner-shape: squircle;
+}
+
+[role="dialog"] {
+  animation: modal-backdrop-in 220ms var(--ease-entrance) both;
+}
+
+::selection {
+  color: var(--ink);
+  background: var(--lime);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--color-scroll-thumb);
+  background-clip: padding-box;
+}
+
+.focus-ring:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-brand) 34%, transparent);
+  outline-offset: 2px;
+}
+
+/* Continuous corners in supporting browsers; existing radii remain the fallback. */
+.squircle {
+  corner-shape: squircle;
+}
+
+.squircle-control {
+  border-radius: var(--squircle-control);
+  corner-shape: squircle;
+}
+
+.squircle-panel {
+  border-radius: var(--squircle-panel);
+  corner-shape: squircle;
+}
+
+.squircle-card {
+  border-radius: var(--squircle-card);
+  corner-shape: squircle;
+}
+
+.canvas-grid {
+  background-color: var(--color-canvas-grid);
+  background-image:
+    linear-gradient(rgb(255 255 255 / 42%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 42%) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.soft-noise {
+  position: relative;
+  isolation: isolate;
+}
+
+.soft-noise::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.055'/%3E%3C/svg%3E");
+  content: "";
+  pointer-events: none;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 360ms var(--ease-entrance) both;
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes orbit-breathe {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand) 12%, transparent);
+  }
+}
+
+@keyframes brand-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-brand-spin {
+  animation: brand-spin 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.scenario-drawer {
+  animation: drawer-in 280ms var(--ease-entrance) both;
+}
+
+.demo-orbit {
+  animation: orbit-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes select-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.select-pop {
+  transform-origin: top center;
+  animation: select-pop 170ms var(--ease-entrance) both;
+}
+
+.select-pop-above {
+  transform-origin: bottom center;
+  animation: select-pop-above 170ms var(--ease-entrance) both;
+}
+
+@keyframes select-pop-above {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes select-pop-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.988);
+  }
+}
+
+.select-pop-out {
+  animation: select-pop-out 150ms var(--ease-exit) both;
+}
+
+.select-pop-out-above {
+  animation: select-pop-out-above 150ms var(--ease-exit) both;
+}
+
+@keyframes select-pop-out-above {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.988);
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 360ms var(--ease-entrance) both;
+}
+
+@keyframes rise-in-stagger {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in-stagger {
+  animation: rise-in-stagger 420ms var(--ease-entrance) both;
+}
+
+/**
+ * A list that arrives one row at a time.
+ *
+ * The plan's sections used to appear together the instant the questions were
+ * answered — a shimmer, then eight accordions in one frame, which reads as a
+ * repaint rather than as work finishing. Each row now rises from behind the
+ * one above it, in order, so the list assembles at a speed you can follow.
+ *
+ * Explicit nth-child rules because CSS cannot multiply a delay by an index.
+ * Twelve is well past the longest plan; anything beyond it lands with the
+ * twelfth rather than never arriving.
+ */
+.stagger-children > * {
+  animation: rise-in-stagger 460ms var(--ease-entrance) both;
+}
+.stagger-children > *:nth-child(1)  { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2)  { animation-delay: 130ms; }
+.stagger-children > *:nth-child(3)  { animation-delay: 260ms; }
+.stagger-children > *:nth-child(4)  { animation-delay: 390ms; }
+.stagger-children > *:nth-child(5)  { animation-delay: 520ms; }
+.stagger-children > *:nth-child(6)  { animation-delay: 650ms; }
+.stagger-children > *:nth-child(7)  { animation-delay: 780ms; }
+.stagger-children > *:nth-child(8)  { animation-delay: 910ms; }
+.stagger-children > *:nth-child(9)  { animation-delay: 1040ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 1170ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 1300ms; }
+.stagger-children > *:nth-child(n+12) { animation-delay: 1430ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-children > * {
+    animation: none;
+  }
+}
+
+@keyframes shimmer-sweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(220%); }
+}
+
+@keyframes play-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.5); transform: scale(1); }
+  50% { box-shadow: 0 0 0 7px rgba(255,255,255,0); transform: scale(1.05); }
+}
+
+@keyframes step-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-transition {
+  animation: step-fade-in 240ms var(--ease-entrance) both;
+}
+
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes page-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-3px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(2%, -3%, 0) scale(1.06); }
+}
+
+@keyframes confetti-fall {
+  0% { transform: translate3d(0, -12px, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translate3d(var(--confetti-drift, 0px), 260px, 0) rotate(var(--confetti-spin, 360deg)); opacity: 0; }
+}
+
+@keyframes cursor-blink {
+  0%, 48% {
+    opacity: 1;
+  }
+  50%, 98% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 0.85s step-end infinite;
+}
+
+@keyframes success-pop-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .45; }
+  30% { transform: translateY(-3.5px); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -160% 0; }
+  100% { background-position: 260% 0; }
+}
+
+/* Skeleton sweep for a tile whose content is being fetched. Brand-tinted and
+   low-contrast on purpose: it should read as "this is working", not as an
+   empty or errored state. The reduced-motion block below neuters it. */
+.shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 18%,
+    color-mix(in srgb, var(--color-brand) 8%, transparent) 42%,
+    color-mix(in srgb, var(--color-brand) 15%, transparent) 50%,
+    color-mix(in srgb, var(--color-brand) 8%, transparent) 58%,
+    transparent 82%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* The sweep over something still generating on a dark frame — footage,
+   a clip, a still. .shimmer is tuned for light tiles and all but vanished
+   over video, which made a generating shot look finished or stuck. Brand
+   on both flanks with a light core, so it reads as the product working. */
+.shimmer-strong {
+  background-image: linear-gradient(
+    100deg,
+    transparent 12%,
+    color-mix(in srgb, var(--color-brand) 26%, transparent) 36%,
+    rgba(255, 255, 255, 0.3) 50%,
+    color-mix(in srgb, var(--color-brand) 26%, transparent) 64%,
+    transparent 88%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.5s linear infinite;
+}
+
+/* The waiting bars on the plan screen while the questions are unanswered.
+   They sweep toward the chat on the right rather than filling up: nothing is
+   loading, so a bar that fills would be a lie about progress. The
+   reduced-motion block below stops it. */
+@keyframes intake-sweep {
+  0%   { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+
+.intake-sweep {
+  background-image: linear-gradient(
+    90deg,
+    transparent 10%,
+    color-mix(in srgb, var(--color-brand) 9%, transparent) 38%,
+    color-mix(in srgb, var(--color-brand) 20%, transparent) 50%,
+    color-mix(in srgb, var(--color-brand) 9%, transparent) 62%,
+    transparent 90%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: intake-sweep 2.1s linear infinite;
+}
+
+/* A slow light sweep for the one panel that is meant to read as the most
+   thoroughly checked thing on the screen. Long pause between passes: a
+   verified mark that glints constantly reads as an advert, not a seal. The
+   reduced-motion block below stops it. */
+@keyframes verified-sheen {
+  0%   { transform: translateX(-160%) skewX(-18deg); }
+  45%  { transform: translateX(320%) skewX(-18deg); }
+  100% { transform: translateX(320%) skewX(-18deg); }
+}
+
+.verified-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fff 72%, transparent),
+    transparent
+  );
+  animation: verified-sheen 5.5s ease-in-out infinite;
+}
+
+/* "Generating." -> "Generating.." -> "Generating..." — three dots revealed in
+   turn rather than three dots pulsing at once, so it reads as counting up.
+   Each dot holds its full opacity for the rest of the cycle after appearing,
+   which is what makes it a count rather than a flicker. The reduced-motion
+   block below collapses it to a static three. */
+@keyframes dot-cycle {
+  0%,  100% { opacity: 0.15; }
+  20%,  95% { opacity: 1; }
+}
+
+.dot-cycle > span {
+  animation: dot-cycle 1.5s infinite;
+}
+.dot-cycle > span:nth-child(1) { animation-delay: 0s; }
+.dot-cycle > span:nth-child(2) { animation-delay: 0.25s; }
+.dot-cycle > span:nth-child(3) { animation-delay: 0.5s; }
+
+@keyframes chat-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-live) 45%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-live) 0%, transparent); }
+}
+
+::view-transition-old(root) {
+  animation: 170ms var(--ease-exit) both page-exit;
+}
+
+::view-transition-new(root) {
+  animation: 320ms var(--ease-entrance) both page-enter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ── Academy additions ─────────────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: .55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.pulse-ring { animation: pulse-ring 1.6s var(--ease-entrance) infinite; }
+
+@keyframes bar-dance {
+  0%, 100% { transform: scaleY(.35); }
+  50%      { transform: scaleY(1); }
+}
+.bar-dance > span { transform-origin: center; animation: bar-dance 900ms ease-in-out infinite; }
+.bar-dance > span:nth-child(2) { animation-delay: 120ms; }
+.bar-dance > span:nth-child(3) { animation-delay: 240ms; }
+.bar-dance > span:nth-child(4) { animation-delay: 360ms; }
+.bar-dance > span:nth-child(5) { animation-delay: 480ms; }
+
+.confetti-piece { position: absolute; top: 0; width: 8px; height: 12px; border-radius: 2px;
+  animation: confetti-fall 1.6s var(--ease-entrance) forwards; }
+.success-pop { animation: success-pop-in 520ms var(--ease-spring) both; }
+.typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+  animation: typing-bounce 1.1s infinite; }
+.typing-dot:nth-child(2) { animation-delay: .15s; }
+.typing-dot:nth-child(3) { animation-delay: .3s; }
+
+mark.cite-missing { background: transparent; color: inherit; text-decoration: underline wavy var(--color-danger); text-underline-offset: 4px; }
