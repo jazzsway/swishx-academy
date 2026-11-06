@@ -37,7 +37,7 @@ export function PreviewAsRep() {
 
   if (!data || !course) return null;
   const linear = course.type === "linear";
-  const plan = buildPath(course.modules, scores, linear ? "full" : "screening", { aiReorder: course.settings.aiReorder });
+  const plan = buildPath(course.modules, scores, linear ? "full" : "screening");
   const ordered = plan.moduleIds.map((m) => course.modules.find((x) => x.id === m)!);
 
   return (
@@ -52,7 +52,7 @@ export function PreviewAsRep() {
           </div>
         )}
         <Card title={linear ? "Every rep takes the full course" : `${plan.moduleIds.length} of ${course.modules.length} modules · ~${pathMinutes(course.modules, plan.moduleIds)} min`}
-          eyebrow={linear ? "Linear" : `Full course ${courseMinutes(course)} min`}>
+          eyebrow={linear ? "Same for everyone" : `Full course ${courseMinutes(course)} min`}>
           {!linear && (
             <div className="flex flex-wrap gap-2">
               {course.competencyIds.map((c) => (
@@ -79,7 +79,7 @@ export function PreviewAsRep() {
               );
             })}
           </ol>
-          {!linear && <Text size="caption" tone="subtle">Order: {course.settings.aiReorder ? "weakest first (AI reorder on)" : "your module order"}. {ordered.length ? `Starts with “${ordered[0].title}”.` : ""}</Text>}
+          {!linear && <Text size="caption" tone="subtle">Order: your module order. {ordered.length ? `Starts with “${ordered[0].title}”.` : ""}</Text>}
         </Card>
       </div>
       <div className="flex flex-col gap-3 lg:sticky lg:top-[84px] lg:self-start">
@@ -92,7 +92,7 @@ export function PreviewAsRep() {
               <>
                 <Text size="caption" tone="subtle">{m.title}</Text>
                 <Text size="display" weight="bold" className="leading-tight">{b.title}</Text>
-                <BlockView block={b} sourceIds={course.sourceIds} interactive />
+                <BlockView block={b} sourceIds={course.sourceIds} interactive siblings={m.blocks} />
               </>
             ) : <Text tone="subtle">Nothing to preview yet.</Text>;
           })()}

@@ -1,4 +1,5 @@
-import type { Item, Module } from "../types";
+import type { Item, Module, Product } from "../types";
+import { VIDEO_WEBINAR } from "../media";
 
 const CODE = "src-code", AD = "src-ad-guide", PI = "src-lum-pi", OBJ = "src-lum-obj", PAY = "src-lum-payer";
 const CPI = "src-cdx-pi", CVA = "src-cdx-va";
@@ -125,7 +126,8 @@ export const CARDEXA_ITEMS: Item[] = [
    one uncited sentence and one superlative so the pre-review checks have work to do. */
 export function generatedAccessModules(prefix: string): Module[] {
   return [
-    { id: `${prefix}-m1`, title: "Why access objections come up", competency: "c-access", tier: "core", minutes: 5, summary: "What offices are really worried about.", blocks: [
+    { id: `${prefix}-m1`, title: "Why access objections come up", competency: "c-access", tier: "core", minutes: 17, summary: "What offices are really worried about.", blocks: [
+      { id: `${prefix}-m1-v0`, type: "video", title: "Access webinar (recorded, 12 min)", minutes: 12, competencies: ["c-access"], video: VIDEO_WEBINAR },
       { id: `${prefix}-m1-b1`, type: "lesson", title: "The office's view", minutes: 3, competencies: ["c-access"], paragraphs: [
         { text: "Most commercial plans require prior authorization documenting an inadequate response to at least one topical prescription therapy.", cite: c(PAY, 2) },
         { text: "For many offices, the burden is staff time spent on paperwork, not the decision to prescribe.", cite: c(OBJ, 2) },
@@ -156,4 +158,85 @@ export function generatedAccessModules(prefix: string): Module[] {
       { id: `${prefix}-m4-b1`, type: "scenario", title: "Dr. Marcus Kim · follow-up call", minutes: 6, competencies: ["c-objections", "c-access"], scenarioId: "sc-kim" },
     ] },
   ];
+}
+
+/* Generic first draft for any product without a hand-written template: the approved indication,
+   the presentations, and safety in balance. Every sentence cites the product's PI. */
+export function genericProductModules(prefix: string, p: Product, indications: string[], variants: string[] = []): Module[] {
+  const PI = p.piSourceId;
+  const offered = variants.length ? p.indications.filter((i) => !i.variants?.length || i.variants.some((v) => variants.includes(v))) : p.indications;
+  const inPlay = indications.length ? offered.filter((i) => indications.includes(i.short)) : offered;
+  const shownVariants = variants.length ? variants : p.variants;
+  return [
+    { id: `${prefix}-m1`, title: `What ${p.brand} is approved for`, competency: "c-efficacy", tier: "core", minutes: 5, summary: "The indication, word for word.", blocks: [
+      { id: `${prefix}-m1-b1`, type: "lesson", title: "The approved indication", minutes: 3, competencies: ["c-efficacy", "c-compliance"], paragraphs: [
+        ...inPlay.map((i) => ({ text: `${p.brand} (${p.generic}) is indicated for: ${i.full}`, cite: c(PI, 1) })),
+        { text: "Promote only within this wording. Questions about any other use go to Medical Information.", cite: c(CODE, 6) },
+      ] },
+      { id: `${prefix}-m1-b2`, type: "check", title: "Quick check", minutes: 2, competencies: ["c-compliance"], check: {
+        question: `An HCP asks about using ${p.brand} outside its approved indication. You:`, options: ["Share what other reps have heard", "Offer a medical information request", "Say it's probably fine", "Change the subject"], answer: 1,
+        rationale: "Off-label questions go to Medical Information.", cite: c(CODE, 6) } },
+    ] },
+    { id: `${prefix}-m2`, title: "Presentations and dosing basics", competency: "c-dosing", tier: "core", minutes: 4, summary: "What's available and where the dosing lives.", blocks: [
+      { id: `${prefix}-m2-b1`, type: "keypoints", title: "Presentations", minutes: 4, competencies: ["c-dosing"], points: [
+        { text: `${p.brand} is available as: ${shownVariants.join("; ")}.`, cite: c(PI, 2) },
+        { text: `${p.form}. Dosing for each presentation is in section 2 of the Prescribing Information.`, cite: c(PI, 2) },
+      ] },
+    ] },
+    { id: `${prefix}-m3`, title: "Safety in balance", competency: "c-safety", tier: "core", required: true, minutes: 4, summary: "Required for everyone.", blocks: [
+      { id: `${prefix}-m3-b1`, type: "lesson", title: "Fair balance", minutes: 4, competencies: ["c-safety"], paragraphs: [
+        { text: "Whenever you discuss efficacy, present the important safety information with comparable prominence.", cite: c(CODE, 4) },
+        { text: `Know section 5 (Warnings and precautions) and section 6 (Adverse reactions) of the ${p.brand} PI before every call.`, cite: c(PI, 4) },
+      ] },
+    ] },
+  ];
+}
+
+export function genericProductItems(prefix: string, p: Product): Item[] {
+  const PI = p.piSourceId;
+  const first = p.indications[0];
+  const wrong = ["Any adult patient who asks for it", "Pediatric patients of any age", "Prevention in healthy adults"];
+  return [
+    { id: `${prefix}-i1`, competency: "c-efficacy", pool: "screening", difficulty: 2, question: `${p.brand} is indicated for:`, options: [first.short, ...wrong], answer: 0, rationale: first.full, cite: c(PI, 1) },
+    { id: `${prefix}-i2`, competency: "c-dosing", pool: "screening", difficulty: 1, question: `Where is ${p.brand}'s dosing for each presentation?`, options: ["The visual aid", "Section 2 of the PI", "The payer guide", "Your manager"], answer: 1, rationale: "Dosing is in section 2 of the Prescribing Information.", cite: c(PI, 2) },
+    { id: `${prefix}-i3`, competency: "c-safety", pool: "assessment", difficulty: 2, question: "When you discuss efficacy, safety information should be:", options: ["Mentioned if asked", "Presented with comparable prominence", "Left to the PI", "Summarised as 'well tolerated'"], answer: 1, rationale: "Fair balance requires comparable prominence.", cite: c(CODE, 4) },
+    { id: `${prefix}-i4`, competency: "c-compliance", pool: "assessment", difficulty: 1, question: "Off-label questions from HCPs go to:", options: ["Your manager", "Medical Information", "Marketing", "The Access Hub"], answer: 1, rationale: "Medical Information handles unsolicited off-label questions.", cite: c(CODE, 6) },
+  ];
+}
+
+/** Extra depth for long courses, from the same approved sources. Lumora reuses its launch course; other products go deeper into their PI. */
+export function depthModules(prefix: string, p: Product | undefined, launch: Module[] = []): Module[] {
+  const reId = (m: Module, i: number): Module => ({ ...m, id: `${prefix}-d${i + 1}`, blocks: m.blocks.map((b, j) => ({ ...b, id: `${prefix}-d${i + 1}-b${j + 1}` })) });
+  if (!p || p.id === "p-lumora") return launch.map(reId);
+  const PI = p.piSourceId;
+  const first = p.indications[0];
+  return [
+    { id: "", title: `The patient ${p.brand} is for`, competency: "c-disease", tier: "core", minutes: 5, summary: "Who the label describes, and who it doesn't.", blocks: [
+      { id: "", type: "lesson", title: "The patient in the label", minutes: 5, competencies: ["c-disease", "c-efficacy"], paragraphs: [
+        { text: `Section 1 of the ${p.brand} PI defines the patient: ${first?.full ?? "see the approved indication"}`, cite: c(PI, 1) },
+        { text: "Open every call on that patient type. Patients outside it are an off-label conversation.", cite: c(CODE, 3) },
+      ] },
+    ] },
+    { id: "", title: "Dosing in detail", competency: "c-dosing", tier: "reinforcement", minutes: 6, summary: "Every presentation, and where special populations live.", blocks: [
+      { id: "", type: "keypoints", title: "Dosing, section by section", minutes: 4, competencies: ["c-dosing"], points: [
+        { text: `Section 2 gives the dose for each presentation: ${p.variants.join(", ") || "see the PI"}.`, cite: c(PI, 2) },
+        { text: "Section 8 covers use in specific populations. Questions about them go to Medical Information.", cite: c(PI, 8) },
+      ] },
+      { id: "", type: "check", title: "Quick check", minutes: 2, competencies: ["c-dosing"], check: {
+        question: `An HCP asks about ${p.brand} in a population section 8 says hasn't been studied. You:`, options: ["Give your best estimate", "Offer a Medical Information request", "Say it's probably fine", "Change the subject"], answer: 1,
+        rationale: "Anything beyond the label goes to Medical Information.", cite: c(CODE, 6) } },
+    ] },
+    { id: "", title: "Warnings and adverse reactions", competency: "c-safety", tier: "core", required: true, minutes: 6, summary: "Sections 5 and 6, stated as written.", blocks: [
+      { id: "", type: "lesson", title: "Safety, word for word", minutes: 6, competencies: ["c-safety"], paragraphs: [
+        { text: `Section 5 of the ${p.brand} PI lists the warnings and precautions. State them as written, without softening.`, cite: c(PI, 5) },
+        { text: "Section 6 lists adverse reactions. Quote frequencies exactly as they appear in the label.", cite: c(PI, 6) },
+      ] },
+    ] },
+    { id: "", title: "The first questions HCPs ask", competency: "c-objections", tier: "reinforcement", minutes: 5, summary: "Acknowledge, answer from the label, offer Medical Information.", blocks: [
+      { id: "", type: "keypoints", title: "A safe pattern", minutes: 5, competencies: ["c-objections", "c-compliance"], points: [
+        { text: "Acknowledge the question before you answer it.", cite: c(CODE, 3) },
+        { text: "Answer only from the approved label and materials. For anything else, offer a Medical Information request.", cite: c(CODE, 6) },
+      ] },
+    ] },
+  ].map((m, i) => reId(m as Module, i));
 }

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Plus, Rocket, RefreshCcw, UserPlus, CalendarClock } from "lucide-react";
-import { useApp, live } from "@/store/app-store";
+import { useApp, live, audienceMatches } from "@/store/app-store";
 import { counts, daysFromToday, fmtDate, isOverdue, pct, projected, trend, STATE_LABEL } from "@/store/selectors";
 import { REGIONS, TODAY } from "@/data/org";
 import type { AudienceRules, Campaign } from "@/data/types";
@@ -27,8 +27,11 @@ const TYPE_META: Record<Campaign["type"], { label: string; icon: typeof Rocket }
 
 function useCampaignProgress(c: Campaign) {
   const progress = useApp((s) => s.progress);
-  return useMemo(() => progress.filter((p) => c.courseIds.includes(p.courseId) && (p.campaignId === c.id || c.type !== "launch")), [progress, c]);
+  return useMemo(() => progress.filter((p) => p.campaignId === c.id), [progress, c]);
 }
+
+const startedMessage = (r: { created: number; linked: number; elsewhere: number }) =>
+  [`${r.created} new assignments`, r.linked ? `${r.linked} already had the course and joined` : "", r.elsewhere ? `${r.elsewhere} stay in another campaign` : ""].filter(Boolean).join(" · ");
 
 export function CampaignList() {
   const router = useRouter();
@@ -92,7 +95,21 @@ export function CampaignDetail() {
       <PageHeading eyebrow={TYPE_META[c.type].label} title={c.name}
         description={`${c.courseIds.map((cid) => s.courses.find((x) => x.id === cid)?.title).join(", ")} · ${fmtDate(c.startAt)} → ${fmtDate(c.dueAt, true)} · target ${c.target}%`}
         actions={overdue.length > 0 && <Button onClick={() => { let n = 0; for (const p of overdue) if (s.nudge(p.id, "u-maya")) n++; showToast(n ? `Nudged ${n} overdue reps` : "Everyone overdue was nudged in the last 48 hours"); }}>Nudge all overdue ({overdue.length})</Button>} />
+      {c.status === "scheduled" && (
+        <Card tone="tint">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <Text size="subhead" weight="bold">Scheduled for {fmtDate(c.startAt, true)}</Text>
+              <Text size="body" tone="muted">On that day, {audienceMatches(s.users, c.audience).length} people get the {c.courseIds.length > 1 ? "courses" : "course"} as required, due {fmtDate(c.dueAt, true)}. Anyone who already has {c.courseIds.length > 1 ? "them" : "it"} joins with the earlier due date.</Text>
+            </div>
+            <Button onClick={() => showToast(startedMessage(s.startCampaign(c.id)))}>Start now</Button>
+          </div>
+        </Card>
+      )}
       {region && <Chip tone="brand" size="lg" removable onRemove={() => setRegion("")} className="self-start">Region: {REGIONS.find((r) => r.id === region)?.name}</Chip>}
+      {/* Nothing to track until it starts. */}
+      {c.status !== "scheduled" && (
+        <>
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Readiness over time">
           <div className="flex flex-wrap items-end gap-10">
@@ -150,6 +167,8 @@ export function CampaignDetail() {
           />
         )}
       </Card>
+        </>
+      )}
       <Toast message={message} open={open} />
     </div>
   );
@@ -171,6 +190,7 @@ export function NewCampaign() {
   const [dueAt, setDueAt] = useState(new Date(TODAY.getTime() + 21 * 86400000).toISOString().slice(0, 10));
   const [target, setTarget] = useState(presetType === "label_update" ? 100 : 90);
   const published = s.courses.filter((c) => live(c));
+  const startsLater = startAt > TODAY.toISOString().slice(0, 10);
 
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6">
@@ -197,7 +217,7 @@ export function NewCampaign() {
       <Card title="Who"><AudienceBuilder rules={rules} onChange={setRules} /></Card>
       <Card title="When">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Starts" type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
+          <Field label="Starts" type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} hint={startsLater ? "Courses are assigned on this date." : "Courses are assigned as soon as you start."} />
           <Field label="Due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           <Field label="Target certified %" type="number" value={target} onChange={(e) => setTarget(Number(e.target.value))} />
         </div>
@@ -206,11 +226,10 @@ export function NewCampaign() {
         <Button variant="secondary" onClick={() => router.push("/trainer/campaigns")}>Cancel</Button>
         <Button size="lg" disabled={!name.trim() || !courseIds.length} onClick={() => {
           const cid = s.createCampaign({ name, type, courseIds, audience: rules, startAt, dueAt, target });
-          let n = 0;
-          for (const course of courseIds) n += s.assign(course, rules, "required", dueAt, cid);
-          showToast(n ? `Campaign started · ${n} new assignments` : "Campaign started · tracking everyone already assigned");
+          if (startsLater) showToast(`Scheduled · assigns on ${fmtDate(startAt, true)}`);
+          else showToast(startedMessage(s.startCampaign(cid)));
           window.setTimeout(() => router.push(`/trainer/campaigns/${cid}`), 800);
-        }}>Start campaign</Button>
+        }}>{startsLater ? "Schedule campaign" : "Start campaign"}</Button>
       </div>
       <Toast message={message} open={open} />
     </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Upload, Plus, Search, PencilLine, FileText } from "lucide-react";
+import Link from "next/link";
+import { Upload, Plus, Search, FileText, ChevronDown, Send } from "lucide-react";
 import { useApp } from "@/store/app-store";
-import { fmtDate } from "@/store/selectors";
+import { fmtDate, useMe } from "@/store/selectors";
 import { COMPETENCIES, DIVISIONS, DOMAINS, ORG, PRODUCTS, REGIONS, source } from "@/data/org";
 import type { Role, User } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -11,11 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
-import { PageHeading } from "@/components/patterns/page-heading";
 import { DataTable } from "@/components/patterns/data-table";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card, Avatar } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
+
+function Intro({ description, actions }: { description: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <Text as="p" size="body-lg" tone="subtle" className="max-w-[70ch]">{description}</Text>
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
 
 function SettingRow({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -34,7 +43,7 @@ export function AdminOrganisation() {
   const reps = s.users.filter((u) => u.roles.includes("rep")).length;
   return (
     <div className="flex max-w-[960px] flex-col gap-6">
-      <PageHeading title="Organisation" description="Your company's Academy. Everything here is fictional demo data." />
+      <Intro description="Your company's Academy: identity, structure and integrations." />
       <div className="grid gap-4 sm:grid-cols-4">
         {[["People", s.users.length], ["Field reps", reps], ["Districts", s.districts.length], ["Courses", s.courses.length]].map(([k, v]) => (
           <Card key={k as string} padded><Text size="caption" tone="subtle">{k}</Text><Text size="hero" weight="extrabold" tabular>{v}</Text></Card>
@@ -48,21 +57,10 @@ export function AdminOrganisation() {
             <input type="file" accept="image/*" className="sr-only" onChange={(e) => setLogo(e.target.files?.[0]?.name ?? "")} />
           </label>
         </SettingRow>
-        <SettingRow label="Brand colour" hint="Skins the rep app's accents. Contrast is checked against white text.">
-          <input type="color" aria-label="Brand colour" value={s.settings.brandColor} onChange={(e) => s.updateOrgSettings({ brandColor: e.target.value })} className="h-10 w-14 cursor-pointer rounded-control border border-hair-2 bg-card p-1" />
-          <span className="font-mono text-body">{s.settings.brandColor}</span>
-        </SettingRow>
         <SettingRow label="Time zone"><select aria-label="Time zone" className="h-10 rounded-control border border-hair-2 bg-card px-3 text-body-lg"><option>America/New_York</option><option>America/Chicago</option><option>America/Los_Angeles</option></select></SettingRow>
         <div className="flex justify-end"><Button onClick={() => showToast("Organisation saved")}>Save</Button></div>
       </Card>
-      <Card title="Structure">
-        {DIVISIONS.map((d) => (
-          <div key={d.id} className="flex flex-col gap-2 border-b border-hair pb-3 last:border-0">
-            <Text size="subhead" weight="bold">{d.name} <span className="font-normal text-ink-3">· {d.therapyArea}</span></Text>
-            <div className="flex flex-wrap gap-2">{REGIONS.filter((r) => r.divisionId === d.id).map((r) => <Chip key={r.id} size="md">{r.name} · {s.districts.filter((x) => x.regionId === r.id).length} districts</Chip>)}</div>
-          </div>
-        ))}
-      </Card>
+      <FieldStructure onSent={() => showToast("Sent to your SwishX team")} />
       <Card title="Integrations" eyebrow="Later phase">
         {[["Single sign-on (SAML / OIDC)", "Okta, Microsoft Entra ID"], ["User provisioning (SCIM)", "Automatic joiners, movers and leavers"], ["Veeva Vault PromoMats", "Submit for MLR and sync approvals automatically"], ["LMS completion export (xAPI)", "Cornerstone, SuccessFactors, Workday Learning"]].map(([t, d]) => (
           <SettingRow key={t} label={t} hint={d}><Chip size="md">Coming later</Chip></SettingRow>
@@ -70,6 +68,128 @@ export function AdminOrganisation() {
       </Card>
       <Toast message={message} open={open} />
     </div>
+  );
+}
+
+/**
+ * Field structure (divisions → regions → districts) is loaded by the SwishX team from the
+ * client's org chart at onboarding. Clients check it here and request changes; they don't edit it.
+ * Joiners and leavers stay self-serve under People.
+ */
+function FieldStructure({ onSent }: { onSent: () => void }) {
+  const s = useApp();
+  const [open, setOpen] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const repsIn = (districtIds: string[]) => s.users.filter((u) => u.active && u.roles.includes("rep") && districtIds.includes(u.districtId ?? "")).length;
+  const districtsOf = (regionIds: string[]) => s.districts.filter((d) => regionIds.includes(d.regionId));
+  const live = DIVISIONS.filter((d) => REGIONS.some((r) => r.divisionId === d.id));
+  const idle = DIVISIONS.filter((d) => !live.includes(d));
+  const allDistricts = districtsOf(REGIONS.map((r) => r.id));
+
+  return (
+    <Card title="Field structure" eyebrow="Managed by your SwishX team"
+      actions={<Button variant="secondary" onClick={() => setAsking(true)}><Send className="size-4" aria-hidden="true" />Request a change</Button>}>
+      <Text as="p" size="body" tone="muted" className="-mt-2 max-w-[70ch]">
+        Set up from the org chart you shared at onboarding, last updated {fmtDate(ORG.structureUpdatedAt, true)}. Reorganising? Send us the new structure and we&apos;ll update it. Everyone keeps their training history.
+      </Text>
+      <Text size="caption" tone="subtle">{live.length} divisions · {REGIONS.length} regions · {allDistricts.length} districts · {repsIn(allDistricts.map((d) => d.id))} reps</Text>
+
+      <div className="flex flex-col">
+        {live.map((d) => {
+          const regions = REGIONS.filter((r) => r.divisionId === d.id);
+          const dists = districtsOf(regions.map((r) => r.id));
+          const expanded = open === d.id;
+          return (
+            <div key={d.id} className="border-b border-hair last:border-0">
+              <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : d.id)}
+                className="flex w-full items-center gap-3 py-3 text-left">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <Text size="subhead" weight="bold">{d.name} <span className="font-normal text-ink-3">· {d.therapyArea}</span></Text>
+                  <Text size="caption" tone="subtle">{regions.length} regions · {dists.length} districts · {repsIn(dists.map((x) => x.id))} reps</Text>
+                </span>
+                <ChevronDown className={`size-4 shrink-0 text-ink-3 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              {expanded && (
+                <div className="grid gap-3 pb-4 sm:grid-cols-2">
+                  {regions.map((r) => (
+                    <div key={r.id} className="squircle flex flex-col gap-1.5 rounded-panel bg-subtle p-3.5">
+                      <Text size="body-lg" weight="semibold">{r.name}</Text>
+                      {districtsOf([r.id]).map((x) => (
+                        <div key={x.id} className="flex items-baseline justify-between gap-3 text-body">
+                          <span className="text-ink-2">{x.name} <span className="text-ink-3">· {s.users.find((u) => u.id === x.managerId)?.name ?? "No manager"}</span></span>
+                          <span className="shrink-0 tabular-nums text-ink-3">{repsIn([x.id])} reps</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {idle.length > 0 && (
+        <Text as="p" size="body" tone="subtle">
+          Not in the Academy yet: {idle.map((d) => d.name).join(", ")}. Their products can still be used in courses; ask us to add a field team when they&apos;re ready.
+        </Text>
+      )}
+
+      {s.structureRequests.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-hair pt-4">
+          <Text size="label" weight="semibold" tone="muted">Your requests</Text>
+          {s.structureRequests.map((r) => (
+            <div key={r.id} className="flex items-start gap-3">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <Text size="body" weight="semibold">{r.kind}{r.effective ? ` · from ${fmtDate(r.effective, true)}` : ""}</Text>
+                <Text size="caption" tone="subtle" className="line-clamp-2">{r.text}{r.file ? ` · ${r.file}` : ""}</Text>
+              </div>
+              <Chip size="sm" tone="warn">With SwishX · sent {fmtDate(r.at)}</Chip>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {asking && <StructureRequestModal onClose={() => setAsking(false)} onSent={() => { setAsking(false); onSent(); }} />}
+    </Card>
+  );
+}
+
+const REQUEST_KINDS = ["Realignment", "New region or district", "Add a division", "Something else"];
+
+function StructureRequestModal({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const me = useMe();
+  const send = useApp((s) => s.requestStructureChange);
+  const [kind, setKind] = useState(REQUEST_KINDS[0]);
+  const [text, setText] = useState("");
+  const [effective, setEffective] = useState("");
+  const [file, setFile] = useState("");
+  return (
+    <Modal open onClose={onClose} title="Request a structure change" size="lg"
+      description="Your SwishX team makes the change, checks it with you, and keeps everyone's progress and certifications. We reply within 2 business days."
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={text.trim().length < 10} onClick={() => { send({ kind, text: text.trim(), effective: effective || undefined, file: file || undefined, by: me.id }); onSent(); }}><Send className="size-4" aria-hidden="true" />Send to SwishX</Button></>}>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Text size="label" weight="semibold" tone="muted">What kind of change?</Text>
+          <div className="flex flex-wrap gap-2">{REQUEST_KINDS.map((k) => <Chip key={k} size="lg" selected={kind === k} onClick={() => setKind(k)}>{k}</Chip>)}</div>
+        </div>
+        <Field label="What's changing?" multiline rows={4} value={text} onChange={(e) => setText((e.target as unknown as HTMLTextAreaElement).value)}
+          placeholder="e.g. From January 1, Texas splits into Texas North (manager: Ana Ruiz) and Texas South (manager: Ben Ito). Reps move with their territories." />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Takes effect (optional)" type="date" value={effective} onChange={(e) => setEffective(e.target.value)} />
+          <div className="flex flex-col gap-1.5">
+            <Text size="label" weight="semibold" tone="muted">New org chart (optional)</Text>
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-control border border-hair-2 bg-card px-3 text-body font-semibold hover:bg-subtle">
+              <Upload className="size-4" aria-hidden="true" /><span className="truncate">{file || "Attach a spreadsheet or PDF"}</span>
+              <input type="file" accept=".csv,.xlsx,.xls,.pdf" className="sr-only" onChange={(e) => setFile(e.target.files?.[0]?.name ?? "")} />
+            </label>
+          </div>
+        </div>
+        <div className="squircle rounded-panel bg-subtle px-4 py-3">
+          <Text size="body" tone="muted">Just a new hire or a leaver? Add or deactivate them yourself under <Link href="/trainer/settings/people" className="font-semibold text-brand-deep underline">People</Link>.</Text>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -83,7 +203,7 @@ export function AdminPeople() {
   const rows = s.users.filter((u) => (role === "all" || u.roles.includes(role)) && (!q || u.name.toLowerCase().includes(q.toLowerCase())));
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="People" description={`${s.users.length} people across ${s.districts.length} districts. Access belongs to the role.`}
+      <Intro description={`${s.users.length} people across ${s.districts.length} districts. Access belongs to the role.`}
         actions={<><Button variant="secondary" onClick={() => setCsv(true)}><Upload className="size-4" aria-hidden="true" />Import CSV</Button><Button onClick={() => setAdd(true)}><Plus className="size-4" aria-hidden="true" />Add person</Button></>} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[280px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" /></div>
@@ -167,53 +287,71 @@ function CsvImport({ onClose, onDone }: { onClose: () => void; onDone: (n: numbe
 }
 
 export function AdminProducts() {
+  const [q, setQ] = useState("");
+  const [div, setDiv] = useState("all");
+  const [open, setOpen] = useState<string | null>(null);
+  const term = q.trim().toLowerCase();
+  const rows = PRODUCTS.filter((p) => (div === "all" || p.divisionId === div) && (!term || `${p.brand} ${p.generic} ${p.therapyAreas.join(" ")} ${p.indications.map((i) => i.short).join(" ")}`.toLowerCase().includes(term)));
+  const sel = PRODUCTS.find((p) => p.id === open);
   return (
-    <div className="flex max-w-[960px] flex-col gap-6">
-      <PageHeading title="Products" description="Brands, approved indications and therapy areas. Courses check content against the exact approved wording." />
-      {PRODUCTS.map((p) => (
-        <Card key={p.id} title={`${p.brand} (${p.generic})`} eyebrow={`${DIVISIONS.find((d) => d.id === p.divisionId)?.name} · ${p.therapyArea}`}>
-          {p.indications.map((i) => (
-            <div key={i.short} className="squircle flex flex-col gap-1 rounded-panel border border-hair bg-subtle px-4 py-3">
-              <Text size="caption" weight="bold" tone="subtle">Indication · {i.short}</Text>
-              <Text size="body-lg" className="leading-relaxed">{i.full}</Text>
+    <div className="flex flex-col gap-6">
+      <Intro description={`${PRODUCTS.length} products across ${DIVISIONS.length} divisions. Courses are checked against each product's exact approved indication wording.`} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-full max-w-[300px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search brand, molecule, indication" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search products" /></div>
+        <Chip size="lg" selected={div === "all"} onClick={() => setDiv("all")}>All divisions</Chip>
+        {DIVISIONS.map((d) => <Chip key={d.id} size="lg" selected={div === d.id} onClick={() => setDiv(d.id)}>{d.name}</Chip>)}
+      </div>
+      <DataTable
+        rows={rows}
+        rowKey={(p) => p.id}
+        onRowClick={(p) => setOpen(p.id)}
+        columns={[
+          { key: "b", header: "Product", cell: (p) => (
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-chip text-caption font-black text-white" style={{ background: p.gradient }}>{p.brand.slice(0, 2).toUpperCase()}</span>
+              <div className="flex flex-col"><span className="font-semibold text-ink">{p.brand}</span><span className="text-caption italic text-ink-3">{p.generic}</span></div>
             </div>
-          ))}
-          <div className="flex items-center gap-2 text-body text-ink-2"><FileText className="size-4" aria-hidden="true" />{source(p.piSourceId)?.title} · {source(p.piSourceId)?.docNumber}</div>
-        </Card>
-      ))}
+          ) },
+          { key: "d", header: "Division", secondary: true, cell: (p) => DIVISIONS.find((d) => d.id === p.divisionId)?.name },
+          { key: "i", header: "Indications", cell: (p) => p.indications.length ? <div className="flex flex-wrap gap-1">{p.indications.map((i) => <Chip key={i.short} size="xs" tone={i.isNew ? "brand" : "default"}>{i.short}{i.isNew ? " · new" : ""}</Chip>)}</div> : <span className="text-ink-4">—</span> },
+          { key: "t", header: "Therapy areas", secondary: true, cell: (p) => p.therapyAreas.join(", ") },
+          { key: "s", header: "Status", cell: (p) => <Chip size="xs" tone={p.status === "Awaiting approval" ? "warn" : p.status === "Launch" ? "brand" : "ok"}>{p.status}</Chip> },
+        ]}
+      />
+      {sel && (
+        <Modal open onClose={() => setOpen(null)} title={`${sel.brand} (${sel.generic})`} description={`${DIVISIONS.find((d) => d.id === sel.divisionId)?.name} · ${sel.form} · ${sel.status}`} size="lg">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5"><Text size="caption" weight="bold" tone="subtle">VARIANTS</Text><div className="flex flex-wrap gap-1.5">{sel.variants.map((v) => <Chip key={v} size="md">{v}</Chip>)}</div></div>
+            {sel.indications.length === 0 && <Text tone="warn" weight="semibold">No approved label yet. Trainers can't build product courses on it until it's approved.</Text>}
+            {sel.indications.map((i) => (
+              <div key={i.short} className="squircle flex flex-col gap-1 rounded-panel border border-hair bg-subtle px-4 py-3">
+                <Text size="caption" weight="bold" tone="subtle">Indication · {i.short}{i.isNew ? " · Newly approved" : ""}{i.variants?.length ? ` · ${i.variants.join(", ")} only` : ""}</Text>
+                <Text size="body-lg" className="leading-relaxed">{i.full}</Text>
+                <Text size="caption" tone="subtle">{i.therapyAreas.join(" · ")}</Text>
+              </div>
+            ))}
+            {source(sel.piSourceId) && <div className="flex items-center gap-2 text-body text-ink-2"><FileText className="size-4" aria-hidden="true" />{source(sel.piSourceId)?.title} · {source(sel.piSourceId)?.docNumber}</div>}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
 export function AdminCompetencies() {
-  const s = useApp();
-  const { message, open, showToast } = useToast();
-  const [edit, setEdit] = useState<string | null>(null);
-  const val = (id: string) => s.competencyEdits[id] ?? { name: COMPETENCIES.find((c) => c.id === id)!.name, description: COMPETENCIES.find((c) => c.id === id)!.description };
-  const [draft, setDraft] = useState({ name: "", description: "" });
   return (
     <div className="flex max-w-[960px] flex-col gap-6">
-      <PageHeading title="Competency framework" description="Every block, question and rubric criterion is tagged to these. Screening, personalisation and analytics run on them. Edits apply to new course versions, never to approved ones." />
+      <Intro description="Every block, question and rubric criterion is tagged to these. Screening, personalisation and analytics run on them. Your SwishX team sets the framework up with you during onboarding." />
       {DOMAINS.map((d) => (
         <Card key={d.id} title={d.name}>
           {COMPETENCIES.filter((c) => c.domain === d.id).map((c) => (
             <div key={c.id} className="flex items-start gap-3 border-b border-hair pb-3 last:border-0">
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5"><Text size="body-lg" weight="semibold">{val(c.id).name}</Text><Text size="body" tone="subtle">{val(c.id).description}</Text></div>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5"><Text size="body-lg" weight="semibold">{c.name}</Text><Text size="body" tone="subtle">{c.description}</Text></div>
               {["c-safety", "c-dosing"].includes(c.id) && <Chip size="sm" tone="warn">Critical by default</Chip>}
-              <Button size="sm" variant="ghost" onClick={() => { setEdit(c.id); setDraft(val(c.id)); }}><PencilLine className="size-4" aria-hidden="true" />Edit</Button>
             </div>
           ))}
         </Card>
       ))}
-      {edit && (
-        <Modal open onClose={() => setEdit(null)} title="Edit competency" footer={<><Button variant="secondary" onClick={() => setEdit(null)}>Cancel</Button><Button onClick={() => { s.editCompetency(edit, draft); setEdit(null); showToast("Saved · applies to new course versions"); }}>Save</Button></>}>
-          <div className="flex flex-col gap-3">
-            <Field label="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-            <Field label="Description" multiline rows={3} value={draft.description} onChange={(e) => setDraft({ ...draft, description: (e.target as unknown as HTMLTextAreaElement).value })} />
-          </div>
-        </Modal>
-      )}
-      <Toast message={message} open={open} />
     </div>
   );
 }
@@ -225,32 +363,13 @@ export function AdminSettings() {
   const { message, open, showToast } = useToast();
   return (
     <div className="flex max-w-[960px] flex-col gap-6">
-      <PageHeading title="Settings" description="Organisation-wide defaults. Courses can override some of these." />
-      <Card title="Proficiency bands">
-        <SettingRow label="Developing from" hint="Below this is “Not yet”."><Num v={st.bands.developing} on={(n) => set({ bands: { ...st.bands, developing: n } })} /></SettingRow>
-        <SettingRow label="Proficient from" hint="Reps at or above this test out of personalisable modules."><Num v={st.bands.proficient} on={(n) => set({ bands: { ...st.bands, proficient: n } })} /></SettingRow>
-        <SettingRow label="Expert from"><Num v={st.bands.expert} on={(n) => set({ bands: { ...st.bands, expert: n } })} /></SettingRow>
-      </Card>
+      <Intro description="What happens to recordings, and what reps agree to before their first voice session." />
       <Card title="Privacy & retention">
         <SettingRow label="Practice recordings delete after" hint="Practice is visible only to the rep."><Num v={st.practiceRetentionDays} on={(n) => set({ practiceRetentionDays: n })} suffix="days" /></SettingRow>
         <SettingRow label="Assessment recordings kept"><select aria-label="Recording retention" value={st.recordingRetention} onChange={(e) => set({ recordingRetention: e.target.value })} className="h-10 rounded-control border border-hair-2 bg-card px-3 text-body-lg"><option>Certification validity + 1 year</option><option>Certification validity</option><option>3 years</option></select></SettingRow>
         <Field label="Voice consent notice (shown before the first voice session)" multiline rows={4} value={st.consentText} onChange={(e) => set({ consentText: (e.target as unknown as HTMLTextAreaElement).value })} />
       </Card>
-      <Card title="Gamification">
-        <SettingRow label="Leaderboards" hint="Never by assessment scores, compliance or sales data.">
-          <Segmented aria-label="Leaderboards">
-            <SegmentedButton active={st.leaderboard === "off"} onClick={() => set({ leaderboard: "off" })}>Off</SegmentedButton>
-            <SegmentedButton active={st.leaderboard === "team"} onClick={() => set({ leaderboard: "team" })}>Team level</SegmentedButton>
-            <SegmentedButton active={st.leaderboard === "optin"} onClick={() => set({ leaderboard: "optin" })}>Opt-in individual</SegmentedButton>
-          </Segmented>
-        </SettingRow>
-        <SettingRow label="Weekends break the streak"><Toggle on={st.weekendBreaksStreak} set={(v) => set({ weekendBreaksStreak: v })} label="Weekends break streak" /></SettingRow>
-      </Card>
-      <Card title="Defaults">
-        <SettingRow label="Recertify every"><Num v={st.recertMonths} on={(n) => set({ recertMonths: n })} suffix="months" /></SettingRow>
-        <SettingRow label="Managers may assign published courses to their team"><Toggle on={st.managersMayAssign} set={(v) => set({ managersMayAssign: v })} label="Managers may assign" /></SettingRow>
-      </Card>
-      <div className="flex justify-end"><Button onClick={() => showToast("Settings saved")}>Save settings</Button></div>
+      <div className="flex justify-end"><Button onClick={() => showToast("Saved")}>Save</Button></div>
       <Toast message={message} open={open} />
     </div>
   );
@@ -258,11 +377,4 @@ export function AdminSettings() {
 
 function Num({ v, on, suffix }: { v: number; on: (n: number) => void; suffix?: string }) {
   return <div className="flex items-center gap-2"><div className="w-24"><Field size="sm" type="number" value={v} onChange={(e) => on(Number(e.target.value))} aria-label="Value" /></div>{suffix && <Text tone="subtle">{suffix}</Text>}</div>;
-}
-function Toggle({ on, set, label }: { on: boolean; set: (v: boolean) => void; label: string }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => set(!on)} className={`relative h-7 w-12 rounded-full transition-colors ${on ? "bg-brand" : "bg-black/15"}`}>
-      <span className={`absolute top-1 size-5 rounded-full bg-white shadow-hair transition-all ${on ? "left-6" : "left-1"}`} />
-    </button>
-  );
 }

@@ -3,25 +3,22 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Flame, Mic, ListChecks, ChevronRight, Award, Lock, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { xpFor, badgesFor, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
+import { Flame, Mic, ListChecks, ChevronRight, Lock, CheckCircle2, Library as LibraryIcon } from "lucide-react";
+import { xpFor, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Ring, FictionalNote } from "@/components/patterns/academy";
 import { useRep, pathProgress } from "./use-rep";
+import { QuickWatchRail } from "./watch";
 
 export function RepHome() {
   const router = useRouter();
-  const { me, s, mine, next, dueSoon, courseOf } = useRep();
+  const { me, s, next, dueSoon, courseOf } = useRep();
   const onboarded = s.onboarded[me.id];
   useEffect(() => { if (!onboarded) router.replace("/rep/onboarding"); }, [onboarded, router]);
   if (!onboarded) return null;
 
   const xp = xpFor(s, me.id);
   const streak = s.streaks[me.id]?.days ?? 0;
-  const badges = badgesFor(s, me.id);
-  const shown = [...badges.filter((b) => b.earned).slice(0, 1), ...badges.filter((b) => !b.earned && b.progress).slice(0, 2)];
-  const ordered = [...mine].sort((a, b) => Number(a.state === "certified") - Number(b.state === "certified"));
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-4">
@@ -95,43 +92,14 @@ export function RepHome() {
         </Link>
       </section>
 
-      <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="subhead" weight="bold">Badges</Text><Link href="/rep/me" className="text-body font-semibold text-brand-deep">All {badges.length}</Link></div>
-        <div className="grid grid-cols-3 gap-2.5">
-          {shown.map((b) => (
-            <div key={b.id} className="squircle flex flex-col items-center gap-1.5 rounded-panel border border-hair bg-card px-2 py-3 text-center">
-              <div className={cn("grid size-11 place-items-center rounded-full", b.earned ? "bg-brand text-white" : "bg-subtle text-ink-3")}>
-                {b.earned ? <Award className="size-5" aria-hidden="true" /> : <span className="text-caption font-bold">{b.progress}</span>}
-              </div>
-              <Text size="caption" weight="semibold" className="leading-tight">{b.name}</Text>
-            </div>
-          ))}
-        </div>
-      </section>
+      <Link href="/rep/library" className="squircle flex items-center gap-3.5 rounded-panel border border-hair bg-card p-4">
+        <span className="grid size-11 place-items-center rounded-control bg-ink text-white"><LibraryIcon className="size-5" aria-hidden="true" /></span>
+        <div className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold">Explore the Library</Text><Text size="caption" tone="subtle">Playlists, videos, readings and graphics for your team. Nothing graded.</Text></div>
+        <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
+      </Link>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="subhead" weight="bold">My courses</Text><Link href="/rep/learn" className="text-body font-semibold text-brand-deep">See all</Link></div>
-        <div className="squircle overflow-hidden rounded-panel border border-hair bg-card">
-          {ordered.map((p) => {
-            const c = courseOf(p);
-            const pr = pathProgress(p, c);
-            return (
-              <Link key={p.id} href={`/rep/course/${c.id}`} className="flex items-center gap-3 border-b border-hair px-4 py-3 last:border-0 hover:bg-subtle">
-                {p.state === "certified" ? (
-                  <span className="grid size-9 place-items-center rounded-full bg-ok-bg text-ok"><CheckCircle2 className="size-5" aria-hidden="true" /></span>
-                ) : <Ring value={p.state === "not_started" ? 0 : pr.pct} size={36} stroke={4} label={`${pr.pct}% done`} />}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <Text size="body-lg" weight="semibold" truncate>{c.title}</Text>
-                  <Text size="caption" tone={p.state === "certified" ? "ok" : "subtle"}>
-                    {p.state === "certified" ? `Certified · valid to ${fmtDate(p.certExpiresAt, true)}` : p.state === "awaiting_verify" ? "Passed · waiting for your manager" : p.path ? `Your path: ${pr.modules} of ${c.modules.length} modules` : p.state === "not_started" ? (p.assignType === "default" ? "Start here" : "Not started") : "In progress"}
-                  </Text>
-                </div>
-                <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      <QuickWatchRail />
+
       <FictionalNote className="pb-2" />
     </div>
   );

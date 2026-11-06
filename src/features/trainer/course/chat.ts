@@ -68,7 +68,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
     }
     return changes.length
       ? { id: uid(), from: "ai", text: `I found ${changes.length} sentence${changes.length > 1 ? "s" : ""} to fix. Each rewrite is cited to your sources; anything I can't support, I remove.`, changes, status: "pending" }
-      : { id: uid(), from: "ai", text: "No citation or wording issues left. Run the checks when you're ready." };
+      : { id: uid(), from: "ai", text: "No citation or wording issues left. Any other findings, like thin question coverage, are listed under Review & versions." };
   }
 
   if (/(short|concise|trim|cut|tighten)/.test(p)) {

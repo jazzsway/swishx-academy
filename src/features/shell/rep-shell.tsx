@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, Mic, UserRound } from "lucide-react";
+import { Home, BookOpen, Library, Mic, UserRound, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { BrandMark } from "./brand";
 import { Notifications, ViewAs } from "./chrome";
+import { CopilotPanel } from "@/features/copilot/copilot-panel";
+import { useCopilot } from "@/features/copilot/copilot-store";
 
 const TABS = [
   { label: "Home", href: "/rep", icon: Home, exact: true },
-  { label: "Learn", href: "/rep/learn", icon: BookOpen },
+  { label: "My learning", href: "/rep/learn", icon: BookOpen },
+  { label: "Library", href: "/rep/library", icon: Library },
   { label: "Practice", href: "/rep/practice", icon: Mic },
   { label: "Me", href: "/rep/me", icon: UserRound },
 ];
 
 /** Screens that take the whole phone: no tab bar, their own exit. */
 const IMMERSIVE = [/\/rep\/onboarding/, /\/rep\/course\/[^/]+\/(screening|call|learn|assessment|attest)/, /\/rep\/practice\/(call|prep)/];
+/** No copilot while being measured, or mid-call. */
+const NO_COPILOT = [/\/rep\/onboarding/, /\/rep\/course\/[^/]+\/(screening|call|assessment|attest)/, /\/rep\/practice\/call/];
 
 /** Phone-first shell (PRD §9.1: rep screens mobile-first at 375px). On a desktop it renders as a centred phone column. */
 export function RepShell({ children }: { children: ReactNode }) {
@@ -26,13 +31,13 @@ export function RepShell({ children }: { children: ReactNode }) {
   const me = useMe();
   const viewAs = useApp((s) => s.viewAs);
   const immersive = IMMERSIVE.some((r) => r.test(pathname));
+  const copilot = !NO_COPILOT.some((r) => r.test(pathname));
+  const openCopilot = useCopilot((s) => s.setOpen);
+  useEffect(() => { if (!copilot) openCopilot(false); }, [copilot, openCopilot]);
 
-  /* The rep app renders as Priya unless a manager deliberately opened their own learning. */
+  /* The rep app always renders as a rep. */
   useEffect(() => {
-    if (me.roles.includes("rep")) return;
-    let learnerAs: string | null = null;
-    try { learnerAs = sessionStorage.getItem("academy-learner-as"); } catch { /* storage blocked */ }
-    if (learnerAs !== me.id) viewAs("u-priya");
+    if (!me.roles.includes("rep")) viewAs("u-priya");
   }, [me, viewAs]);
 
   return (
@@ -50,7 +55,7 @@ export function RepShell({ children }: { children: ReactNode }) {
         )}
         <main id="rep-scroll" className={cn("flex flex-1 flex-col sm:min-h-0 sm:overflow-y-auto", !immersive && "pb-24 sm:pb-6")}>{children}</main>
         {!immersive && (
-          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] grid-cols-4 border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur sm:static sm:pb-3">
+          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] grid-cols-5 border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur sm:static sm:pb-3">
             {TABS.map((t) => {
               const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
               const Icon = t.icon;
@@ -65,6 +70,13 @@ export function RepShell({ children }: { children: ReactNode }) {
             })}
           </nav>
         )}
+        {copilot && !immersive && (
+          <button type="button" onClick={() => openCopilot(true)} aria-label="Open SwishX AI Agent"
+            className="fixed bottom-[92px] right-4 z-30 grid size-13 place-items-center rounded-full bg-brand text-white shadow-float transition-transform hover:scale-105 sm:absolute sm:bottom-[84px]">
+            <Sparkles className="size-5.5" aria-hidden="true" />
+          </button>
+        )}
+        {copilot && <Suspense><CopilotPanel role="rep" variant="phone" /></Suspense>}
       </div>
     </div>
   );

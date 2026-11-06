@@ -79,7 +79,7 @@ export function QuestionBank() {
             ))}
           </div>
         </Card>
-        <Text size="caption" tone="subtle" className="px-1">Screening questions never give feedback. Assessment answer keys show only after a pass or the last attempt (PRD AS-2).</Text>
+        <Text size="caption" tone="subtle" className="px-1">Screening questions never give feedback. Assessment answer keys show only after a pass or the last attempt.</Text>
       </aside>
     </div>
   );

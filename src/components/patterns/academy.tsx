@@ -9,12 +9,13 @@ import type { ProgressState, VersionState } from "@/data/types";
 
 /* Academy-specific patterns, built only from the ported primitives and tokens. */
 
-export function Card({ title, eyebrow, actions, children, className, padded = true, tone = "card" }: {
-  title?: ReactNode; eyebrow?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string; padded?: boolean;
+export function Card({ id, title, eyebrow, actions, children, className, padded = true, tone = "card" }: {
+  id?: string; title?: ReactNode; eyebrow?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string; padded?: boolean;
   tone?: "card" | "ink" | "tint" | "subtle";
 }) {
   return (
     <section
+      id={id}
       className={cn(
         "squircle flex min-w-0 flex-col gap-4 rounded-card border",
         tone === "card" && "border-hair bg-card",

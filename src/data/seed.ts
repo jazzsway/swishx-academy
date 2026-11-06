@@ -96,7 +96,7 @@ export function seed(): SeedState {
   for (const u of reps) {
     const certified = r() > 0.04;
     progress.push(defaultProgress(u.id, "c-compliance", 3, certified, "2026-01-12"));
-    if (u.divisionId === "div-imm") progress.push(defaultProgress(u.id, "c-ad101", 2, u.id === "u-priya" || r() > 0.08, "2026-03-04"));
+    if (u.divisionId === "div-imm") progress.push(defaultProgress(u.id, "c-ad101", 2, u.id === "u-priya" ? false : r() > 0.08, "2026-03-04"));
   }
   /* Cardexa v1: 46 of 48 certified. */
   reps.filter((u) => u.divisionId === "div-cm").forEach((u, i) => {
@@ -122,9 +122,11 @@ export function seed(): SeedState {
       const dueAt = day(assignedAt, 48 + Math.floor(r() * 42)); // individual due dates early Nov–mid Dec
       const latest: Record<string, number> = {};
       const screen: Record<string, number> = {};
+      /* Real cohorts are uneven: most improve by varying amounts, about one in eight is flat or slips. */
+      const gain = r() < 0.12 ? -2 - r() * 6 : 6 + r() * 34;
       for (const c of COMPETENCIES) {
         latest[c.id] = clamp(latestBase[c.id] + regionOffset[regionId] + (r() - 0.5) * 18);
-        screen[c.id] = clamp(latest[c.id] - 27 + (r() - 0.5) * 16);
+        screen[c.id] = clamp(latest[c.id] - gain + (r() - 0.5) * 12);
       }
       const p: Progress = {
         id: `p-${u.id}-lum`, userId: u.id, courseId: "c-lumora-launch", version: 1, state: "not_started",
@@ -145,11 +147,14 @@ export function seed(): SeedState {
       }
       if (regionId !== "reg-south" && regionId !== "reg-central" && kind === "verify_old" && !isNE) kind = "verify_new";
 
+      const latestOverall = Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
+      const passOverall = Math.max(80 + Math.round(r() * 9), Math.min(latestOverall, 97));
       if (kind !== "not_started") {
         const startedAt = day(assignedAt, 2 + Math.floor(r() * 20));
         p.startedAt = startedAt;
         if (kind !== "screening") {
-          const screenOverall = Math.round(Object.values(screen).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
+          /* Reps who slipped really did score lower at the end than at screening. */
+          const screenOverall = gain < 0 ? passOverall + 2 + Math.round(r() * 5) : Math.round(Object.values(screen).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
           p.screening = { at: startedAt, overall: screenOverall, scores: screen };
           p.path = buildPath(lumora.modules, screen, "screening");
           p.path.builtAt = startedAt;
@@ -162,16 +167,17 @@ export function seed(): SeedState {
           p.state = "screening";
         }
         if (["certified", "verify_old", "verify_new", "assessment", "coaching"].includes(kind)) {
-          const overall = Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
+          const overall = latestOverall;
           const firstFail = r() < 0.24;
-          const attemptAt = day(startedAt, 10 + Math.floor(r() * 10));
+          /* Reps waiting on their manager passed on the day they asked for verification. */
+          const attemptAt = kind === "verify_old" ? "2026-10-29" : kind === "verify_new" ? "2026-11-04" : day(startedAt, 10 + Math.floor(r() * 10));
           if (firstFail) {
             p.attempts.push(mkAttempt(day(attemptAt, -4), Math.min(76, overall - 8), false, latest, ["c-access"]));
           }
           if (kind === "assessment") {
             p.state = "assessment";
           } else {
-            p.attempts.push(mkAttempt(attemptAt, Math.max(80, overall), true, latest, []));
+            p.attempts.push(mkAttempt(attemptAt, passOverall, true, latest, []));
             if (kind === "certified") {
               const at = day(attemptAt, 1 + Math.floor(r() * 3));
               p.verify = { status: "approved", requestedAt: attemptAt, by: u.managerId, at };
@@ -184,8 +190,7 @@ export function seed(): SeedState {
               p.verify = { status: "needs_coaching", requestedAt: attemptAt, by: u.managerId, at: day(attemptAt, 2), note: "Good energy. Your safety statement came late and was rushed; lead with balance when you share the EASI data.", focus: ["c-safety"] };
               p.state = "needs_coaching";
             } else {
-              const requested = kind === "verify_old" ? "2026-10-29" : "2026-11-04";
-              p.verify = { status: "pending", requestedAt: requested };
+              p.verify = { status: "pending", requestedAt: attemptAt };
               p.state = "awaiting_verify";
               p.attestedAt = attemptAt;
               p.attestName = u.name;
@@ -196,6 +201,14 @@ export function seed(): SeedState {
       progress.push(p);
     });
   }
+
+  /* Priya transferred into Immunology recently: AD 101 is her unfinished foundation, so Lumora screening is still locked. */
+  const pAd = progress.find((x) => x.userId === "u-priya" && x.courseId === "c-ad101")!;
+  Object.assign(pAd, {
+    assignedAt: "2026-10-27", dueAt: "2026-11-17", startedAt: "2026-10-29", minutesSpent: 7,
+    path: { kind: "full", moduleIds: ["ad1", "ad2", "ad3"], reasons: { ad1: "Full course", ad2: "Full course", ad3: "Full course" }, testedOut: [], builtAt: "2026-10-29" },
+    completedBlocks: ["ad1-b1", "ad1-b2"],
+  });
 
   /* Priya starts fresh on Lumora: assigned this week. */
   progress.push({

@@ -1,8 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
-import { RoleplaySetup } from "@/features/trainer/course/roleplay";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
+/** Roleplay now lives inside the Assessment tab. */
 export default function Page() {
-  return <Suspense><RoleplaySetup /></Suspense>;
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  useEffect(() => { router.replace(`/trainer/courses/${id}/questions#roleplay`); }, [id, router]);
+  return null;
 }

@@ -1,4 +1,5 @@
 import type { Module } from "../types";
+import { VIDEO_INJECTION, VIDEO_LUMEN, VIDEO_MOA, VIDEO_MODEL_CALL } from "../media";
 
 /* Lumora launch readiness: 14 modules, 118 minutes. All product facts are fictional
    and come from the fictional sources in org.ts, cited by page. */
@@ -12,7 +13,7 @@ const AD = "src-ad-guide";
 const CODE = "src-code";
 const c = (sourceId: string, page: number) => ({ sourceId, page });
 
-export const LUMORA_LAUNCH_MODULES: Module[] = [
+const RAW: Module[] = [
   {
     id: "lm1", title: "Atopic dermatitis today", competency: "c-disease", tier: "core", minutes: 8,
     summary: "Who the moderate-to-severe patient is, and what uncontrolled disease costs them.",
@@ -58,14 +59,14 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         { text: "IL-13 is a key driver of type 2 inflammation in the skin, contributing to barrier dysfunction, itch and inflammation.", cite: c(PI, 9) },
         { text: "By binding IL-13, relvokimab prevents it from signalling through its receptor complex.", cite: c(PI, 9) },
       ] },
-      { id: "lm3-b2", type: "video", title: "Mechanism animation", minutes: 3, competencies: ["c-moa"], video: {
-        duration: "2:40", transcript: "IL-13 is released in the skin during type 2 inflammation. Relvokimab binds IL-13 and blocks it from signalling, which reduces the inflammatory cascade." } },
+      { id: "lm3-b2", type: "video", title: "Mechanism in 3 minutes", minutes: 3, competencies: ["c-moa"], video: VIDEO_MOA },
     ],
   },
   {
     id: "lm4", title: "Efficacy: LUMEN-1 and LUMEN-2", competency: "c-efficacy", tier: "core", minutes: 12,
     summary: "The pivotal trials and the numbers you are approved to use.",
     blocks: [
+      { id: "lm4-v1", type: "video", title: "LUMEN results in 3 minutes", minutes: 3, competencies: ["c-efficacy", "c-safety"], video: VIDEO_LUMEN },
       { id: "lm4-b1", type: "lesson", title: "Trial design", minutes: 4, competencies: ["c-efficacy"], paragraphs: [
         { text: "LUMEN-1 and LUMEN-2 were 16-week, randomized, double-blind, placebo-controlled Phase 3 trials in 1,540 adults with moderate-to-severe atopic dermatitis.", cite: c(P3, 2) },
         { text: "Co-primary endpoints at week 16 were EASI-75 and IGA 0/1 (clear or almost clear skin).", cite: c(P3, 2) },
@@ -79,6 +80,8 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         question: "What proportion of Lumora patients reached EASI-75 at week 16 (pooled)?",
         options: ["36%", "44%", "51%", "78%"], answer: 2,
         rationale: "51% vs 17% placebo. 36% is IGA 0/1; 78% is maintenance in LUMEN-EXT.", cite: c(PI, 11) } },
+      { id: "lm4-d1", type: "document", title: "Read it in the PI: section 14", minutes: 3, competencies: ["c-efficacy"], document: { sourceId: PI, pages: [11, 12, 13],
+        callouts: [{ page: 11, text: "These are the only efficacy numbers you may quote." }, { page: 12, text: "“As early as week 2” refers to itch, not skin clearance." }] } },
     ],
   },
   {
@@ -113,12 +116,15 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         question: "A patient missed a dose 4 days ago. What does the PI say?",
         options: ["Skip it and wait for the next dose", "Give it now, then resume the original schedule", "Give a double dose next time", "Restart the loading dose"], answer: 1,
         rationale: "Within 7 days: give the missed dose, then resume the original schedule.", cite: c(PI, 3) } },
+      { id: "lm6-d1", type: "document", title: "Read it in the PI: section 2", minutes: 2, competencies: ["c-dosing"], document: { sourceId: PI, pages: [2, 3],
+        callouts: [{ page: 3, text: "The 7-day rule is the most-missed question in screening." }] } },
     ],
   },
   {
     id: "lm7", title: "Injection training & starting patients", competency: "c-dosing", tier: "reinforcement", minutes: 6,
     summary: "Walking an office through the first injection.",
     blocks: [
+      { id: "lm7-v1", type: "video", title: "The first injection, step by step", minutes: 2, competencies: ["c-dosing"], video: VIDEO_INJECTION },
       { id: "lm7-b1", type: "lesson", title: "First injection", minutes: 3, competencies: ["c-dosing"], paragraphs: [
         { text: "The first loading dose is two injections at different sites, given in the office or after patient training.", cite: c(PI, 2) },
         { text: "Injection sites: thigh or abdomen (except 2 inches around the navel); upper arm only if a caregiver injects.", cite: c(PI, 16) },
@@ -148,6 +154,9 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         question: "Which is the contraindication for Lumora?",
         options: ["Active conjunctivitis", "Known hypersensitivity to relvokimab or excipients", "Asthma", "Age over 65"], answer: 1,
         rationale: "The only contraindication is known hypersensitivity to relvokimab or its excipients.", cite: c(PI, 3) } },
+      { id: "lm8-d1", type: "document", title: "Read it in the PI: sections 4–6", minutes: 3, competencies: ["c-safety"], document: { sourceId: PI, pages: [3, 4, 5, 6],
+        callouts: [{ page: 4, text: "Know 5.2 word for word: it's the safety question HCPs ask most." }, { page: 6, text: "Quote rates with placebo, every time." }] } },
+      { id: "lm8-a1", type: "audio", title: "Listen: safety information in 2 minutes", minutes: 2, competencies: ["c-safety"], audio: { fromBlockIds: ["lm8-b1", "lm8-b2"], durationSec: 110 } },
     ],
   },
   {
@@ -195,6 +204,9 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         { text: "Topical prescription therapies tried, with dates and outcome.", cite: c(PAY, 2) },
         { text: "Body surface area or severity score at the visit.", cite: c(PAY, 2) },
       ] },
+      { id: "lm11-d1", type: "document", title: "Read it in the payer guide", minutes: 2, competencies: ["c-access"], document: { sourceId: PAY, pages: [2, 3, 4],
+        callouts: [{ page: 4, text: "Government-insured patients are not eligible. Never imply otherwise." }] } },
+      { id: "lm11-a1", type: "audio", title: "Listen on the road: access basics", minutes: 2, competencies: ["c-access"], audio: { fromBlockIds: ["lm11-b1", "lm11-b2"], durationSec: 95 } },
     ],
   },
   {
@@ -224,12 +236,19 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
         { front: "Patient-type opener", back: "\"Think of your adult patients still flaring despite topicals. How many did you see this month?\"", cite: c(VA, 1) },
         { front: "Needs question", back: "\"What makes you decide a patient needs more than topicals?\"", cite: c(VA, 2) },
       ] },
+      { id: "lm13-va1", type: "visualaid", title: "Walk the visual aid", minutes: 4, competencies: ["c-opening", "c-safety"], visualaid: { sourceId: VA, pages: [
+        { page: 1, say: "Open here. “Think of your adult patients still flaring despite topicals.” Then ask how many they saw this month.", avoid: "Don't open on the product name or price." },
+        { page: 2, say: "Ask about the last month: flares, sleep, missed work. Let them describe their patient.", avoid: "Don't diagnose for them." },
+        { page: 3, say: "Share the week-16 data exactly: 51% vs 17% EASI-75. Point to the placebo bar.", avoid: "No comparisons with other biologics." },
+        { page: 4, say: "Always present this page when you show page 3. Read the contraindication and the most common adverse reactions.", avoid: "Never skip or rush the safety page." },
+      ] } },
     ],
   },
   {
     id: "lm14", title: "Handling the top objections", competency: "c-objections", tier: "core", minutes: 15,
     summary: "Cost and access, speed of response, eye safety, \"my patients are fine on topicals\".",
     blocks: [
+      { id: "lm14-v1", type: "video", title: "Model call: the cost objection", minutes: 3, competencies: ["c-objections", "c-access"], video: VIDEO_MODEL_CALL },
       { id: "lm14-b1", type: "lesson", title: "The approved responses", minutes: 6, competencies: ["c-objections", "c-access"], paragraphs: [
         { text: "\"Coverage is a nightmare.\" Acknowledge it, then describe the Access Hub: benefits verification, PA support and the copay program for eligible commercially insured patients.", cite: c(OBJ, 2) },
         { text: "\"How fast does it work?\" Share the approved data: itch separation from placebo as early as week 2, and EASI-75 of 51% vs 17% at week 16.", cite: c(OBJ, 3) },
@@ -244,3 +263,6 @@ export const LUMORA_LAUNCH_MODULES: Module[] = [
     ],
   },
 ];
+
+/* Module time is the sum of its blocks, so adding media keeps estimates honest. */
+export const LUMORA_LAUNCH_MODULES: Module[] = RAW.map((m) => ({ ...m, minutes: m.blocks.reduce((a, b) => a + b.minutes, 0) }));

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Check, CirclePlay, Layers, ListChecks, BookOpenText, Mic, X } from "lucide-react";
+import { Check, CirclePlay, Layers, ListChecks, BookOpenText, Mic, X, FileText, Presentation, Headphones, ChartPie } from "lucide-react";
+import { VideoPlayer } from "@/features/media/video-player";
+import { AudioPlayer, DocumentViewer, GraphicView, VisualAidWalkthrough } from "@/features/media/readers";
 import { cn } from "@/lib/cn";
 import type { Block, Citation as Cite, Para } from "@/data/types";
 import { scenario } from "@/data/scenarios";
-import { source } from "@/data/org";
+import { isApproved, source } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Citation } from "@/components/patterns/academy";
 
@@ -15,6 +17,10 @@ export const BLOCK_META: Record<Block["type"], { label: string; icon: typeof Che
   flashcards: { label: "Flashcards", icon: Layers },
   check: { label: "Knowledge check", icon: Check },
   video: { label: "Video", icon: CirclePlay },
+  document: { label: "Read", icon: FileText },
+  visualaid: { label: "Visual aid walkthrough", icon: Presentation },
+  audio: { label: "Listen", icon: Headphones },
+  graphic: { label: "Graphic", icon: ChartPie },
   scenario: { label: "Roleplay", icon: Mic },
 };
 
@@ -36,8 +42,10 @@ function ParaText({ p, sourceIds, flag }: { p: Para; sourceIds: string[]; flag?:
 }
 
 /** Renders one block. `interactive` makes checks and flashcards work (rep player); `flag` marks uncited text (editor). */
-export function BlockView({ block, sourceIds, interactive, flag, onCheckAnswered, size = "md" }: {
-  block: Block; sourceIds: string[]; interactive?: boolean; flag?: boolean; onCheckAnswered?: (correct: boolean) => void; size?: "md" | "lg";
+export function BlockView({ block, sourceIds, interactive, flag, onCheckAnswered, onComplete, siblings, size = "md" }: {
+  block: Block; sourceIds: string[]; interactive?: boolean; flag?: boolean; onCheckAnswered?: (correct: boolean) => void;
+  /** Media blocks call this when their completion rule is met (video 90% watched, every page read, audio finished). */
+  onComplete?: () => void; siblings?: Block[]; size?: "md" | "lg";
 }) {
   const body = size === "lg" ? "subhead" : "body-lg";
   if (block.type === "lesson")
@@ -61,17 +69,12 @@ export function BlockView({ block, sourceIds, interactive, flag, onCheckAnswered
     );
   if (block.type === "flashcards") return <Flashcards block={block} sourceIds={sourceIds} interactive={interactive} />;
   if (block.type === "check") return <KnowledgeCheck block={block} sourceIds={sourceIds} interactive={interactive} onAnswered={onCheckAnswered} size={size} />;
-  if (block.type === "video")
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="squircle relative grid aspect-video place-items-center overflow-hidden rounded-panel bg-ink text-white">
-          <div className="absolute inset-0 opacity-30" style={{ background: "radial-gradient(circle at 30% 40%, var(--color-brand) 0, transparent 50%), radial-gradient(circle at 70% 70%, var(--color-brand-2) 0, transparent 45%)" }} />
-          <CirclePlay className="relative size-14 opacity-90" aria-hidden="true" />
-          <span className="absolute bottom-3 right-3 rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold">{block.video?.duration}</span>
-        </div>
-        <Text size="caption" tone="subtle"><strong>Transcript.</strong> {block.video?.transcript}</Text>
-      </div>
-    );
+  if (block.type === "video" && block.video)
+    return <VideoPlayer spec={block.video} title={block.title} compact={!interactive} onWatched={(pct) => { if (pct >= 90) onComplete?.(); }} />;
+  if (block.type === "document" && block.document) return <DocumentViewer spec={block.document} compact={!interactive} onAllViewed={onComplete} />;
+  if (block.type === "visualaid" && block.visualaid) return <VisualAidWalkthrough spec={block.visualaid} onDone={onComplete} />;
+  if (block.type === "graphic" && block.graphic) return <GraphicView spec={block.graphic} />;
+  if (block.type === "audio" && block.audio) return <AudioPlayer spec={block.audio} siblings={siblings ?? []} onDone={onComplete} />;
   if (block.type === "scenario") {
     const sc = block.scenarioId ? scenario(block.scenarioId) : undefined;
     return (
@@ -155,7 +158,7 @@ export function SourceList({ sourceIds }: { sourceIds: string[] }) {
         return (
           <li key={id} className="flex gap-2 text-caption text-ink-3">
             <span className="font-bold text-brand-deep">[{i + 1}]</span>
-            <span>{s?.title ?? id}{s?.docNumber ? ` · ${s.docNumber}` : ""}</span>
+            <span>{s?.title ?? id}{s?.docNumber ? ` · ${s.docNumber}` : ""}{s && !isApproved(s) && <strong className="font-semibold text-warn"> · needs MLR approval</strong>}</span>
           </li>
         );
       })}

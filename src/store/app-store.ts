@@ -3,23 +3,29 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
-  Attempt, AudienceRules, Campaign, Course, CourseSettings, CourseVersion, District, MlrComment,
-  Module, Notification, PracticeSession, Progress, RoleplayResult, User,
+  Attempt, AudienceRules, Campaign, Course, CourseSettings, CourseVersion, District, LibraryVisibility, Material, MlrComment,
+  Module, Notification, PracticeSession, Progress, RoleplayResult, Source, User,
 } from "@/data/types";
+import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/library";
 import { seed } from "@/data/seed";
-import { TODAY } from "@/data/org";
+import { TODAY, registerUploads } from "@/data/org";
 import { buildPath } from "@/lib/learning";
+
+/** The field structure is set up by the SwishX team; clients ask for changes rather than edit it. */
+export interface StructureRequest {
+  id: string;
+  at: string;
+  kind: string;
+  text: string;
+  effective?: string;
+  file?: string;
+  by: string;
+}
 
 export interface OrgSettings {
   practiceRetentionDays: number;
   recordingRetention: string;
   consentText: string;
-  leaderboard: "off" | "team" | "optin";
-  weekendBreaksStreak: boolean;
-  recertMonths: number;
-  managersMayAssign: boolean;
-  bands: { developing: number; proficient: number; expert: number };
-  brandColor: string;
 }
 
 const DEFAULT_SETTINGS: OrgSettings = {
@@ -27,12 +33,6 @@ const DEFAULT_SETTINGS: OrgSettings = {
   recordingRetention: "Certification validity + 1 year",
   consentText:
     "Voice sessions are recorded and analysed by AI to score your conversation. Assessment recordings can be heard by you, your manager and your trainer, and are kept for your certification period plus one year. Practice recordings are visible only to you and delete after 30 days. No voiceprint is created.",
-  leaderboard: "off",
-  weekendBreaksStreak: false,
-  recertMonths: 12,
-  managersMayAssign: true,
-  bands: { developing: 50, proficient: 80, expert: 95 },
-  brandColor: "#fd4816",
 };
 
 type Seeded = ReturnType<typeof seed>;
@@ -46,9 +46,21 @@ export interface AppState extends Seeded {
   xpBase: Record<string, number>;
   settings: OrgSettings;
   nudges: Record<string, string>;
-  competencyEdits: Record<string, { name: string; description: string }>;
+  materials: Material[];
+  /** Blocks a rep opened while exploring (not for credit). Carried into a for-credit path later. */
+  explored: Record<string, string[]>;
+  libraryViews: Record<string, number>;
+  searches: { q: string; results: number; count: number }[];
+  /** Presenter mode: demo shortcuts (tap-to-answer on calls, no retake cooldown). Off for pilots. */
+  presenter: boolean;
+  structureRequests: StructureRequest[];
+  uploads: Source[];
 
   setHydrated: () => void;
+  setPresenter: (v: boolean) => void;
+  requestStructureChange: (r: Omit<StructureRequest, "id" | "at">) => void;
+  addUploads: (list: Source[]) => void;
+  removeUpload: (id: string) => void;
   viewAs: (userId: string) => void;
   resetDemo: () => void;
   completeOnboarding: (userId: string) => void;
@@ -58,7 +70,7 @@ export interface AppState extends Seeded {
   markRead: (userId: string, id?: string) => void;
 
   /* Trainer: courses */
-  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds">) => string;
+  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams">) => string;
   setModules: (courseId: string, modules: Module[]) => void;
   updateCourse: (courseId: string, patch: Partial<Course>) => void;
   updateSettings: (courseId: string, patch: Partial<CourseSettings>) => void;
@@ -72,7 +84,10 @@ export interface AppState extends Seeded {
   publish: (courseId: string, transition: "minor" | "recertify" | "restart") => void;
   withdraw: (courseId: string, reason: string) => void;
   assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string) => number;
+  /** Creates the campaign as scheduled; startCampaign assigns it. */
   createCampaign: (c: Omit<Campaign, "id" | "status" | "ownerId">) => string;
+  /** Assigns the courses to everyone matching, and pulls in people who already had them. */
+  startCampaign: (id: string) => { created: number; linked: number; elsewhere: number };
 
   /* Rep */
   startCourse: (progressId: string) => void;
@@ -95,10 +110,17 @@ export interface AppState extends Seeded {
   addUser: (u: Omit<User, "id" | "initials" | "active">) => void;
   setUserActive: (id: string, active: boolean) => void;
   updateOrgSettings: (patch: Partial<OrgSettings>) => void;
-  editCompetency: (id: string, v: { name: string; description: string }) => void;
+
+  /* Library */
+  markExplored: (userId: string, blockId: string) => void;
+  recordView: (id: string) => void;
+  recordSearch: (q: string, results: number) => void;
+  selfEnroll: (courseId: string, userId: string) => string;
+  addMaterial: (m: Omit<Material, "id" | "createdAt" | "ownerId">) => string;
+  setMaterialVisibility: (id: string, v: LibraryVisibility) => void;
 }
 
-const nowIso = () => {
+export const nowIso = () => {
   /* Demo clock: the fixed demo day, at the real time of day, so ordering still works. */
   const real = new Date();
   const d = new Date(TODAY);
@@ -124,11 +146,23 @@ function initial() {
     xpBase: { "u-priya": 940, "u-david": 1320 } as Record<string, number>,
     settings: DEFAULT_SETTINGS,
     nudges: {} as Record<string, string>,
-    competencyEdits: {} as Record<string, { name: string; description: string }>,
+    materials: SEED_MATERIALS,
+    explored: {} as Record<string, string[]>,
+    libraryViews: SEED_LIBRARY_VIEWS,
+    searches: SEED_SEARCHES,
+    presenter: false,
+    structureRequests: [] as StructureRequest[],
+    uploads: [] as Source[],
   };
 }
 
 export const current = (c: Course): CourseVersion => c.versions[c.versions.length - 1];
+
+/** Blocks explored earlier count toward a for-credit path on the same approved version. */
+function withExplored(p: Progress, mods: Module[], explored: string[] = []) {
+  const ids = new Set(mods.flatMap((m) => m.blocks.map((b) => b.id)));
+  return [...new Set([...p.completedBlocks, ...explored.filter((b) => ids.has(b))])];
+}
 export const live = (c: Course): CourseVersion | undefined =>
   [...c.versions].reverse().find((v) => v.state === "published");
 
@@ -168,9 +202,13 @@ export const useApp = create<AppState>()(
       ...initial(),
       hydrated: false,
 
-      setHydrated: () => set({ hydrated: true }),
+      setHydrated: () => { registerUploads(get().uploads); set({ hydrated: true }); },
+      addUploads: (list) => set((s) => { const uploads = [...s.uploads, ...list]; registerUploads(uploads); return { uploads }; }),
+      removeUpload: (id) => set((s) => { const uploads = s.uploads.filter((u) => u.id !== id); registerUploads(uploads); return { uploads }; }),
       viewAs: (userId) => set({ viewAsId: userId }),
-      resetDemo: () => set({ ...initial(), hydrated: true }),
+      setPresenter: (v) => set({ presenter: v }),
+      requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
+      resetDemo: () => set((s) => { registerUploads([]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
       completeOnboarding: (userId) => set((s) => ({ onboarded: { ...s.onboarded, [userId]: true } })),
       setVoiceConsent: (userId, v) => set((s) => ({ voiceConsent: { ...s.voiceConsent, [userId]: v } })),
 
@@ -194,7 +232,8 @@ export const useApp = create<AppState>()(
       createCourse: (c) => {
         const id = uid("c");
         const course: Course = {
-          ...c, id, modules: [], items: [], scenarioIds: c.type === "personalised" ? ["sc-kim"] : [],
+          // Roleplay doctors are product-specific; only Lumora has an approved one today.
+          ...c, id, modules: [], items: [], scenarioIds: c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
           settings: {
             ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
             screening: c.type === "personalised",
@@ -207,6 +246,7 @@ export const useApp = create<AppState>()(
           versions: [{ version: 1, versionId: `NEW-v1-${id.slice(-4)}`, state: "draft", comments: [], acknowledged: [], modules: [],
             history: [{ at: dayStr(nowIso()), by: "Maya Chen", action: "Created with AI" }] }],
           ownerId: "u-maya", updatedAt: dayStr(nowIso()),
+          visibility: "audience", prerequisites: [], allowExplore: true,
         };
         set((s) => ({ courses: [course, ...s.courses] }));
         return id;
@@ -304,7 +344,7 @@ export const useApp = create<AppState>()(
         const notes: Notification[] = targets.slice(0, 400).map((u) => ({
           id: uid("n"), userId: u.id, at: nowIso(), read: false,
           title: type === "recommended" ? "Recommended course" : "New course assigned",
-          body: `${course.title}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}`,
+          body: `${course.title}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${campaignId ? ` · ${s.campaigns.find((x) => x.id === campaignId)?.name ?? ""}` : ""}`,
           href: `/rep/course/${courseId}`,
         }));
         set((st) => ({ progress: [...st.progress, ...created], notifications: [...notes, ...st.notifications] }));
@@ -313,8 +353,36 @@ export const useApp = create<AppState>()(
 
       createCampaign: (c) => {
         const id = uid("cmp");
-        set((s) => ({ campaigns: [{ ...c, id, status: "active", ownerId: "u-maya" }, ...s.campaigns] }));
+        set((s) => ({ campaigns: [{ ...c, id, status: "scheduled", ownerId: "u-maya" }, ...s.campaigns] }));
         return id;
+      },
+      startCampaign: (id) => {
+        const s = get();
+        const cmp = s.campaigns.find((x) => x.id === id);
+        if (!cmp) return { created: 0, linked: 0, elsewhere: 0 };
+        const matched = new Set(audienceMatches(s.users, cmp.audience).map((u) => u.id));
+        const activeElsewhere = new Set(s.campaigns.filter((x) => x.id !== id && x.status === "active").map((x) => x.id));
+        let linked = 0;
+        let elsewhere = 0;
+        const notes: Notification[] = [];
+        /* People who already have the course join the campaign. The earlier due date wins; certified people simply count. */
+        const progress = s.progress.map((p) => {
+          if (!cmp.courseIds.includes(p.courseId) || !matched.has(p.userId) || p.campaignId === id) return p;
+          if (p.campaignId && activeElsewhere.has(p.campaignId)) { elsewhere++; return p; }
+          linked++;
+          /* Recertification means certified people take it again, the same way "publish as Recertify" does. */
+          const recert = cmp.type === "annual" || cmp.type === "label_update";
+          if (p.state === "certified" && !recert) return { ...p, campaignId: id };
+          const restart = p.state === "certified";
+          if (restart) p = { ...p, state: "learning", completedBlocks: [], attempts: [], verify: undefined, certifiedAt: undefined, dueAt: undefined };
+          const dueAt = p.dueAt && p.dueAt < cmp.dueAt ? p.dueAt : cmp.dueAt;
+          if (dueAt !== p.dueAt) notes.push({ id: uid("n"), userId: p.userId, at: nowIso(), read: false, title: restart ? "Time to recertify" : "New due date", body: `${s.courses.find((c) => c.id === p.courseId)?.title} · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })} · ${cmp.name}`, href: `/rep/course/${p.courseId}` });
+          return { ...p, campaignId: id, dueAt, assignType: "required" as const };
+        });
+        set((st) => ({ progress, notifications: [...notes, ...st.notifications], campaigns: st.campaigns.map((x) => (x.id === id ? { ...x, status: "active" as const } : x)) }));
+        let created = 0;
+        for (const courseId of cmp.courseIds) created += get().assign(courseId, cmp.audience, "required", cmp.dueAt, id);
+        return { created, linked, elsewhere };
       },
 
       startCourse: (progressId) =>
@@ -325,7 +393,7 @@ export const useApp = create<AppState>()(
             const startedAt = dayStr(nowIso());
             if (!course.settings.screening) {
               const mods = (live(course) ?? current(course)).modules;
-              return { ...p, startedAt, state: "learning", path: buildPath(mods, {}, "full") };
+              return { ...p, startedAt, state: "learning", path: buildPath(mods, {}, "full"), completedBlocks: withExplored(p, mods, s.explored[p.userId]) };
             }
             return { ...p, startedAt, state: "screening" };
           }),
@@ -337,7 +405,7 @@ export const useApp = create<AppState>()(
             if (p.id !== progressId) return p;
             const course = s.courses.find((c) => c.id === p.courseId)!;
             const mods = (live(course) ?? current(course)).modules;
-            return { ...p, state: "learning", startedAt: p.startedAt ?? dayStr(nowIso()), path: buildPath(mods, {}, "full") };
+            return { ...p, state: "learning", startedAt: p.startedAt ?? dayStr(nowIso()), path: buildPath(mods, {}, "full"), completedBlocks: withExplored(p, mods, s.explored[p.userId]) };
           }),
         })),
 
@@ -349,7 +417,8 @@ export const useApp = create<AppState>()(
             const mods = (live(course) ?? current(course)).modules;
             return {
               ...p, state: "learning", startedAt: p.startedAt ?? dayStr(nowIso()),
-              screening: { at: nowIso(), ...d }, path: buildPath(mods, d.scores, "screening", { aiReorder: course.settings.aiReorder }),
+              screening: { at: nowIso(), ...d }, path: buildPath(mods, d.scores, "screening"),
+              completedBlocks: withExplored(p, mods, s.explored[p.userId]),
             };
           }),
         })),
@@ -464,11 +533,42 @@ export const useApp = create<AppState>()(
         })),
       setUserActive: (id, active) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, active } : u)) })),
       updateOrgSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
-      editCompetency: (id, v) => set((s) => ({ competencyEdits: { ...s.competencyEdits, [id]: v } })),
+
+      markExplored: (userId, blockId) =>
+        set((s) => {
+          const cur = s.explored[userId] ?? [];
+          if (cur.includes(blockId)) return {};
+          return { explored: { ...s.explored, [userId]: [...cur, blockId] } };
+        }),
+      recordView: (id) => set((s) => ({ libraryViews: { ...s.libraryViews, [id]: (s.libraryViews[id] ?? 0) + 1 } })),
+      recordSearch: (q, results) =>
+        set((s) => {
+          const key = q.trim().toLowerCase();
+          if (key.length < 3) return {};
+          const hit = s.searches.find((x) => x.q === key);
+          return { searches: hit ? s.searches.map((x) => (x.q === key ? { ...x, count: x.count + 1, results } : x)) : [{ q: key, results, count: 1 }, ...s.searches] };
+        }),
+      selfEnroll: (courseId, userId) => {
+        const s = get();
+        const existing = s.progress.find((p) => p.userId === userId && p.courseId === courseId);
+        if (existing) return existing.id;
+        const course = s.courses.find((c) => c.id === courseId)!;
+        const id = `p-${userId}-${courseId}-self`;
+        set((st) => ({ progress: [...st.progress, { id, userId, courseId, version: (live(course) ?? current(course)).version, state: "not_started", assignedAt: dayStr(nowIso()), assignType: "self", completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [] }] }));
+        return id;
+      },
+      addMaterial: (m) => {
+        const id = uid("mt");
+        set((s) => ({ materials: [{ ...m, id, createdAt: dayStr(nowIso()), ownerId: "u-maya" }, ...s.materials] }));
+        return id;
+      },
+      setMaterialVisibility: (id, v) => set((s) => ({ materials: s.materials.map((m) => (m.id === id ? { ...m, visibility: v } : m)) })),
     }),
     {
       name: "swishx-academy-v1",
-      version: 1,
+      /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
+      version: 9,
+      migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
       partialize: ({ hydrated: _h, ...rest }) => {

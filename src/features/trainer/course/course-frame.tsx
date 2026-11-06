@@ -25,12 +25,10 @@ export function CourseFrame({ children }: { children: ReactNode }) {
   const base = `/trainer/courses/${id}`;
   const tabs = [
     { id: "content", label: "Content", href: base },
-    { id: "questions", label: "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
-    ...(course.type === "personalised" ? [{ id: "roleplay", label: "Roleplay", href: `${base}/roleplay` }] : []),
+    { id: "questions", label: course.type === "personalised" ? "Assessment" : "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
     { id: "settings", label: "Settings", href: `${base}/settings` },
     { id: "preview", label: "Preview as rep", href: `${base}/preview` },
     { id: "review", label: "Review & versions", href: `${base}/review` },
-    ...(lv ? [{ id: "assign", label: "Assign", href: `${base}/assign` }] : []),
   ];
   const active = tabs.find((t) => t.href !== base && pathname.startsWith(t.href))?.id ?? "content";
   const expiringDays = lv?.expiresAt ? daysFromToday(lv.expiresAt) : undefined;
@@ -61,7 +59,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
             {lv && lv.version !== cur.version && <span>· v{lv.version} live ({lv.docNumber})</span>}
             {lv && lv.version === cur.version && <span>· {lv.docNumber}</span>}
             {expiringDays !== undefined && expiringDays <= 30 && <span className="font-semibold text-warn">· expires in {expiringDays} days</span>}
-            <span>· {product(course.productId)?.brand ?? "Company"} · {course.format === "long" ? "Long-form" : "Short"} · {course.type === "personalised" ? "Personalised" : "Linear"} · {courseMinutes(course)} min</span>
+            <span>· {product(course.productId)?.brand ?? "Company"}{course.scope?.indications.length ? ` (${course.scope.indications.join(" + ")})` : course.scope?.variants.length ? ` (${course.scope.variants.join(", ")})` : ""} · {course.format === "long" ? "Long" : "Short"} · {course.type === "personalised" ? "Personalised" : "Same for everyone"} · {courseMinutes(course)} min</span>
             <span>· updated {fmtDate(course.updatedAt)}</span>
           </div>
         </div>
@@ -71,6 +69,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
               <PencilLine className="size-4" aria-hidden="true" />Edit as v{cur.version + 1}
             </Button>
           )}
+          {lv && cur.state !== "published" && <Button variant="secondary" onClick={() => router.push(`${base}/assign`)}>Assign v{lv.version}</Button>}
           {p && <Button onClick={p.go}>{p.label}</Button>}
         </div>
       </div>

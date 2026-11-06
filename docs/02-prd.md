@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1 for review |
+| **Status** | Draft v0.3 · adds media (E16) and Library (E17) |
 | **Owner** | Shreyans Jaiswal |
 | **Date** | 2026-11-06 |
 | **Inputs** | Founder brief · [Research brief](01-research-brief.md) · Decisions locked 2026-11-06 |
@@ -124,7 +124,7 @@ A person can hold more than one role (e.g. Manager + learner, Admin + Trainer). 
 | **Source** | A document the trainer uploads to build from: PI, approved visual aid, clinical reprint, objection handler, brand guide, data tables, video/transcript. Can carry its own PromoMats doc number. |
 | **Course** | The main unit a trainer creates and MLR approves. Has an objective, audience, format (Long-form or Short), modules, an item bank, roleplay scenarios, and completion, assessment and verify settings. |
 | **Module** | An ordered group of blocks within a course (e.g. "Mechanism of action"). |
-| **Block** | The **smallest approved unit**: a lesson, key-point card, video, flashcard set, knowledge check or scenario brief. Tagged to competencies, cited to sources, and flagged *Required for everyone* or *Personalisable*. |
+| **Block** | The **smallest approved unit**: a lesson, key-point card, flashcard set, knowledge check, scenario brief, **short video**, **PDF reading** (assigned pages of an approved document), **visual-aid walkthrough** or **audio** (approved text read aloud). A module is a playlist of blocks. Tagged to competencies, cited to sources, and flagged *Required for everyone* or *Personalisable*. |
 | **Item bank** | Assessment questions for a course. Each has an answer key, rationale, competency tag, difficulty and source citation, and is marked *Screening*, *Assessment* or *Practice* pool. |
 | **Roleplay scenario** | A simulated HCP call: persona, setting, call objective, duration, objection pool and a scoring **rubric** (weighted criteria, required statements, prohibited language, pass mark). |
 | **Course version** | An immutable snapshot of a course. Only **Approved** versions reach reps. Editing an approved course creates a new draft version. |
@@ -137,6 +137,10 @@ A person can hold more than one role (e.g. Manager + learner, Admin + Trainer). 
 | **Verify** | The readiness gate after passing: automatic, or with manager sign-off on the recorded roleplay (configured per course). |
 | **Certification** | Proof that a rep is ready on a course version, with an issue date and a recertification date. |
 | **Practice** | The rep's private, unlimited, ungraded sandbox (roleplay, quizzes, flashcards). Never part of the record. |
+| **Library** | Everything approved and visible to a rep, browsable without starting anything for credit: courses, playlists, short videos, readings, visual aids, graphics, audio. |
+| **Material** | A standalone Library item: an approved graphic, reading or walkthrough published on its own, or a **playlist** (an ordered set of approved blocks from published courses). |
+| **Explore** | Opening any module or material, not for credit. Explored blocks are ticked off later if the rep gets certified on the same version. |
+| **Prerequisites** | Courses a rep must be certified on before a course's screening unlocks (e.g. Compliance essentials + the therapy-area 101). |
 | **Training record** | An immutable event log per rep per course version: assignment, screening, path, time, attempts, verify, certification, attestations. |
 | **Proficiency bands** | Per-competency score: **Not yet** (<50) · **Developing** (50–79) · **Proficient** (80–94) · **Expert** (95+). Thresholds are configurable per org. |
 
@@ -654,6 +658,88 @@ Never by assessment scores, compliance or sales data.
 
 - An in-app notification centre with read/unread; every notification deep-links to the relevant screen.
 
+### E16. Media: video, reading, walkthroughs, audio
+
+A module is a **playlist**. Reps watch, read, listen and practise, and each piece is an approved block with the same lifecycle as text.
+
+**MD-1 (P0) Short videos.** As a trainer, I want short videos in a module so that reps see the clinical story, not just read it.
+- AC1: A video block has a duration, chapters, captions (the approved script) and a transcript. The player offers chapters, captions on/off, speed (1–2×) and narration.
+- AC2: Completion needs **90% of the video watched** (coverage, so seeking ahead doesn't count).
+- AC3: Origins:
+  - **Uploaded:** an approved file, transcribed and chaptered by AI; the transcript is checked before review.
+  - **AI-generated:** made with the SwishX video engine from the module's cited sentences.
+  - **Clip:** a chapter cut from a longer approved video.
+
+**MD-2 (P0) PDF reading.** As a trainer, I want reps to read the real approved source, not a summary.
+- AC1: A reading block assigns pages of an approved source (PI, reprint, payer guide), shown in-app, view-only, with the doc number on every page.
+- AC2: An optional trainer note per page (e.g. "Know 5.2 word for word").
+- AC3: Completion needs every assigned page opened.
+
+**MD-3 (P0) Visual-aid walkthrough.** As a trainer, I want to teach reps how to use the approved detail aid in a call.
+- AC1: Page by page: the approved page, plus **Say** (what to say) and **Avoid** (what not to).
+- AC2: Safety pages are always part of the walkthrough when efficacy pages are.
+- AC3: Completion needs every page viewed.
+
+**MD-4 (P1) Audio.** As a rep, I want to listen while driving between calls.
+- AC1: An audio block reads a module's approved text aloud (text-to-speech). Same words, so nothing new to approve.
+- AC2: Large controls, speed control, background-friendly. Never gated: the same content is in the lesson.
+
+**MD-5 (P0) Playlist and Quick watch.** As a rep, I want to see what's inside a module and grab short videos between calls.
+- AC1: Path rows show the module's mix (videos, readings, walkthroughs, audio, checks, roleplay) and minutes.
+- AC2: The rep home has a **Quick watch** rail of videos under ~3 minutes from assigned courses' published versions.
+- AC3: Watching 90% of a clip that's in the rep's path counts it as complete. Otherwise it's a refresher.
+
+**MD-6 (P0) Authoring media.** As a trainer, I want to add media without leaving the editor.
+- AC1: "Add to this module": Upload video · Generate a short video · Assign PDF pages · Visual-aid walkthrough · Audio version.
+- AC2: **Split into clips** on any approved video of 5+ minutes with 3+ chapters: one clip per chapter, inserted after it.
+- AC3: Personalisation treats media like any block (competency tags; included or skipped with its module).
+
+**MD-7 (P0) Media in review and analytics.**
+- AC1: **Pre-review checks:**
+  - video scripts get the same wording checks as text (superlatives, off-indication)
+  - AI-generated videos and clips are flagged orange; each must be acknowledged, because each is a new piece for MLR
+- AC2: **MLR package** lists, for every media block:
+  - **Videos:** the script with timestamps, chapters and origin (file name / AI-generated / clip source and time range)
+  - **Readings:** source, pages and trainer notes
+  - **Walkthroughs:** the Say/Avoid text for each page
+  - **Audio:** which approved text it reads
+- AC3: **Content health** shows video drop-off ("62% stop at 1:40"), with a link to the module.
+
+### E17. Library, explore and prerequisites
+
+Reps aren't pushed straight into screening. They can browse an approved Library and explore any course without credit. Screening unlocks once their foundation courses are done.
+
+**RL-1 (P0) Library tab.** As a rep, I want to see what's available for my team and explore it on my own terms.
+- AC1: Rep tabs are **Home · My learning · Library · Practice · Me**.
+- AC2: **Library shelves:** For your team · Playlists · Short videos · Visual aids & detailers · Reading room · Graphics · Listen on the road · All courses.
+- AC3: Search covers courses, materials and the media blocks inside courses, including video scripts. Filters by type.
+- AC4: A search that matches nothing shows a clear empty state. If the term suggests an unapproved use ("pediatric"), it points to Medical Information.
+- AC5: Only **published, in-date** versions appear. Expired or withdrawn items disappear.
+
+**RL-2 (P0) Explore vs Get certified.** As a rep, I want to look inside a course before committing to a screening.
+- AC1: A course page offers **Explore the course** (every module, any order, no gating, not for credit) and **Get certified** (screening → path → assessment → verify).
+- AC2: Courses not assigned to the rep can be started from the Library ("Started from the Library" in My learning).
+- AC3: Explored blocks earn XP and are **carried into a for-credit path** on the same approved version, so nothing is repeated.
+- AC4: Explore is a course setting (default on).
+
+**RL-3 (P0) Screening prerequisites.** As a trainer, I want foundations done before reps are screened.
+- AC1: Per course: "Screening unlocks after" a list of courses. Admin defaults per division (default: Compliance essentials + the therapy-area 101).
+- AC2: A locked course shows each prerequisite with what's left. Explore stays available.
+- AC3: The rep's mission points at the foundation course first: "Foundations · unlocks Lumora launch readiness screening".
+
+**RL-4 (P0) Library visibility.** As a trainer, I want to control what reps can find.
+- AC1: Per course and material: **Assigned only**, **Matching audience** (the product's division) or **Everyone**. Default: matching audience.
+- AC2: Visibility is a distribution setting, not content, so it can change on an approved version.
+
+**RL-5 (P0) Materials and playlists.** As a trainer, I want to publish pieces without wrapping them in a course.
+- AC1: **Playlist builder:** pick approved blocks from published courses and order them. No new content, so no separate MLR review.
+- AC2: **Publish a reading:** assigned pages of an approved document, view-only.
+- AC3: **Graphics:** approved one-page infographics with a doc number and expiry (MLR-approved like any piece).
+
+**RL-6 (P0) Library analytics (aggregate only).** As a trainer, I want to know what reps look for and use.
+- AC1: Most viewed items, views over 30 days, number of reps exploring. Counts only, never per rep.
+- AC2: **Searches that found nothing**, with counts. Off-label-looking terms are labelled "remind reps about Medical Information", not "create content".
+
 ---
 
 ## 7. Metric definitions
@@ -758,6 +844,8 @@ Immutable, event-based records (TR-1), exportable, with version and doc number o
 | Assignment rules, Default/Required/Recommended, campaigns | ✅ | Manager assignment, due-date tools | |
 | Practice: prep for a meeting, library, private scorecard, share | ✅ | Quick quiz, flashcards, team practice pulse | |
 | Gamification: XP, levels, streaks, badges | ✅ | Leaderboards, celebrations | |
+| Media: video (chapters, captions, 90% rule), PDF reading, visual-aid walkthrough, clips, AI video, Quick watch | ✅ | Audio (text-to-speech) | Real video hosting and rendering, offline downloads |
+| Library: shelves, search, explore, self-enrol, prerequisites, visibility, playlist builder, readings, analytics | ✅ | | Admin per-division prerequisite defaults UI |
 | Records (log, views) | ✅ | Export PDF, retention settings | Auditor role |
 | Admin: org, users (CSV), products, competencies | ✅ | Settings page | SSO/SCIM, HRIS/CRM sync, LMS xAPI |
 | Notifications | In-app | | Email, push, digests |
@@ -788,6 +876,7 @@ All brand, drug, company and people names are fictional and marked as such in th
 - **Course generation:** pre-authored Lumora content revealed progressively (outline, then modules streaming in), so it feels generated. Citations point to fictional source documents (Lumora PI, Lumora visual aid, Phase 3 summary).
 - **Chat edits:** a set of suggested prompts with authored diffs ("Shorten module 2", "Add 3 harder dosing questions", "Make Dr. Kim more sceptical", "Fix all orange checks"), plus a graceful generic reply for anything else.
 - **Voice roleplay:** the browser's speech recognition and speech synthesis where available, driving a scripted HCP dialogue tree (keyword-matched branches per objection), with typed fallback. The scorecard is computed from keyword hits against rubric criteria and the prohibited list, so off-label detection can be shown live (e.g. saying "teenagers" triggers the unapproved-population flag).
+- **Media:** videos are simulated. The timeline, chapters and captions are real; the picture is drawn from the script's scenes, and narration uses the browser's speech synthesis. PDFs render the fictional PI and payer-guide pages. Uploads and AI generation are simulated from the module's cited sentences.
 - **Screening:** a real adaptive quiz over the seeded item bank; the path is computed with the real PP-1 rules over seeded block tags.
 
 ### 12.3 Screen inventory

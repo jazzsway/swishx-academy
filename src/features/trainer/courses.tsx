@@ -64,7 +64,7 @@ export function CourseCatalogue() {
           { key: "title", header: "Course", cell: (c) => (
             <div className="flex flex-col gap-0.5 py-1">
               <Text size="body-lg" weight="semibold">{c.title}</Text>
-              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "long" ? "Long-form" : "Short"} · {c.type === "personalised" ? "Personalised" : "Linear"} · {courseMinutes(c)} min</Text>
+              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "long" ? "Long" : "Short"} · {c.type === "personalised" ? "Personalised" : "Same for everyone"} · {courseMinutes(c)} min</Text>
             </div>) },
           { key: "state", header: "Current version", cell: (c) => {
             const v = current(c);

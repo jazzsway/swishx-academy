@@ -25,7 +25,7 @@ export function AssignCourse() {
   const campaigns = useApp((s) => s.campaigns);
   const assign = useApp((s) => s.assign);
   const { message, open, showToast } = useToast();
-  const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, divisionIds: data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
+  const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
   const [type, setType] = useState<Progress["assignType"]>("required");
   const [due, setDue] = useState(in30);
   const [campaignId, setCampaignId] = useState<string>("");

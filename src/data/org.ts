@@ -1,4 +1,7 @@
-import type { Competency, Division, Domain, District, Product, Region, Source } from "./types";
+import type { Competency, Domain, District, Region, Source } from "./types";
+import { DIVISIONS, PRODUCTS, PRODUCT_PI_SOURCES } from "./products";
+
+export { DIVISIONS, PRODUCTS };
 
 /* Corvana Therapeutics is fictional. So are Lumora, Cardexa, every person and every number. */
 
@@ -6,6 +9,8 @@ export const ORG = {
   name: "Corvana Therapeutics",
   short: "Corvana",
   fictional: true,
+  /** When the SwishX team last loaded the field structure from the client's org chart. */
+  structureUpdatedAt: "2026-10-02",
 };
 
 /** The prototype runs on a fixed "today" so the demo story (due dates, expiry, overdue) never drifts. */
@@ -38,10 +43,7 @@ export const COMPETENCIES: Competency[] = [
 export const competency = (id: string) => COMPETENCIES.find((c) => c.id === id)!;
 export const domainOf = (competencyId: string) => DOMAINS.find((d) => d.id === competency(competencyId)?.domain)!;
 
-export const DIVISIONS: Division[] = [
-  { id: "div-imm", name: "Immunology", therapyArea: "Dermatology" },
-  { id: "div-cm", name: "Cardiometabolic", therapyArea: "Cardiology" },
-];
+
 
 export const REGIONS: Region[] = [
   { id: "reg-east", name: "East", divisionId: "div-imm" },
@@ -72,36 +74,6 @@ export const DISTRICTS: Omit<District, "managerId">[] = [
   { id: "d-desert", name: "Desert", regionId: "reg-pac" },
 ];
 
-export const PRODUCTS: Product[] = [
-  {
-    id: "p-lumora",
-    brand: "Lumora",
-    generic: "relvokimab",
-    divisionId: "div-imm",
-    therapyArea: "Dermatology",
-    piSourceId: "src-lum-pi",
-    indications: [
-      {
-        short: "Atopic dermatitis (adults)",
-        full: "Treatment of adults with moderate-to-severe atopic dermatitis whose disease is not adequately controlled with topical prescription therapies or when those therapies are not advisable. Lumora can be used with or without topical corticosteroids.",
-      },
-    ],
-  },
-  {
-    id: "p-cardexa",
-    brand: "Cardexa",
-    generic: "feravistat",
-    divisionId: "div-cm",
-    therapyArea: "Cardiology",
-    piSourceId: "src-cdx-pi",
-    indications: [
-      {
-        short: "HFrEF (adults)",
-        full: "To reduce the risk of cardiovascular death and hospitalization for heart failure in adults with chronic heart failure with reduced ejection fraction (NYHA class II–IV).",
-      },
-    ],
-  },
-];
 
 export const product = (id?: string) => PRODUCTS.find((p) => p.id === id);
 
@@ -115,6 +87,16 @@ export const SOURCES: Source[] = [
   { id: "src-code", title: "Corvana promotional compliance policy", type: "Policy", pages: 10, docNumber: "CORV-US-0010" },
   { id: "src-cdx-pi", title: "Cardexa Prescribing Information (rev. 10/2026)", type: "Prescribing Information", pages: 22, docNumber: "CDX-US-0398", productId: "p-cardexa" },
   { id: "src-cdx-va", title: "Cardexa visual aid", type: "Visual aid", pages: 10, docNumber: "CDX-US-0405", productId: "p-cardexa" },
+  ...PRODUCT_PI_SOURCES,
 ];
 
-export const source = (id: string) => SOURCES.find((s) => s.id === id);
+/* Trainer uploads live in the app store; it registers them here so every lookup finds them. */
+const UPLOADS: Source[] = [];
+export function registerUploads(list: Source[]) {
+  UPLOADS.splice(0, UPLOADS.length, ...list);
+}
+
+export const source = (id: string) => SOURCES.find((s) => s.id === id) ?? UPLOADS.find((s) => s.id === id);
+
+/** Approved means it carries an MLR document number. Uploads don't, until MLR approves them. */
+export const isApproved = (s?: Source) => !!s?.docNumber && !s.uploaded;

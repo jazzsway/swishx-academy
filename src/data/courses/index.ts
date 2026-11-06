@@ -24,8 +24,6 @@ export function defaultSettings(type: Course["type"], over: Partial<CourseSettin
     verify: personalised ? "manager" : "auto",
     recertMonths: 12,
     attestation: "I have read and understood the current Prescribing Information and will promote only within the approved indication.",
-    aiReorder: false,
-    managersMayAssign: true,
     completion: personalised
       ? { path: true, assessment: true, verify: true, attestation: true, checks: 0 }
       : { path: true, assessment: false, verify: false, attestation: true, checks: 80 },
@@ -57,6 +55,7 @@ export function seedCourses(): Course[] {
           { at: "2026-01-12", by: "Maya Chen", action: "Published" },
         ] })],
       ownerId: MAYA, updatedAt: "2026-01-12", defaultFor: "All reps",
+      visibility: "everyone", prerequisites: [], allowExplore: true,
     },
     {
       id: "c-ad101", title: "Atopic dermatitis 101", format: "short", type: "linear",
@@ -68,6 +67,7 @@ export function seedCourses(): Course[] {
         state: "published", docNumber: "CORV-US-0115", approvedAt: "2026-03-02", expiresAt: "2027-03-02", publishedAt: "2026-03-04",
         history: [{ at: "2026-03-02", by: "Maya Chen", action: "Recorded approval", note: "CORV-US-0115" }, { at: "2026-03-04", by: "Maya Chen", action: "Published" }] })],
       ownerId: MAYA, updatedAt: "2026-03-04", defaultFor: "Immunology",
+      divisionId: "div-imm", visibility: "audience", prerequisites: [], allowExplore: true,
     },
     {
       id: "c-lumora-launch", title: "Lumora launch readiness", productId: "p-lumora", format: "long", type: "personalised",
@@ -89,6 +89,7 @@ export function seedCourses(): Course[] {
           { at: "2026-09-15", by: "Maya Chen", action: "Published · Launch readiness campaign" },
         ] })],
       ownerId: MAYA, updatedAt: "2026-09-15",
+      visibility: "audience", prerequisites: ["c-compliance", "c-ad101"], allowExplore: true,
     },
     {
       id: "c-lumora-np", title: "Lumora for nurse practitioners", productId: "p-lumora", format: "short", type: "linear",
@@ -103,6 +104,7 @@ export function seedCourses(): Course[] {
           { at: "2026-10-28", by: "Maya Chen", action: "Marked as submitted", note: "Vault VV-104772" },
         ] })],
       ownerId: MAYA, updatedAt: "2026-10-28",
+      visibility: "audience", prerequisites: [], allowExplore: true,
     },
     {
       id: "c-cardexa", title: "Cardexa label update 2026", productId: "p-cardexa", format: "short", type: "linear",
@@ -129,6 +131,7 @@ export function seedCourses(): Course[] {
           ] }),
       ],
       ownerId: MAYA, updatedAt: "2026-11-04",
+      visibility: "audience", prerequisites: ["c-compliance"], allowExplore: true,
     },
   ];
 }

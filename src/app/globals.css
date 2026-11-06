@@ -776,3 +776,8 @@ button.rounded-full {
 .typing-dot:nth-child(3) { animation-delay: .3s; }
 
 mark.cite-missing { background: transparent; color: inherit; text-decoration: underline wavy var(--color-danger); text-underline-offset: 4px; }
+
+/* Copilot panel slides in from the right. */
+.copilot-in {
+  animation: drawer-in 220ms var(--ease-entrance);
+}

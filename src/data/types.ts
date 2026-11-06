@@ -35,20 +35,35 @@ export interface User {
   active: boolean;
 }
 
-export interface Indication { short: string; full: string }
+export interface Indication {
+  short: string;
+  full: string;
+  therapyAreas: string[];
+  /** Variants that carry this indication. Empty means all of them. */
+  variants?: string[];
+  isNew?: boolean;
+}
 
 export interface Product {
   id: string;
   brand: string;
   generic: string;
   divisionId: string;
+  /** Primary therapy area; `therapyAreas` holds all of them. */
   therapyArea: string;
+  therapyAreas: string[];
+  form: string;
+  variants: string[];
   indications: Indication[];
   piSourceId: string;
+  status: "Marketed" | "Launch" | "Awaiting approval";
+  gradient: string;
 }
 
 export type SourceType =
-  | "Prescribing Information" | "Visual aid" | "Clinical summary" | "Objection handler" | "Payer guide" | "Policy";
+  | "Prescribing Information" | "Visual aid" | "Clinical summary" | "Objection handler" | "Payer guide" | "Policy" | "Uploaded file";
+
+export type FileFormat = "pdf" | "slides" | "doc" | "video" | "data" | "image" | "other";
 
 export interface Source {
   id: string;
@@ -57,13 +72,38 @@ export interface Source {
   pages: number;
   docNumber?: string;
   productId?: string;
+  /** Files the trainer uploaded themselves. They have no MLR doc number until they're approved. */
+  uploaded?: { fileName: string; format: FileFormat; at: string };
 }
 
 export interface Citation { sourceId: string; page: number }
 
 export interface Para { text: string; cite?: Citation; missing?: boolean }
 
-export type BlockType = "lesson" | "keypoints" | "flashcards" | "check" | "video" | "scenario";
+export type BlockType = "lesson" | "keypoints" | "flashcards" | "check" | "video" | "document" | "visualaid" | "audio" | "graphic" | "scenario";
+
+/** A short video. Captions are the approved script; scenes drive the simulated picture in the prototype. */
+export interface VideoSpec {
+  durationSec: number;
+  origin: "upload" | "ai" | "clip";
+  chapters: { at: number; title: string }[];
+  captions: { at: number; text: string }[];
+  scenes: { at: number; headline: string; sub?: string; stat?: string }[];
+  clipOf?: { blockId: string; from: number; to: number; title: string };
+  fileName?: string;
+}
+
+/** Assigned pages of an approved PDF, read in-app. */
+export interface DocumentSpec { sourceId: string; pages: number[]; callouts: { page: number; text: string }[] }
+
+/** The approved visual aid, page by page, with what to say. */
+export interface VisualAidSpec { sourceId: string; pages: { page: number; say: string; avoid?: string }[] }
+
+/** An approved one-page infographic. */
+export interface GraphicSpec { headline: string; stats: { value: string; label: string }[]; points: string[]; footnote?: string; sourceId?: string }
+
+/** Approved text read aloud (text-to-speech). Same words, so nothing new to approve. */
+export interface AudioSpec { fromBlockIds: string[]; durationSec: number }
 
 export interface Block {
   id: string;
@@ -75,7 +115,11 @@ export interface Block {
   points?: Para[];
   cards?: { front: string; back: string; cite?: Citation }[];
   check?: { question: string; options: string[]; answer: number; rationale: string; cite?: Citation };
-  video?: { duration: string; transcript: string };
+  video?: VideoSpec;
+  document?: DocumentSpec;
+  visualaid?: VisualAidSpec;
+  audio?: AudioSpec;
+  graphic?: GraphicSpec;
   scenarioId?: string;
 }
 
@@ -203,8 +247,6 @@ export interface CourseSettings {
   verify: "auto" | "manager";
   recertMonths: number;
   attestation: string;
-  aiReorder: boolean;
-  managersMayAssign: boolean;
   completion: { path: boolean; assessment: boolean; verify: boolean; attestation: boolean; checks: number };
 }
 
@@ -227,6 +269,38 @@ export interface Course {
   ownerId: string;
   updatedAt: string;
   defaultFor?: string;
+  /** The product scope picked at creation: variants, indications (short names) and therapy areas. Empty means all. */
+  scope?: { variants: string[]; indications: string[]; therapyAreas: string[] };
+  /** For company courses without a product: the division whose reps see it in the Library. */
+  divisionId?: string;
+  /** Who the content is written for; sets depth and tone. */
+  writtenFor?: "reps" | "new_hires" | "managers";
+  /** Field teams (division ids) it's meant for. Empty means everyone. Drives Library visibility and the default when assigning. */
+  teams?: string[];
+  /** Library visibility: assigned only, matching audience (division of the product), or everyone. */
+  visibility: LibraryVisibility;
+  /** Courses that must be certified before screening unlocks. */
+  prerequisites: string[];
+  /** Reps may open any module without starting for credit. */
+  allowExplore: boolean;
+}
+
+export type LibraryVisibility = "assigned" | "audience" | "everyone";
+
+/** A standalone Library item: an approved piece published on its own, or a playlist of approved blocks. */
+export interface Material {
+  id: string;
+  kind: "playlist" | "graphic" | "reading" | "visualaid";
+  title: string;
+  description: string;
+  productId?: string;
+  visibility: LibraryVisibility;
+  block?: Block;
+  items?: { courseId: string; blockId: string }[];
+  docNumber?: string;
+  expiresAt?: string;
+  createdAt: string;
+  ownerId: string;
 }
 
 export type ProgressState =
@@ -272,7 +346,7 @@ export interface Progress {
   state: ProgressState;
   assignedAt: string;
   dueAt?: string;
-  assignType: "default" | "required" | "recommended";
+  assignType: "default" | "required" | "recommended" | "self";
   campaignId?: string;
   startedAt?: string;
   screening?: { at: string; overall: number; scores: Record<string, number>; call?: RoleplayResult };

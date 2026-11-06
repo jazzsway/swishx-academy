@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Mic, ShieldAlert } from "lucide-react";
 import { SCENARIOS, objection, prohibited } from "@/data/scenarios";
-import { competency } from "@/data/org";
+import { competency, product } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
 import { Card, Avatar } from "@/components/patterns/academy";
@@ -14,12 +14,23 @@ export function RoleplaySetup() {
   const { id } = useParams<{ id: string }>();
   const data = useCourse(id);
   if (!data) return null;
+  if (data.course.type !== "personalised") return null;
   const scs = SCENARIOS.filter((s) => data.course.scenarioIds.includes(s.id));
   return (
-    <div className="flex flex-col gap-6">
+    <div id="roleplay" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-0.5">
+        <Text as="h2" size="title" weight="bold">Roleplay doctor</Text>
+        <Text size="body" tone="subtle">The AI HCP reps talk to in screening, assessment and practice. Its persona, rubric and prohibited list go to MLR with the course.</Text>
+      </div>
+      {scs.length === 0 && (
+        <Card>
+          <Text size="body-lg" weight="semibold">No roleplay doctor for {product(data.course.productId)?.brand ?? "this course"} yet</Text>
+          <Text size="body" tone="muted">Doctors are product-specific: the objections, rubric and prohibited language come from this product&apos;s approved materials. Until one is set up, the assessment is the quiz only.</Text>
+        </Card>
+      )}
       {scs.map((sc) => (
         <Card key={sc.id} title={sc.title} eyebrow={`Used for ${sc.use.join(" · ")}`}
-          actions={<Link href={`/trainer/test-call?scenario=${sc.id}&back=/trainer/courses/${id}/roleplay`} className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white hover:bg-brand-deep"><Mic className="size-4" aria-hidden="true" />Test call</Link>}>
+          actions={<Link href={`/trainer/test-call?scenario=${sc.id}&back=/trainer/courses/${id}/questions`} className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white hover:bg-brand-deep"><Mic className="size-4" aria-hidden="true" />Test call</Link>}>
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">

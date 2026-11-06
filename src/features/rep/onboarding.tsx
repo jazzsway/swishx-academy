@@ -48,8 +48,8 @@ export function RepOnboarding() {
   const screens = [
     {
       icon: <Route className="size-7" aria-hidden="true" />, title: `Welcome, ${me.first}`,
-      body: "Academy skips what you already know. A short screening finds your gaps, and your path covers only those, plus the safety content everyone takes.",
-      points: ["Screening: ~10 min quiz + a 5 min call with an AI doctor", "Your path: only the modules you need", "Assessment, then you're certified"],
+      body: "Start with your foundation courses. Then a short screening finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.",
+      points: ["Foundations first: compliance and your therapy area", "Screening: ~10 min quiz + a 5 min call with an AI doctor", "Explore the Library any time. Nothing there is graded"],
     },
     {
       icon: <Lock className="size-7" aria-hidden="true" />, title: "Practice is private",

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowUp, Lock, Sparkles, Trash2, PencilLine, MessageSquareText, X, FileText } from "lucide-react";
+import { ArrowUp, Lock, Sparkles, Trash2, PencilLine, MessageSquareText, FileText, Scissors } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
@@ -17,6 +17,11 @@ import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view"
 import { useCourse } from "./use-course";
 import { applyChanges, respond, SUGGESTIONS, type ChatTurn } from "./chat";
 import { runChecks } from "./checks";
+import { AddMediaRow } from "./add-media";
+import { clipsFrom } from "./media-builders";
+import { useToast, Toast } from "@/components/patterns/toast";
+import { CopilotOverride } from "@/features/copilot/copilot-panel";
+import { useCopilot } from "@/features/copilot/copilot-store";
 
 export function CourseEditor() {
   const { id } = useParams<{ id: string }>();
@@ -26,8 +31,12 @@ export function CourseEditor() {
   const updateCourse = useApp((s) => s.updateCourse);
   const backToDraft = useApp((s) => s.backToDraft);
   const [selected, setSelected] = useState<string | undefined>(search.get("module") ?? undefined);
-  const [chatOpen, setChatOpen] = useState(false);
   const [editing, setEditing] = useState<{ moduleId: string; block: Block } | null>(null);
+  const { message, open, showToast } = useToast();
+  const copilotOpen = useCopilot((s) => s.open);
+  const setCopilotOpen = useCopilot((s) => s.setOpen);
+  const fresh = search.get("fresh") === "1";
+  useEffect(() => { if (fresh) setCopilotOpen(true); }, [fresh, setCopilotOpen]);
 
   const course = data?.course;
   const modules = course?.modules ?? [];
@@ -45,7 +54,7 @@ export function CourseEditor() {
   const patchModule = (mid: string, patch: Partial<Module>) => save(modules.map((m) => (m.id === mid ? { ...m, ...patch } : m)));
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_360px]">
+    <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
       <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:self-start">
         <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{modules.length} modules</Text>
         {modules.map((m, i) => {
@@ -82,7 +91,7 @@ export function CourseEditor() {
                   ) : <Text as="h2" size="display" weight="bold" tracking="tight">{mod.title}</Text>}
                   <Text size="body-lg" tone="subtle">{mod.summary}</Text>
                 </div>
-                <Button variant="soft" size="sm" className="xl:hidden" onClick={() => setChatOpen(true)}><Sparkles className="size-4" aria-hidden="true" />Ask SwishX</Button>
+                {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><Sparkles className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>
@@ -99,7 +108,7 @@ export function CourseEditor() {
                   </Segmented>
                 )}
               </div>
-              {mod.competency === "c-safety" && <Text size="caption" tone="subtle">Safety content is always included for every rep and can't be switched off (PRD §10.1).</Text>}
+              {mod.competency === "c-safety" && <Text size="caption" tone="subtle">Safety content is always included for every rep and can&apos;t be switched off.</Text>}
             </div>
 
             {mod.blocks.map((b) => {
@@ -116,11 +125,19 @@ export function CourseEditor() {
                     {editable && (b.type === "lesson" || b.type === "keypoints") && (
                       <IconButton aria-label="Edit text" onClick={() => setEditing({ moduleId: mod.id, block: b })}><PencilLine className="size-4" /></IconButton>
                     )}
+                    {editable && b.type === "video" && b.video && b.video.origin !== "clip" && b.video.chapters.length >= 3 && b.video.durationSec > 300 && (
+                      <Button size="sm" variant="secondary" onClick={() => {
+                        const clips = clipsFrom(b);
+                        const i = mod.blocks.findIndex((x) => x.id === b.id);
+                        patchModule(mod.id, { blocks: [...mod.blocks.slice(0, i + 1), ...clips, ...mod.blocks.slice(i + 1)], minutes: mod.minutes + clips.reduce((a, c) => a + c.minutes, 0) });
+                        showToast(`Cut into ${clips.length} clips · each goes to MLR`);
+                      }}><Scissors className="size-4" aria-hidden="true" />Split into clips</Button>
+                    )}
                     {editable && !mod.required && mod.blocks.length > 1 && (
                       <IconButton aria-label="Delete block" tone="danger" onClick={() => patchModule(mod.id, { blocks: mod.blocks.filter((x) => x.id !== b.id), minutes: mod.minutes - b.minutes })}><Trash2 className="size-4" /></IconButton>
                     )}
                   </header>
-                  <BlockView block={b} sourceIds={course.sourceIds} flag />
+                  <BlockView block={b} sourceIds={course.sourceIds} flag siblings={mod.blocks} />
                   {blockIssues.length > 0 && (
                     <div className="flex flex-col gap-1.5 border-t border-hair pt-3">
                       {blockIssues.map((f) => (
@@ -134,42 +151,44 @@ export function CourseEditor() {
                 </article>
               );
             })}
+            {editable && <AddMediaRow course={course} module={mod} onAdd={(b, note) => { patchModule(mod.id, { blocks: [...mod.blocks, b], minutes: mod.minutes + b.minutes }); showToast(note); }} />}
           </>
         ) : (
           <div className="squircle rounded-card border border-dashed border-hair-2 p-10 text-center"><Text tone="subtle">No modules yet.</Text></div>
         )}
       </div>
 
-      <aside className={cn("xl:sticky xl:top-[84px] xl:block xl:h-[calc(100dvh-110px)] xl:self-start",
-        chatOpen ? "fixed inset-0 z-50 block bg-ink/40 p-3 sm:p-6" : "hidden")} onMouseDown={(e) => { if (e.target === e.currentTarget) setChatOpen(false); }}>
-        <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={search.get("fresh") === "1"} issues={issues.length}
-          onClose={() => setChatOpen(false)}
+      {/* Locked versions get the trainer's general copilot instead: there's nothing to edit. */}
+      {editable && <CopilotOverride>
+        <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={fresh} issues={issues.length}
           onApply={(changes) => {
             const next = applyChanges(course, changes);
             if (data.cur.state === "ready") backToDraft(course.id);
             setModules(course.id, next.modules);
             if (next.items !== course.items) updateCourse(course.id, { items: next.items });
           }} />
-      </aside>
+      </CopilotOverride>}
 
       {editing && <EditBlockModal editing={editing} onClose={() => setEditing(null)} onSave={(block) => {
         const m = modules.find((x) => x.id === editing.moduleId)!;
         patchModule(m.id, { blocks: m.blocks.map((b) => (b.id === block.id ? block : b)) });
         setEditing(null);
       }} />}
+      <Toast message={message} open={open} />
     </div>
   );
 }
 
-function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply, onClose }: {
+/** The copilot while editing a course: proposes cited changes that wait for the trainer's OK. */
+function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply }: {
   courseId: string; moduleId?: string; editable: boolean; fresh: boolean; issues: number;
-  onApply: (c: NonNullable<ChatTurn["changes"]>) => void; onClose: () => void;
+  onApply: (c: NonNullable<ChatTurn["changes"]>) => void;
 }) {
   const data = useCourse(courseId);
   const [turns, setTurns] = useState<ChatTurn[]>(() => [{
     id: "hello", from: "ai",
     text: fresh
-      ? `I wrote ${data?.course.modules.length ?? 0} modules from ${data?.course.sourceIds.length ?? 0} sources, plus ${data?.course.items.length ?? 0} questions. ${issues ? `${issues} sentence${issues > 1 ? "s" : ""} need${issues > 1 ? "" : "s"} your attention before review.` : "Everything is cited."}`
+      ? `I wrote ${data?.course.modules.length ?? 0} modules from ${data?.course.sourceIds.length ?? 0} sources, plus ${data?.course.items.length ?? 0} questions. ${issues ? `${issues} finding${issues > 1 ? "s" : ""} need${issues > 1 ? "" : "s"} your attention before review.` : "Everything is cited."}`
       : editable ? "Ask me to change this course. I'll only use its sources, and every change waits for your OK." : "This version is locked. I can answer questions about it; to change it, start a new version.",
   }]);
   const [text, setText] = useState("");
@@ -196,12 +215,11 @@ function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply, onClo
   }
 
   return (
-    <div className="squircle flex h-full max-h-full flex-col overflow-hidden rounded-card border border-hair bg-card shadow-soft">
-      <header className="flex items-center gap-2.5 border-b border-hair px-4 py-3">
-        <span className="grid size-8 place-items-center rounded-control bg-tint text-brand-deep"><Sparkles className="size-4" aria-hidden="true" /></span>
-        <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">Ask SwishX</Text><Text size="micro" tone="subtle">Uses only this course's {data.course.sourceIds.length} sources</Text></div>
-        <IconButton aria-label="Close chat" className="xl:hidden" onClick={onClose}><X className="size-4" /></IconButton>
-      </header>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-2 border-b border-hair bg-tint/60 px-4 py-2.5">
+        <PencilLine className="size-4 text-brand-deep" aria-hidden="true" />
+        <Text size="caption" weight="semibold" tone="muted" className="truncate">Editing {data.course.title} · uses only its {data.course.sourceIds.length} sources</Text>
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {turns.map((t) => (
           <div key={t.id} className={cn("flex flex-col gap-2", t.from === "you" && "items-end")}>

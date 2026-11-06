@@ -14,7 +14,7 @@ import { Scorecard } from "@/features/roleplay/scorecard";
 export function TestCall() {
   const search = useSearchParams();
   const sc = getScenario(search.get("scenario") ?? "sc-kim");
-  const back = search.get("back") ?? "/trainer/courses/c-lumora-launch/roleplay";
+  const back = search.get("back") ?? "/trainer/courses/c-lumora-launch/questions";
   const [result, setResult] = useState<CallOutcome | null>(null);
   const [key, setKey] = useState(0);
   if (result)

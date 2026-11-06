@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { X, ArrowRight, ShieldCheck, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useApp } from "@/store/app-store";
+import { nowIso, useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { competency } from "@/data/org";
 import { scenario as getScenario, prohibited } from "@/data/scenarios";
@@ -48,6 +48,9 @@ export function Assessment() {
   const attemptNo = p.attempts.length + 1;
   const failsSoFar = p.attempts.filter((a) => !a.passed).length;
   const attemptsLeft = st.attempts - failsSoFar;
+  const lastFail = p.attempts.filter((a) => !a.passed).at(-1);
+  const retakeAt = lastFail ? new Date(new Date(lastFail.at).getTime() + st.cooldownHours * 3600_000) : undefined;
+  const coolingDown = !resubmit && !s.presenter && !!retakeAt && retakeAt > new Date(nowIso());
 
   function grade(call?: CallOutcome, ans: Record<string, number | null> = answers) {
     const quiz = resubmit ? { overall: p!.attempts.at(-1)?.quiz ?? 0, scores: p!.attempts.at(-1)?.competencyScores ?? {} } : scoreItems(items, ans);
@@ -113,7 +116,7 @@ export function Assessment() {
             <>
               <div className="squircle flex flex-col gap-1 rounded-panel bg-tint p-4">
                 <Text size="body-lg" weight="bold">Your next path: {fresh.path.moduleIds.length} modules · ~{pathMinutes(mods, fresh.path.moduleIds)} min</Text>
-                <Text size="body" tone="muted">{attemptsLeft - 1 > 0 ? `${attemptsLeft - 1} attempt${attemptsLeft - 1 === 1 ? "" : "s"} left. ` : "That was your last attempt; your manager and trainer have been told. "}In a live rollout you'd retake after {st.cooldownHours} hours; the demo lets you retake straight away.</Text>
+                <Text size="body" tone="muted">{attemptsLeft - 1 > 0 ? `${attemptsLeft - 1} attempt${attemptsLeft - 1 === 1 ? "" : "s"} left. ` : "That was your last attempt; your manager and trainer have been told. "}Finish the path first; you can retake {st.cooldownHours} hours after this attempt{s.presenter ? " (presenter mode skips the wait)" : ""}.</Text>
               </div>
               <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><RotateCcw className="size-4" aria-hidden="true" />Start my retake path</Button>
             </>
@@ -141,12 +144,13 @@ export function Assessment() {
         <div className="squircle flex flex-col gap-2.5 rounded-panel border border-hair bg-card p-4">
           {!resubmit && <Text size="body-lg">· {items.length} questions, no feedback until the end</Text>}
           {st.assessmentCall && <Text size="body-lg">· A ~{sc?.durationMin}-minute call with {sc?.persona.name}, recorded</Text>}
-          <Text size="body-lg">· Pass: {st.passOverall}% overall, {st.passCritical}% on {st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}, {st.passRoleplay}% on the call</Text>
+          <Text size="body-lg">· Pass: {st.passOverall}% overall, {st.passCritical}% on {st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}{st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}</Text>
           <Text size="body-lg">· Any critical compliance flag is an automatic fail</Text>
           <Text size="body-lg">· Attempt {attemptNo} of {st.attempts}</Text>
         </div>
         {resubmit && <Text size="body" tone="muted">Your quiz score carries over. Only the call is redone, with your manager&apos;s focus areas in mind.</Text>}
-        <Button size="lg" fullWidth className="mt-auto" onClick={() => setPhase(resubmit ? "bridge" : "quiz")}>Begin</Button>
+        {coolingDown && retakeAt && <Text size="body" tone="muted">You can retake from {retakeAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}, {st.cooldownHours} hours after your last attempt.</Text>}
+        <Button size="lg" fullWidth className="mt-auto" disabled={coolingDown} onClick={() => setPhase(resubmit ? "bridge" : "quiz")}>Begin</Button>
       </div>
     );
 

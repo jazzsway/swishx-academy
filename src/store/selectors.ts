@@ -132,6 +132,7 @@ export function xpFor(s: AppState, userId: string) {
     if (passed >= 0) xp += 100 + (passed === 0 ? 50 : 0);
     if (p.state === "certified" && p.certifiedAt && p.certifiedAt >= "2026-11-01") xp += 150;
   }
+  xp += (s.explored[userId]?.length ?? 0) * 5;
   const byDay = new Map<string, number>();
   for (const ps of s.practice.filter((x) => x.userId === userId)) byDay.set(ps.at.slice(0, 10), (byDay.get(ps.at.slice(0, 10)) ?? 0) + 1);
   for (const n of byDay.values()) xp += Math.min(5, n) * 10;

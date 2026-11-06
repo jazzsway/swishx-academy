@@ -19,10 +19,6 @@ import { Scorecard } from "@/features/roleplay/scorecard";
 import { RepDetail } from "@/features/shared/rep-detail";
 import { pathProgress } from "@/features/rep/use-rep";
 
-function asLearner() {
-  try { sessionStorage.setItem("academy-learner-as", "u-david"); } catch { /* storage blocked */ }
-}
-
 function useTeam() {
   const me = useMe();
   const s = useApp();
@@ -132,7 +128,7 @@ export function ManagerHome() {
           </Card>
           {mine.length > 0 && (
             <Card title="Your own learning" padded>
-              {mine.map((p) => <Link key={p.id} href={`/rep/course/${p.courseId}`} onClick={asLearner} className="text-body-lg font-semibold text-brand-deep hover:underline">{s.courses.find((c) => c.id === p.courseId)?.title}</Link>)}
+              {mine.map((p) => <Link key={p.id} href="/manager/learning" className="text-body-lg font-semibold text-brand-deep hover:underline">{s.courses.find((c) => c.id === p.courseId)?.title}</Link>)}
             </Card>
           )}
         </div>
@@ -176,16 +172,16 @@ export function ManagerLearning() {
   const mine = s.progress.filter((p) => p.userId === me.id);
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="My learning" description="Managers certify too. Your courses open in the learner app." />
+      <PageHeading title="My learning" description="Managers certify too. Take your courses in the Academy app on your phone; progress shows here." />
       <div className="grid gap-3 sm:grid-cols-2">
         {mine.map((p: Progress) => {
           const c = s.courses.find((x) => x.id === p.courseId)!;
           const pr = pathProgress(p, c);
           return (
-            <Link key={p.id} href={`/rep/course/${c.id}`} onClick={asLearner} className="squircle flex items-center gap-4 rounded-card border border-hair bg-card p-5 hover:shadow-soft">
+            <div key={p.id} className="squircle flex items-center gap-4 rounded-card border border-hair bg-card p-5">
               <Ring value={p.state === "certified" ? 100 : pr.pct} size={48} tone={p.state === "certified" ? "ok" : "brand"} label={`${pr.pct}%`} />
               <div className="flex flex-col"><Text size="subhead" weight="bold">{c.title}</Text><Text size="caption" tone="subtle">{STATE_LABEL[p.state]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}</Text></div>
-            </Link>
+            </div>
           );
         })}
       </div>

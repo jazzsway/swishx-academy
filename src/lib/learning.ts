@@ -26,7 +26,7 @@ export function buildPath(
   modules: Module[],
   scores: Record<string, number>,
   kind: PathPlan["kind"],
-  opts: { aiReorder?: boolean; focus?: string[] } = {},
+  opts: { focus?: string[] } = {},
 ): PathPlan {
   const moduleIds: string[] = [];
   const reasons: Record<string, string> = {};
@@ -70,18 +70,6 @@ export function buildPath(
       testedOut.push(m.id);
       reasons[m.id] = `Optional: ${name} ${s}`;
     }
-  }
-
-  if (opts.aiReorder) {
-    const order = new Map(modules.map((m, i) => [m.id, i]));
-    moduleIds.sort((a, b) => {
-      const ma = modules.find((m) => m.id === a)!;
-      const mb = modules.find((m) => m.id === b)!;
-      if (ma.required !== mb.required) return ma.required ? 1 : -1;
-      const sa = scores[ma.competency] ?? 100;
-      const sb = scores[mb.competency] ?? 100;
-      return sa - sb || order.get(a)! - order.get(b)!;
-    });
   }
 
   return { kind, moduleIds, reasons, testedOut, builtAt: new Date().toISOString() };

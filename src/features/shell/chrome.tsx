@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, RotateCcw, Check } from "lucide-react";
+import Link from "next/link";
+import { Bell, ChevronDown, RotateCcw, Check, Palette, Presentation } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -14,7 +15,6 @@ export const PERSONAS = [
   { userId: "u-maya", role: "Trainer", href: "/trainer", blurb: "Builds courses, runs MLR, proves progress" },
   { userId: "u-david", role: "Manager", href: "/manager", blurb: "Verifies reps, coaches the Northeast team" },
   { userId: "u-priya", role: "Rep", href: "/rep", blurb: "Learns, gets screened, practises privately" },
-  { userId: "u-maya", role: "Admin", href: "/admin", blurb: "People, products, competencies, settings" },
 ] as const;
 
 function useOutside(ref: React.RefObject<HTMLElement | null>, onOut: () => void, active: boolean) {
@@ -28,7 +28,7 @@ function useOutside(ref: React.RefObject<HTMLElement | null>, onOut: () => void,
   }, [ref, onOut, active]);
 }
 
-/** The demo's "View as" control (PRD §9.1). Switching persona also switches screen. */
+/** The prototype's "View as" control. Switching persona also switches screen. Presenter tools live here, out of the product's own navigation. */
 export function ViewAs({ currentRole, compact }: { currentRole: string; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -36,6 +36,8 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
   const users = useApp((s) => s.users);
   const viewAs = useApp((s) => s.viewAs);
   const resetDemo = useApp((s) => s.resetDemo);
+  const presenter = useApp((s) => s.presenter);
+  const setPresenter = useApp((s) => s.setPresenter);
   const me = useMe();
   useOutside(ref, () => setOpen(false), open);
 
@@ -56,7 +58,7 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
             const active = me.id === p.userId && currentRole === p.role;
             return (
               <button key={p.role} role="menuitem" type="button"
-                onClick={() => { try { sessionStorage.removeItem("academy-learner-as"); } catch { /* storage blocked */ } viewAs(p.userId); setOpen(false); router.push(p.href); }}
+                onClick={() => { viewAs(p.userId); setOpen(false); router.push(p.href); }}
                 className={cn("flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left transition-colors hover:bg-subtle", active && "bg-tint")}>
                 <Avatar initials={u.initials} size={32} tone={active ? "ink" : "tint"} />
                 <span className="flex min-w-0 flex-1 flex-col">
@@ -68,6 +70,16 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
             );
           })}
           <div className="my-1.5 border-t border-hair" />
+          <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="block px-2.5 pb-1 pt-1.5">Presenter tools</Text>
+          <button type="button" role="menuitemcheckbox" aria-checked={presenter} onClick={() => setPresenter(!presenter)}
+            className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
+            <Presentation className="size-4" aria-hidden="true" />
+            <span className="flex flex-1 flex-col"><span>Presenter mode</span><span className="text-caption font-normal text-ink-3">Tap-to-answer on calls, no retake wait</span></span>
+            <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", presenter ? "bg-brand" : "bg-black/15")}><span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-hair transition-all", presenter ? "left-4.5" : "left-0.5")} /></span>
+          </button>
+          <Link href="/design-system" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
+            <Palette className="size-4" aria-hidden="true" /> Design system
+          </Link>
           <button type="button" onClick={() => { resetDemo(); setOpen(false); router.push("/trainer"); }}
             className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
             <RotateCcw className="size-4" aria-hidden="true" /> Reset demo data

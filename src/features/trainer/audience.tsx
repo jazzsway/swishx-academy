@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useApp, audienceMatches } from "@/store/app-store";
 import { DIVISIONS, REGIONS } from "@/data/org";
-import type { AudienceRules, Role } from "@/data/types";
+import type { AudienceRules, Role, User } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
 
@@ -17,6 +17,9 @@ export function AudienceBuilder({ rules, onChange, limitToDistrictId }: { rules:
   const districts = useApp((s) => s.districts);
   const effective = limitToDistrictId ? { ...rules, districtIds: [limitToDistrictId] } : rules;
   const matched = useMemo(() => audienceMatches(users, effective), [users, effective]);
+  /* Headcounts follow the role row, so "Immunology · 180" means 180 of the people you're targeting. */
+  const headcount = (where: (u: User) => boolean) => users.filter((u) => u.active && (!rules.roles.length || rules.roles.some((r) => u.roles.includes(r))) && where(u)).length;
+  const teams = DIVISIONS.filter((d) => users.some((u) => u.active && u.divisionId === d.id));
   const regions = REGIONS.filter((r) => !rules.divisionIds.length || rules.divisionIds.includes(r.divisionId));
   const dists = districts.filter((d) => !rules.regionIds.length || rules.regionIds.includes(d.regionId)).filter((d) => regions.some((r) => r.id === d.regionId));
 
@@ -27,14 +30,14 @@ export function AudienceBuilder({ rules, onChange, limitToDistrictId }: { rules:
           <Row label="Role">
             {(["rep", "manager"] as Role[]).map((r) => <Chip key={r} size="lg" selected={rules.roles.includes(r)} onClick={() => onChange({ ...rules, roles: toggle(rules.roles, r) })}>{r === "rep" ? "Field reps" : "Managers"}</Chip>)}
           </Row>
-          <Row label="Division">
-            {DIVISIONS.map((d) => <Chip key={d.id} size="lg" selected={rules.divisionIds.includes(d.id)} onClick={() => onChange({ ...rules, divisionIds: toggle(rules.divisionIds, d.id), regionIds: [], districtIds: [] })}>{d.name} · {d.therapyArea}</Chip>)}
+          <Row label="Division" hint="Only teams with people in the Academy.">
+            {teams.map((d) => <Chip key={d.id} size="lg" selected={rules.divisionIds.includes(d.id)} onClick={() => onChange({ ...rules, divisionIds: toggle(rules.divisionIds, d.id), regionIds: [], districtIds: [] })}>{d.name} · {headcount((u) => u.divisionId === d.id)}</Chip>)}
           </Row>
-          <Row label="Region">
-            {regions.map((r) => <Chip key={r.id} size="md" selected={rules.regionIds.includes(r.id)} onClick={() => onChange({ ...rules, regionIds: toggle(rules.regionIds, r.id), districtIds: [] })}>{r.name}</Chip>)}
+          <Row label="Region" hint={rules.divisionIds.length ? undefined : "Pick a division to narrow these."}>
+            {regions.map((r) => <Chip key={r.id} size="md" selected={rules.regionIds.includes(r.id)} onClick={() => onChange({ ...rules, regionIds: toggle(rules.regionIds, r.id), districtIds: [] })}>{r.name} · {headcount((u) => u.regionId === r.id)}</Chip>)}
           </Row>
           <Row label="District">
-            {dists.map((d) => <Chip key={d.id} size="md" selected={rules.districtIds.includes(d.id)} onClick={() => onChange({ ...rules, districtIds: toggle(rules.districtIds, d.id) })}>{d.name}</Chip>)}
+            {dists.map((d) => <Chip key={d.id} size="md" selected={rules.districtIds.includes(d.id)} onClick={() => onChange({ ...rules, districtIds: toggle(rules.districtIds, d.id) })}>{d.name} · {headcount((u) => u.districtId === d.id)}</Chip>)}
           </Row>
           <Row label="Hire date">
             {[undefined, 90, 180].map((d) => <Chip key={String(d)} size="md" selected={rules.hiredWithinDays === d} onClick={() => onChange({ ...rules, hiredWithinDays: d })}>{d ? `Hired in the last ${d} days` : "Anyone"}</Chip>)}
@@ -49,10 +52,10 @@ export function AudienceBuilder({ rules, onChange, limitToDistrictId }: { rules:
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
-      <Text size="body" weight="semibold" tone="subtle" className="w-24 shrink-0 pt-1.5">{label}</Text>
+      <div className="flex w-28 shrink-0 flex-col pt-1.5"><Text size="body" weight="semibold" tone="subtle">{label}</Text>{hint && <Text size="micro" tone="faint">{hint}</Text>}</div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );

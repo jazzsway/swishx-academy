@@ -129,8 +129,8 @@ export function VerifyReview({ progressId, viewer }: { progressId: string; viewe
                 <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={() => { if (pos >= duration) setPos(0); setPlaying(!playing); }} className="grid size-11 place-items-center rounded-full bg-brand">
                   {playing ? <Pause className="size-5" /> : <Play className="ml-0.5 size-5" />}
                 </button>
-                <div className="flex h-12 flex-1 items-center gap-[3px]" aria-hidden="true">
-                  {bars.map((h, i) => <span key={i} className={cn("w-full rounded-full", i / bars.length <= pos / duration ? "bg-brand-2" : "bg-white/20")} style={{ height: `${h}%` }} />)}
+                <div className="flex h-12 min-w-0 flex-1 items-center gap-px sm:gap-[3px]" aria-hidden="true">
+                  {bars.map((h, i) => <span key={i} className={cn("min-w-0 flex-1 rounded-full", i / bars.length <= pos / duration ? "bg-brand-2" : "bg-white/20")} style={{ height: `${h}%` }} />)}
                 </div>
                 <Text size="body" tone="inverse" tabular className="w-12 text-right opacity-80">{Math.floor(pos / 60)}:{String(Math.floor(pos % 60)).padStart(2, "0")}</Text>
               </div>
@@ -156,7 +156,7 @@ export function VerifyReview({ progressId, viewer }: { progressId: string; viewe
               ))}
             </div>
           </Card>
-          <Card title="Your decision" padded>
+          <Card title="Your decision" padded id="decision">
             <Segmented aria-label="Decision">
               <SegmentedButton active={decision === "approve"} onClick={() => setDecision("approve")}>Approve</SegmentedButton>
               <SegmentedButton active={decision === "coach"} onClick={() => setDecision("coach")}>Needs coaching</SegmentedButton>
@@ -177,6 +177,12 @@ export function VerifyReview({ progressId, viewer }: { progressId: string; viewe
             <Text size="caption" tone="subtle">Your decision and note are part of {u.first}'s training record.</Text>
           </Card>
         </aside>
+      </div>
+
+      {/* On a phone the decision sits under the whole transcript; keep it one tap away. */}
+      <div className="sticky bottom-3 z-10 flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float xl:hidden">
+        <Text size="body" tone="inverse" className="flex-1 opacity-80">{att.overall}% overall · call {call.score}%</Text>
+        <Button size="sm" onClick={() => document.getElementById("decision")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Decide</Button>
       </div>
     </div>
   );

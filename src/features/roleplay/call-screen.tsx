@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, Mic, MicOff, PhoneOff, Volume2, VolumeX, X, Lock, Sparkles, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useApp } from "@/store/app-store";
 import type { Scenario } from "@/data/types";
 import { objection } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
@@ -59,7 +60,8 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   }
 
   const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
-  const samples = sampleAnswers(state);
+  const presenter = useApp((s) => s.presenter);
+  const samples = presenter ? sampleAnswers(state) : [];
 
   if (stage === "prep") {
     return (
@@ -135,7 +137,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {samples.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Text size="micro" weight="bold" tone="inverse" className="opacity-50">DEMO · TAP TO ANSWER WITHOUT A MIC</Text>
+              <Text size="micro" weight="bold" tone="inverse" className="opacity-50">PRESENTER · TAP TO ANSWER</Text>
               <div className="flex flex-wrap gap-1.5">
                 {samples.map((sa) => (
                   <button key={sa.label} type="button" onClick={() => submit(sa.text, true)} className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold", sa.label.includes("try it") ? "border-danger/60 text-[#ff9e9b]" : "border-white/20 text-white/85 hover:bg-white/10")}>{sa.label}</button>

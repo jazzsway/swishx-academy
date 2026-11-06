@@ -1,5 +1,5 @@
 import type { Course, Module } from "@/data/types";
-import { competency, product } from "@/data/org";
+import { competency, isApproved, product, source } from "@/data/org";
 
 /* ML-1 pre-review checks. Red blocks review; orange needs acknowledgement; green is informational. */
 
@@ -43,11 +43,35 @@ export function runChecks(course: Course): Finding[] {
     const low = t.text.toLowerCase();
     for (const w of OFF_INDICATION[course.productId ?? ""] ?? [])
       if (low.includes(w)) f.push({ id: `ind-${t.blockId}-${t.i}`, severity: "red", title: "Outside the approved indication", detail: `"${t.text}" · ${product(course.productId)?.indications[0].short} only`, moduleId: t.moduleId, blockId: t.blockId, paraIndex: t.i, fixable: true });
-    const sup = SUPERLATIVES.find((w) => new RegExp(`\\b${w}\\b`, "i").test(t.text));
+    /* Quoted terms are examples of what not to say, not claims. */
+    const unquoted = t.text.replace(/[“"][^”"]*[”"]/g, "");
+    const sup = SUPERLATIVES.find((w) => new RegExp(`\\b${w}\\b`, "i").test(unquoted));
     if (sup) f.push({ id: `sup-${t.blockId}-${t.i}`, severity: "orange", title: `Superlative or absolute term: "${sup}"`, detail: `"${t.text}"`, moduleId: t.moduleId, blockId: t.blockId, paraIndex: t.i, fixable: true });
     const cmp = COMPARATIVE.find((w) => low.includes(w));
     if (cmp) f.push({ id: `cmp-${t.blockId}-${t.i}`, severity: "orange", title: "Comparative claim without head-to-head data", detail: `"${t.text}"`, moduleId: t.moduleId, blockId: t.blockId, paraIndex: t.i, fixable: true });
   }
+
+  /* Media: video scripts are words reps hear, so they get the same wording checks. */
+  const vids = course.modules.flatMap((m) => m.blocks.filter((b) => b.type === "video" && b.video).map((b) => ({ m, b })));
+  for (const { m, b } of vids) {
+    for (const cap of b.video!.captions) {
+      const sup = SUPERLATIVES.find((w) => new RegExp(`\\b${w}\\b`, "i").test(cap.text));
+      if (sup) f.push({ id: `vsup-${b.id}-${cap.at}`, severity: "orange", title: `Video script: "${sup}"`, detail: `${b.title}: "${cap.text}"`, moduleId: m.id, blockId: b.id });
+      for (const w of OFF_INDICATION[course.productId ?? ""] ?? [])
+        if (cap.text.toLowerCase().includes(w)) f.push({ id: `vind-${b.id}-${cap.at}`, severity: "red", title: "Video script outside the approved indication", detail: `${b.title}: "${cap.text}"`, moduleId: m.id, blockId: b.id });
+    }
+    if (b.video!.origin === "ai") f.push({ id: `ai-${b.id}`, severity: "orange", title: "AI-generated video", detail: `“${b.title}” is new content. Reviewers approve the rendered file and its script in this package.`, moduleId: m.id, blockId: b.id });
+  }
+  const clips = vids.filter(({ b }) => b.video!.origin === "clip");
+  if (clips.length) f.push({ id: "clips", severity: "orange", title: `${clips.length} clips cut from approved videos`, detail: "Each clip is a new piece. The package lists every clip with its source video and timestamps.", moduleId: clips[0].m.id });
+  const docs = course.modules.flatMap((m) => m.blocks.filter((b) => b.type === "document"));
+  const audio = course.modules.flatMap((m) => m.blocks.filter((b) => b.type === "audio"));
+  if (vids.length || docs.length || audio.length)
+    f.push({ id: "media-ok", severity: "green", title: "Media", detail: `${vids.length} video${vids.length === 1 ? "" : "s"} with transcripts · ${docs.length} PDF reading${docs.length === 1 ? "" : "s"} from approved sources · ${audio.length} audio (approved text read aloud)` });
+
+  const unapproved = course.sourceIds.map((id) => source(id)).filter((x) => x && !isApproved(x));
+  if (unapproved.length)
+    f.push({ id: "src-unapproved", severity: "orange", title: `${unapproved.length} source${unapproved.length > 1 ? "s" : ""} not yet MLR-approved`, detail: `${unapproved.map((x) => x!.title).join(", ")}. Each goes to MLR with this course; sentences citing it get reviewed line by line.` });
 
   if (course.productId && !course.modules.some((m) => m.required && m.competency === "c-safety"))
     f.push({ id: "safety-missing", severity: "red", title: "Missing required safety module", detail: "Product courses need at least one safety block marked Required for everyone.", fixable: false });

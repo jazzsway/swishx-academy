@@ -259,7 +259,7 @@ export function ReviewAndVersions() {
               ))}
             </ol>
           </Card>
-          <Text size="caption" tone="subtle" className="px-1">v1 of the Veeva integration is manual: you submit in PromoMats and record the outcome here. The API sync is on the roadmap (PRD ML-6).</Text>
+          <Text size="caption" tone="subtle" className="px-1">v1 of the Veeva integration is manual: you submit in PromoMats and record the outcome here. Automatic sync with PromoMats is coming later.</Text>
         </aside>
       </div>
 
@@ -299,7 +299,7 @@ function FindingList({ findings, ack, setAck, base }: { findings: Finding[]; ack
             <Text size="body-lg" weight="semibold">{f.title}</Text>
             <Text size="body" tone="muted">{f.detail}</Text>
           </div>
-          {f.severity !== "green" && f.moduleId && <Link href={`${base}?module=${f.moduleId}`} className="shrink-0 text-body font-semibold text-brand-deep hover:underline">Fix with AI</Link>}
+          {f.severity !== "green" && f.moduleId && <Link href={`${base}?module=${f.moduleId}`} className="shrink-0 text-body font-semibold text-brand-deep hover:underline">{f.fixable ? "Fix with AI" : "Open module"}</Link>}
           {f.severity === "orange" && (
             <label className="flex shrink-0 items-center gap-1.5 text-body font-semibold text-warn">
               <input type="checkbox" className="size-4 accent-[var(--color-warn)]" checked={ack.includes(f.id)} onChange={(e) => setAck(e.target.checked ? [...ack, f.id] : ack.filter((x) => x !== f.id))} />Acknowledge

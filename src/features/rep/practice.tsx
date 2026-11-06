@@ -79,15 +79,29 @@ export function PracticeHub() {
   );
 }
 
+/** A tougher version of the same call: sharper doctor, one more objection. */
+function harden(setup: NonNullable<PracticeSession["setup"]>): NonNullable<PracticeSession["setup"]> {
+  const extra = OBJECTIONS.find((o) => !setup.objectionIds.includes(o.id));
+  return {
+    ...setup,
+    traits: [...new Set([...setup.traits, "Sceptical", "Time-pressed"])],
+    objectionIds: setup.objectionIds.length < 3 && extra ? [...setup.objectionIds, extra.id] : setup.objectionIds,
+  };
+}
+
 export function PrepMeeting() {
   const router = useRouter();
+  const search = useSearchParams();
   const me = useMe();
   const s = useApp();
-  const [specialty, setSpecialty] = useState(PREP_SPECIALTIES[0]);
-  const [traits, setTraits] = useState<string[]>(["Sceptical", "Cost-focused"]);
-  const [callType, setCallType] = useState(PREP_CALL_TYPES[1]);
-  const [objs, setObjs] = useState<string[]>(["ob-cost", "ob-eyes"]);
-  const [live, setLive] = useState(false);
+  /* "Try again" and "Harder" come back here with the earlier session's setup and start straight away. */
+  const from = s.practice.find((p) => p.id === search.get("from") && p.userId === me.id)?.setup;
+  const start = from && (search.get("harder") === "1" ? harden(from) : from);
+  const [specialty, setSpecialty] = useState(start?.specialty ?? PREP_SPECIALTIES[0]);
+  const [traits, setTraits] = useState<string[]>(start?.traits ?? ["Sceptical", "Cost-focused"]);
+  const [callType, setCallType] = useState(start?.callType ?? PREP_CALL_TYPES[1]);
+  const [objs, setObjs] = useState<string[]>(start?.objectionIds ?? ["ob-cost", "ob-eyes"]);
+  const [live, setLive] = useState(!!start);
   const setup = { specialty, traits, objectionIds: objs, callType };
   const base = getScenario("sc-kim");
 
@@ -155,8 +169,8 @@ export function PracticeSessionView() {
       </div>
       <Scorecard result={x.result} mode="practice" approvedHref={(m) => `/rep/course/c-lumora-launch/learn?module=${m}&optional=1`} />
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" size="lg" onClick={() => router.push(x.setup ? "/rep/practice/prep" : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
-        <Button variant="secondary" size="lg" onClick={() => router.push("/rep/practice/call?scenario=sc-kim")}>Harder</Button>
+        <Button variant="secondary" size="lg" onClick={() => router.push(x.setup ? `/rep/practice/prep?from=${x.id}` : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
+        <Button variant="secondary" size="lg" disabled={!x.setup} onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>
       </div>
       {x.shared ? (
         <div className="squircle flex items-center justify-between gap-3 rounded-panel bg-ok-bg px-4 py-3">
@@ -180,11 +194,12 @@ export function PracticeSessionView() {
 export function QuickQuiz() {
   const me = useMe();
   const s = useApp();
+  const [round, setRound] = useState(0);
   const pool = useMemo(() => {
     const ids = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId);
     const all: Item[] = s.courses.filter((c) => ids.includes(c.id)).flatMap((c) => c.items.filter((i) => i.pool === "practice"));
     return all.sort(() => Math.random() - 0.5).slice(0, 5);
-  }, [s.courses, s.progress, me.id]);
+  }, [s.courses, s.progress, me.id, round]); // eslint-disable-line react-hooks/exhaustive-deps
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [score, setScore] = useState(0);
@@ -198,7 +213,7 @@ export function QuickQuiz() {
         <Text as="h1" size="hero" weight="extrabold">{score === pool.length ? "Perfect" : "Nice work"}</Text>
         <Text tone="muted" size="body-lg">Practice only. Nobody else sees this.</Text>
         <div className="mt-auto flex w-full flex-col gap-2">
-          <Button size="lg" fullWidth onClick={() => location.reload()}>Another 5</Button>
+          <Button size="lg" fullWidth onClick={() => { setRound(round + 1); setI(0); setPicked(null); setScore(0); setDone(false); }}>Another 5</Button>
           <Link href="/rep/practice" className="py-2 text-center text-body-lg font-semibold text-ink-2">Back to practice</Link>
         </div>
       </div>

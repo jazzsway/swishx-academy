@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3, BookOpen, Flag, FileCheck2, Users, ShieldCheck, Building2, Package, Network, Settings2, Palette,
-  GraduationCap, Menu, X, ClipboardList,
-} from "lucide-react";
+import { BarChart3, BookOpen, Flag, FileCheck2, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, Library } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -14,8 +11,9 @@ import { Text } from "@/components/ui/text";
 import { BrandLockup } from "./brand";
 import { Notifications, ViewAs } from "./chrome";
 import { ORG } from "@/data/org";
+import { CopilotButton, CopilotPanel } from "@/features/copilot/copilot-panel";
 
-type DeskRole = "Trainer" | "Manager" | "Admin";
+type DeskRole = "Trainer" | "Manager";
 
 interface NavItem { label: string; href: string; icon: ReactNode; badge?: number; exact?: boolean }
 
@@ -32,12 +30,12 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
         { label: "Home", href: "/trainer", icon: <BarChart3 {...I} />, exact: true },
         { label: "Courses", href: "/trainer/courses", icon: <BookOpen {...I} /> },
         { label: "Campaigns", href: "/trainer/campaigns", icon: <Flag {...I} /> },
+        { label: "Library", href: "/trainer/library", icon: <Library {...I} /> },
         { label: "Records", href: "/trainer/records", icon: <FileCheck2 {...I} /> },
       ] },
-      { label: "Reference", items: [{ label: "Design system", href: "/design-system", icon: <Palette {...I} /> }] },
+      { label: "Workspace", items: [{ label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} /> }] },
     ];
-  if (role === "Manager")
-    return [
+  return [
       { items: [
         { label: "Home", href: "/manager", icon: <BarChart3 {...I} />, exact: true },
         { label: "Verify", href: "/manager/verify", icon: <ShieldCheck {...I} />, badge: pendingVerify || undefined },
@@ -45,19 +43,9 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
         { label: "My learning", href: "/manager/learning", icon: <GraduationCap {...I} /> },
       ] },
     ];
-  return [
-    { items: [
-      { label: "Organisation", href: "/admin", icon: <Building2 {...I} />, exact: true },
-      { label: "People", href: "/admin/people", icon: <Users {...I} /> },
-      { label: "Products", href: "/admin/products", icon: <Package {...I} /> },
-      { label: "Competencies", href: "/admin/competencies", icon: <Network {...I} /> },
-      { label: "Settings", href: "/admin/settings", icon: <Settings2 {...I} /> },
-    ] },
-    { label: "Trainer", items: [{ label: "Trainer home", href: "/trainer", icon: <ClipboardList {...I} /> }] },
-  ];
 }
 
-/** Desktop shell for trainer, manager and admin: sidebar + content (PRD §9.1, desktop-first). */
+/** Desktop shell for trainer and manager: sidebar, content, and the copilot on the right. */
 export function DeskShell({ role, children }: { role: DeskRole; children: ReactNode }) {
   const pathname = usePathname();
   const me = useMe();
@@ -67,7 +55,7 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
 
   /* Keep the URL honest: a trainer route always renders as a trainer. */
   useEffect(() => {
-    const need = role === "Manager" ? "manager" : role === "Admin" ? "admin" : "trainer";
+    const need = role === "Manager" ? "manager" : "trainer";
     if (!me.roles.includes(need)) viewAs(role === "Manager" ? "u-david" : "u-maya");
   }, [me, role, viewAs]);
 
@@ -120,12 +108,14 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
           <button type="button" aria-label="Open menu" onClick={() => setMobileOpen(true)} className="grid size-10 place-items-center rounded-control border border-hair-2 bg-card lg:hidden"><Menu className="size-4.5" /></button>
           <div className="lg:hidden"><Text size="body-lg" weight="extrabold">Academy</Text></div>
           <div className="ml-auto flex items-center gap-2">
+            <Suspense><CopilotButton role={role === "Manager" ? "manager" : "trainer"} /></Suspense>
             <Notifications />
             <ViewAs currentRole={role} />
           </div>
         </header>
         <main className="page-enter mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-8 sm:py-8">{children}</main>
       </div>
+      <Suspense><CopilotPanel role={role === "Manager" ? "manager" : "trainer"} variant="desk" /></Suspense>
     </div>
   );
 }
