@@ -12,15 +12,24 @@ import { ProductPicker, type ProductScope } from "./product-picker";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
 import { LUMORA_LAUNCH_MODULES } from "@/data/courses/lumora-launch";
-import { DURATION, shapeOutline } from "@/lib/outline";
+import { DURATION, fitsTarget, fmtMinutes, lengthOf, shapeOutline } from "@/lib/outline";
 import { suggestCompetencies } from "@/lib/suggest-competencies";
 import type { Module, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card } from "@/components/patterns/academy";
+
+const DURATION_PRESETS = [10, 15, 20, 30, 45, 60, 90];
+
+/** What the picked length means for the course SwishX drafts. */
+function durationHint(m: number) {
+  if (m <= 15) return "A quick refresher reps finish in one sitting. Essentials only, plus safety.";
+  if (m <= 25) return "One sitting. Long recordings and reinforcement are left out to keep it tight.";
+  if (m <= 60) return "SwishX adds deeper modules from the same sources. Reps can stop between modules.";
+  return "A full program. Reps work through it over a few days, module by module.";
+}
 
 const STEPS = ["Goal", "Sources", "Competencies", "Outline", "Generate"];
 /* v1-hidden: Competencies is no longer its own step; it sits at the top of Outline. Step numbers stay the same inside. */
@@ -75,7 +84,8 @@ export function NewCourseWizard() {
   const [objective, setObjective] = useState("Reps handle the cost and prior-authorization objection with the Access Hub, without promising coverage, and keep fair balance in the conversation.");
   const [scope, setScope] = useState<ProductScope>({ mode: "product", productId: startProduct ?? "p-lumora", variants: [], indications: [], therapyAreas: [] });
   const productId = scope.mode === "product" ? scope.productId ?? "" : "";
-  const [format, setFormat] = useState<"long" | "short">("short");
+  const [minutes, setMinutes] = useState(20);
+  const format = lengthOf(minutes);
   /* v1-hidden: every new course is personalised and written for field reps; the pickers are commented out below. */
   const [type] = useState<"personalised" | "linear">("personalised");
   const [writtenFor] = useState<"reps" | "new_hires" | "managers">("reps");
@@ -102,7 +112,7 @@ export function NewCourseWizard() {
   const [shapeNote, setShapeNote] = useState<{ left: string[]; added: string[] }>({ left: [], added: [] });
   /* A drafted outline is fitted to the duration, so changing the duration means drafting again. */
   /* The outline is drafted for the competencies too, so changing them means drafting again. */
-  useEffect(() => { setOutline(null); }, [format, comps.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setOutline(null); }, [minutes, comps.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const [genIndex, setGenIndex] = useState(-1);
 
   const prod = product(productId);
@@ -133,7 +143,7 @@ export function NewCourseWizard() {
         ? CARDEXA_V2_MODULES.map((m, i) => ({ ...m, id: `${prefix}-m${i + 1}`, blocks: m.blocks.map((b, j) => ({ ...b, id: `${prefix}-m${i + 1}-b${j + 1}` })) }))
         : productId === "p-lumora" || !pr ? generatedAccessModules(prefix) : genericProductModules(prefix, pr, scope.indications, scope.variants);
       const launch = LUMORA_LAUNCH_MODULES.filter((m) => comps.includes(m.competency));
-      const shaped = shapeOutline(mods, format, depthModules(prefix, pr, launch));
+      const shaped = shapeOutline(mods, minutes, depthModules(prefix, pr, launch));
       setOutline(shaped.modules);
       setShapeNote({ left: shaped.left, added: shaped.added });
       setOutlineLoading(false);
@@ -197,12 +207,18 @@ export function NewCourseWizard() {
             <Wand2 className="size-4" aria-hidden="true" />Make it measurable
           </button>
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <div className="flex flex-col gap-2">
-            <Text size="label" weight="semibold" tone="muted">Rough course duration</Text>
-            <Segmented aria-label="Rough course duration" className="self-start">
-              <SegmentedButton active={format === "short"} onClick={() => setFormat("short")}>Short · 5–25 min</SegmentedButton>
-              <SegmentedButton active={format === "long"} onClick={() => setFormat("long")}>Long · 30–120 min</SegmentedButton>
-            </Segmented>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <Text size="label" weight="semibold" tone="muted">Rough course duration</Text>
+              <Text size="body-lg" weight="bold" tabular>About {fmtMinutes(minutes)}</Text>
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Duration presets">
+              {DURATION_PRESETS.map((m) => <Chip key={m} size="md" selected={minutes === m} onClick={() => setMinutes(m)}>{fmtMinutes(m)}</Chip>)}
+            </div>
+            <input type="range" aria-label="Rough course duration in minutes" min={DURATION.min} max={DURATION.max} step={DURATION.step} value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))} className="w-full cursor-grab accent-brand active:cursor-grabbing" />
+            <div className="-mt-1.5 flex justify-between text-caption text-ink-4" aria-hidden="true"><span>{fmtMinutes(DURATION.min)}</span><span>{fmtMinutes(DURATION.max)}</span></div>
+            <Text size="caption" tone="subtle">{durationHint(minutes)}</Text>
           </div>
           {/* v1-hidden: course type (Personalised / Same for everyone) and "Who is it written for".
           <div className="flex flex-col gap-2">
@@ -396,12 +412,11 @@ export function NewCourseWizard() {
           )}
           {outline && (() => {
             const mins = outline.reduce((a, m) => a + m.minutes, 0);
-            const band = DURATION[format];
-            const fits = mins >= band.min && mins <= band.max;
+            const fits = fitsTarget(mins, minutes);
             return (
               <div className="flex flex-col gap-2">
                 <Text size="body" tone={fits ? "subtle" : "warn"} weight={fits ? undefined : "semibold"}>
-                  {outline.length} modules · {mins} min · from {sourceIds.length} sources · {fits ? `fits a ${format} course (${band.min}–${band.max} min)` : `outside a ${format} course (${band.min}–${band.max} min)${format === "long" ? ". Add sources to give SwishX more to build from." : ""}`}
+                  {outline.length} modules · {mins} min · from {sourceIds.length} sources · {fits ? `close to your ${fmtMinutes(minutes)}` : mins < minutes ? `short of your ${fmtMinutes(minutes)}. Add sources to give SwishX more to build from.` : `over your ${fmtMinutes(minutes)}; the required modules alone take this long`}
                 </Text>
                 {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}.{/* v1-hidden: Add them to the Library if reps should still find them. */}</Text>}
                 {shapeNote.added.length > 0 && <Text size="caption" tone="subtle">Added for depth, from the same sources: {shapeNote.added.join(", ")}.</Text>}

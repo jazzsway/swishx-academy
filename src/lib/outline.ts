@@ -1,10 +1,12 @@
 import type { Module } from "@/data/types";
 
-/** The two duration bands a trainer picks from when creating a course. */
-export const DURATION = { short: { min: 5, max: 25 }, long: { min: 30, max: 120 } } as const;
-/** Long courses aim for this much, then stop adding depth. */
-const LONG_TARGET = 45;
-/** A recording this long is a Library item, not part of a short course. */
+/** The range a trainer can pick for a course, in minutes. */
+export const DURATION = { min: 5, max: 120, step: 5 } as const;
+/** At or under this, a course is "short": one sitting, essentials only. */
+export const SHORT_MAX = 25;
+/** An outline within this share of the target counts as fitting it. */
+const SLACK = 0.2;
+/** A recording this long is too much for a short course. */
 const LONG_RECORDING = 10;
 
 const total = (mods: Module[]) => mods.reduce((a, m) => a + m.minutes, 0);
@@ -12,38 +14,44 @@ const withMinutes = (m: Module): Module => ({ ...m, minutes: m.blocks.reduce((a,
 /** "Title (12 min)", unless the title already says how long it is. */
 const named = (x: { title: string; minutes: number }) => (/\bmin\b/.test(x.title) ? x.title : `${x.title} (${x.minutes} min)`);
 
+export const lengthOf = (minutes: number): "short" | "long" => (minutes <= SHORT_MAX ? "short" : "long");
+export const fitsTarget = (minutes: number, target: number) => minutes >= Math.floor(target * (1 - SLACK)) && minutes <= Math.ceil(target * (1 + SLACK));
+export const fmtMinutes = (m: number) => (m < 60 ? `${m} min` : `${+(m / 60).toFixed(1)} h`);
+
 export interface ShapedOutline { modules: Module[]; left: string[]; added: string[] }
 
 /**
- * Fits a drafted outline to the duration the trainer picked.
- * Short: drop long recordings, then reinforcement modules, then optional modules from the end. Required modules always stay.
- * Long: add deeper modules from the same sources until the course reaches its target.
+ * Fits a drafted outline to the minutes the trainer picked.
+ * Short courses drop long recordings and reinforcement first. Anything too long then loses
+ * optional modules from the end; required modules always stay. Anything too short gets
+ * deeper modules from the same sources until it reaches the target.
  */
-export function shapeOutline(mods: Module[], format: "short" | "long", depth: Module[]): ShapedOutline {
+export function shapeOutline(mods: Module[], target: number, depth: Module[]): ShapedOutline {
   const left: string[] = [];
   const added: string[] = [];
+  const ceiling = Math.ceil(target * (1 + SLACK));
+  let out = [...mods];
 
-  if (format === "short") {
-    let out = mods.map((m) => {
+  if (target <= SHORT_MAX) {
+    out = out.map((m) => {
       const keep = m.blocks.filter((b) => !(b.type === "video" && b.minutes >= LONG_RECORDING));
       m.blocks.filter((b) => !keep.includes(b)).forEach((b) => left.push(named(b)));
       return withMinutes({ ...m, blocks: keep });
     }).filter((m) => m.blocks.length);
     for (const m of out.filter((x) => x.tier === "reinforcement" && !x.required)) left.push(named(m));
     out = out.filter((m) => m.tier !== "reinforcement" || m.required);
-    while (total(out) > DURATION.short.max) {
-      const drop = [...out].reverse().find((m) => !m.required);
-      if (!drop) break;
-      left.push(named(drop));
-      out = out.filter((m) => m !== drop);
-    }
-    return { modules: out, left, added };
   }
 
-  const out = [...mods];
+  while (total(out) > ceiling) {
+    const drop = [...out].reverse().find((m) => !m.required);
+    if (!drop) break;
+    left.push(named(drop));
+    out = out.filter((m) => m !== drop);
+  }
+
   for (const d of depth) {
-    if (total(out) >= LONG_TARGET) break;
-    if (out.some((m) => m.title === d.title) || total(out) + d.minutes > DURATION.long.max) continue;
+    if (total(out) >= target * (1 - SLACK)) break;
+    if (out.some((m) => m.title === d.title) || total(out) + d.minutes > ceiling) continue;
     out.push(d);
     added.push(named(d));
   }
