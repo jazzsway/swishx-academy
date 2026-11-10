@@ -45,7 +45,7 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu"
         className="focus-ring flex h-10 items-center gap-2 rounded-control border border-hair-2 bg-card pl-1.5 pr-2.5 text-body font-semibold text-ink transition-colors hover:bg-subtle">
-        <Avatar initials={me.initials} size={28} />
+        <Avatar initials={me.initials} src={me.photo} size={28} />
         {!compact && <span className="hidden sm:inline">{me.first}</span>}
         <span className="rounded-glyph bg-tint px-1.5 py-0.5 text-micro font-bold text-brand-deep">{currentRole}</span>
         <ChevronDown className="size-3.5 text-ink-3" aria-hidden="true" />
@@ -90,50 +90,78 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
   );
 }
 
+/**
+ * The bell and its panel. The panel renders at the end of <body>, placed under the bell and kept on screen:
+ * inside the phone frame or a sticky header it would be clipped, or sit under the header's stacking context.
+ */
 export function Notifications() {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const me = useMe();
   const all = useApp((s) => s.notifications);
   const markRead = useApp((s) => s.markRead);
   const mine = all.filter((n) => n.userId === me.id).slice(0, 20);
   const unread = mine.filter((n) => !n.read).length;
-  useOutside(ref, () => setOpen(false), open);
+
+  function place() {
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return;
+    /* Inside the rep's phone frame, stay within the frame; elsewhere, within the window. */
+    const f = btn.current?.closest("[data-frame]")?.getBoundingClientRect() ?? { left: 0, right: window.innerWidth, width: window.innerWidth };
+    const width = Math.min(380, f.width - 16);
+    setPos({ top: r.bottom + 8, left: Math.min(Math.max(f.left + 8, r.right - width), f.right - width - 8), width });
+  }
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const close = (e: MouseEvent) => { if (!panel.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("resize", place);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => { window.removeEventListener("resize", place); document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
+  }, [open]);
 
   return (
-    <div ref={ref} className="relative">
-      <button type="button" aria-label={`Notifications, ${unread} unread`} onClick={() => setOpen(!open)}
-        className="focus-ring relative grid size-10 place-items-center rounded-control border border-hair-2 bg-card text-ink-2 hover:bg-subtle">
+    <>
+      <button ref={btn} type="button" aria-label={`Notifications, ${unread} unread`} aria-expanded={open} onClick={() => setOpen(!open)}
+        className={cn("focus-ring relative grid size-10 place-items-center rounded-control border border-hair-2 bg-card text-ink-2 hover:bg-subtle", open && "bg-subtle")}>
         <Bell className="size-4.5" aria-hidden="true" />
         {unread > 0 && <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-brand px-1 text-micro font-bold text-white">{unread}</span>}
       </button>
-      {open && (
+      {open && pos && (
         <Portal>
-          <div className="fixed inset-0 z-40" onMouseDown={() => setOpen(false)} />
+          <div ref={panel} role="dialog" aria-label="Notifications" style={{ top: pos.top, left: pos.left, width: pos.width }}
+            className="select-pop fixed z-[60] overflow-hidden rounded-panel border border-hair bg-card shadow-float">
+            <div className="flex items-center justify-between border-b border-hair px-4 py-3">
+              <Text size="body-lg" weight="bold">Notifications{unread > 0 && <span className="ml-1.5 text-ink-3">· {unread} new</span>}</Text>
+              {unread > 0 && <button type="button" className="text-body font-semibold text-brand-deep hover:underline" onClick={() => markRead(me.id)}>Mark all read</button>}
+            </div>
+            <div className="max-h-[min(60vh,480px)] overflow-y-auto">
+              {mine.length === 0 && (
+                <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                  <Bell className="size-6 text-ink-4" aria-hidden="true" />
+                  <Text size="body" tone="subtle">You&apos;re all caught up.</Text>
+                </div>
+              )}
+              {mine.map((n) => (
+                <button key={n.id} type="button" onClick={() => { markRead(me.id, n.id); setOpen(false); router.push(n.href); }}
+                  className={cn("flex w-full gap-3 border-b border-hair px-4 py-3 text-left transition-colors last:border-0 hover:bg-subtle", !n.read && "bg-tint/40")}>
+                  <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden="true" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-body font-semibold text-ink">{n.title}</span>
+                    <span className="text-caption text-ink-3">{n.body}</span>
+                    <span className="text-micro text-ink-4">{new Date(n.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </Portal>
       )}
-      {open && (
-        <div className="select-pop absolute right-0 z-50 mt-2 w-[min(92vw,360px)] overflow-hidden rounded-panel border border-hair bg-card shadow-float">
-          <div className="flex items-center justify-between border-b border-hair px-4 py-3">
-            <Text size="body-lg" weight="bold">Notifications</Text>
-            {unread > 0 && <button type="button" className="text-body font-semibold text-brand-deep hover:underline" onClick={() => markRead(me.id)}>Mark all read</button>}
-          </div>
-          <div className="max-h-[60vh] overflow-y-auto">
-            {mine.length === 0 && <Text as="p" size="body" tone="subtle" className="px-4 py-8 text-center">You're all caught up.</Text>}
-            {mine.map((n) => (
-              <button key={n.id} type="button" onClick={() => { markRead(me.id, n.id); setOpen(false); router.push(n.href); }}
-                className="flex w-full gap-3 border-b border-hair px-4 py-3 text-left last:border-0 hover:bg-subtle">
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden="true" />
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-body font-semibold text-ink">{n.title}</span>
-                  <span className="text-caption text-ink-3">{n.body}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

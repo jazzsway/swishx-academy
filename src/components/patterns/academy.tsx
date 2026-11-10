@@ -134,7 +134,8 @@ export function ProgressChip({ state, overdue, size = "sm", label }: { state: Pr
   return <Chip tone={PROGRESS_TONE[state]} size={size}>{label ?? state.replace(/_/g, " ").replace(/^./, (x) => x.toUpperCase())}</Chip>;
 }
 
-export function Avatar({ initials, size = 36, tone = "tint" }: { initials: string; size?: number; tone?: "tint" | "ink" | "subtle" }) {
+export function Avatar({ initials, size = 36, tone = "tint", src }: { initials: string; size?: number; tone?: "tint" | "ink" | "subtle"; src?: string }) {
+  if (src) return <img src={src} alt="" aria-hidden="true" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   return (
     <div
       aria-hidden="true"

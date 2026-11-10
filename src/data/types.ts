@@ -33,6 +33,8 @@ export interface User {
   managerId?: string;
   hireDate: string;
   active: boolean;
+  /** A profile picture the person uploaded, as a small data URL. */
+  photo?: string;
 }
 
 export interface Indication {

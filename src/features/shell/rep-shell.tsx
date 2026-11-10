@@ -57,7 +57,7 @@ export function RepShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-[#eceae6] sm:py-6">
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-[460px] flex-col bg-canvas sm:h-[calc(100dvh-48px)] sm:min-h-0 sm:overflow-hidden sm:rounded-card sm:shadow-float">
+      <div data-frame className="relative mx-auto flex min-h-dvh w-full max-w-[460px] flex-col bg-canvas sm:h-[calc(100dvh-48px)] sm:min-h-0 sm:overflow-hidden sm:rounded-card sm:shadow-float">
         {!immersive && (
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-hair bg-canvas/90 px-4 backdrop-blur">
             <BrandMark size={28} />

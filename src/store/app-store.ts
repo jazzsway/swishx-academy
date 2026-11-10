@@ -62,6 +62,8 @@ export interface AppState extends Seeded {
   addUploads: (list: Source[]) => void;
   removeUpload: (id: string) => void;
   viewAs: (userId: string) => void;
+  /** Profile edits: name, email, position, picture. */
+  updateUser: (userId: string, patch: Partial<Pick<User, "name" | "first" | "initials" | "email" | "title" | "photo">>) => void;
   resetDemo: () => void;
   completeOnboarding: (userId: string) => void;
   setVoiceConsent: (userId: string, v: boolean) => void;
@@ -207,6 +209,7 @@ export const useApp = create<AppState>()(
       addUploads: (list) => set((s) => { const uploads = [...s.uploads, ...list]; registerUploads(uploads); return { uploads }; }),
       removeUpload: (id) => set((s) => { const uploads = s.uploads.filter((u) => u.id !== id); registerUploads(uploads); return { uploads }; }),
       viewAs: (userId) => set({ viewAsId: userId }),
+      updateUser: (userId, patch) => set((s) => ({ users: s.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
       setPresenter: (v) => set({ presenter: v }),
       requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
       resetDemo: () => set((s) => { registerUploads([]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
