@@ -1,7 +1,10 @@
 import type { Block, Course, Item, Module, Para } from "@/data/types";
 import { competency } from "@/data/org";
+import { DOC_PAGES, VA_PAGES } from "@/data/media";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
+import { LUMORA_LAUNCH_MODULES } from "@/data/courses/lumora-launch";
 import { FIXES, runChecks } from "./checks";
+import { audioBlock, clipsFrom, documentBlock, videoFromModule, visualAidBlock } from "./media-builders";
 
 /* The scripted co-author behind "edit via chat" (PRD CC-4). Every change is a diff the
    trainer accepts or rejects; the AI only uses the course's own sources. */
@@ -9,7 +12,15 @@ import { FIXES, runChecks } from "./checks";
 export type Change =
   | { kind: "para"; moduleId: string; blockId: string; index: number; before?: Para; after?: Para }
   | { kind: "block"; moduleId: string; block: Block }
-  | { kind: "items"; items: Item[] };
+  | { kind: "items"; items: Item[] }
+  /* Everything the editor used to do with its own buttons now comes through here. */
+  | { kind: "insert"; moduleId: string; afterBlockId: string; blocks: Block[]; label: string }
+  | { kind: "removeBlock"; moduleId: string; blockId: string; label: string }
+  | { kind: "module"; moduleId: string; patch: Partial<Pick<Module, "title" | "required">>; label: string }
+  | { kind: "addModule"; module: Module }
+  | { kind: "removeModule"; moduleId: string; label: string }
+  | { kind: "retire"; itemIds: string[]; label: string }
+  | { kind: "pool"; itemIds: string[]; pool: Item["pool"]; label: string };
 
 export interface ChatTurn {
   id: string;
@@ -31,15 +42,137 @@ const uid = () => Math.random().toString(36).slice(2, 8);
 
 export const SUGGESTIONS = [
   "Fix all citation and wording issues",
-  "Shorten this module",
+  "Add a short video to this module",
+  "Add an audio version",
   "Add a quick check to this module",
-  "Add 3 harder questions on dosing",
-  "Which competencies have fewer than 6 questions?",
+  "Add a module on dosing",
+  "Shorten this module",
 ];
+
+/** Prompts for the Assessment tab, where the chat edits the question bank. */
+export const QUESTION_SUGGESTIONS = [
+  "Which competencies have fewer than 6 questions?",
+  "Add 3 harder questions on dosing",
+  "Retire the questions nobody gets wrong",
+];
+
+const quoted = (p: string) => p.match(/["“']([^"”']{3,})["”']/)?.[1];
+const BLOCK_WORDS: [RegExp, Block["type"][]][] = [
+  [/video|clip|recording/, ["video"]], [/audio|listen/, ["audio"]], [/pdf|reading|pages/, ["document"]],
+  [/visual aid|walkthrough/, ["visualaid"]], [/check|quiz/, ["check"]], [/key ?points/, ["keypoints"]], [/lesson|text/, ["lesson"]],
+];
+const MODULE_TOPICS: [RegExp, string][] = [
+  [/dos(e|ing)|inject|administ/, "c-dosing"], [/safety|isi|fair balance/, "c-safety"], [/efficacy|trial|lumen|results/, "c-efficacy"],
+  [/access|coverage|payer|prior auth|hub/, "c-access"], [/objection/, "c-objections"], [/open|first call/, "c-opening"],
+  [/disease|patient/, "c-disease"], [/mechanism|moa|how .* works/, "c-moa"], [/compet|landscape/, "c-competitive"],
+];
+
+/** The editing actions that used to be buttons in the course editor. Returns null when the prompt isn't one of them. */
+function editAction(p: string, raw: string, course: Course, mod: Module): ChatTurn | null {
+  const pi = course.sourceIds.find((id) => DOC_PAGES[id]);
+  const va = course.sourceIds.find((id) => VA_PAGES[id]);
+  const add = /(add|make|generate|create|insert|include)/.test(p);
+  const remove = /(remove|delete|drop|take out|get rid)/.test(p);
+  const say = (text: string, changes?: Change[]): ChatTurn => ({ id: uid(), from: "ai", text, changes, status: changes ? "pending" : undefined });
+  const block = (b: Block, text: string) => say(text, [{ kind: "block", moduleId: mod.id, block: b }]);
+
+  /* Change "old sentence" to "new sentence": keeps the old citation. */
+  const swap = raw.match(/change\s+["“](.+?)["”]\s+to\s+["“](.+?)["”]/i);
+  if (swap) {
+    for (const m of course.modules) for (const b of m.blocks) {
+      const index = b.paragraphs?.findIndex((x) => x.text.toLowerCase().includes(swap[1].toLowerCase())) ?? -1;
+      if (index >= 0) return say(`Here's the edit in ${m.title}. It keeps the original citation; checks will flag it if the source doesn't support the new wording.`,
+        [{ kind: "para", moduleId: m.id, blockId: b.id, index, before: b.paragraphs![index], after: { ...b.paragraphs![index], text: swap[2] } }]);
+    }
+    return say("I couldn't find that sentence in this course. Copy a few words of it exactly, in quotes.");
+  }
+
+  if (add && /module/.test(p) && !/this module|to (the )?module/.test(p)) {
+    const comp = MODULE_TOPICS.find(([re]) => re.test(p))?.[1];
+    const pick = LUMORA_LAUNCH_MODULES.find((m) => m.competency === comp && !course.modules.some((x) => x.title === m.title));
+    if (!course.productId || course.productId !== "p-lumora" || !pick) return say(comp ? `Your sources don't have enough on ${competency(comp).name.toLowerCase()} for a new module. Add a document that covers it under Materials first.` : "Tell me what the module should cover, for example “Add a module on dosing”.");
+    const id = `${course.id.slice(-4)}m${uid()}`;
+    const module: Module = { ...pick, id, blocks: pick.blocks.map((b, i) => ({ ...b, id: `${id}-b${i + 1}` })) };
+    return say(`A ${module.minutes}-minute module, “${module.title}”, written from your sources and cited by page. It goes at the end; ask me to move it if you want it earlier.`, [{ kind: "addModule", module }]);
+  }
+
+  if (remove && /module/.test(p) && /this module|the module/.test(p)) {
+    if (mod.required) return say(`${mod.title} is required for everyone, so I can't remove it. Safety and fair balance always stay in.`);
+    return say(`I'll remove “${mod.title}” (${mod.minutes} min). Reps who already finished it keep their progress.`, [{ kind: "removeModule", moduleId: mod.id, label: mod.title }]);
+  }
+
+  const rename = raw.match(/(?:rename|call)\s+(?:this|the)?\s*module\s+(?:to\s+)?["“]?(.+?)["”]?$/i) ?? (/(rename|title)/.test(p) ? [null, quoted(raw)] : null);
+  if (rename?.[1]) return say(`Renaming the module to “${rename[1]}”.`, [{ kind: "module", moduleId: mod.id, patch: { title: rename[1] }, label: `Title → ${rename[1]}` }]);
+
+  if (/(personalis|optional|not required|skip if they know)/.test(p)) {
+    if (mod.competency === "c-safety") return say("Safety modules stay required for everyone. Reps can't screen out of safety content.");
+    return say(`Reps who already know ${competency(mod.competency).name.toLowerCase()} will skip “${mod.title}” after screening.`, [{ kind: "module", moduleId: mod.id, patch: { required: false }, label: "Personalisable: reps can test out" }]);
+  }
+  if (/required|everyone (takes|must)|mandatory/.test(p) && !add) {
+    return say(`Every rep will take “${mod.title}”, whatever their screening score.`, [{ kind: "module", moduleId: mod.id, patch: { required: true }, label: "Required for everyone" }]);
+  }
+
+  if (/(split|cut|chop).*(clip|chapter|video)|clips/.test(p)) {
+    const v = mod.blocks.find((b) => b.type === "video" && b.video && b.video.origin !== "clip" && b.video.chapters.length >= 3);
+    if (!v) return say(`There's no long video in ${mod.title} to split. Clips come from recordings with at least 3 chapters.`);
+    const clips = clipsFrom(v);
+    return say(`I'll cut “${v.title}” into ${clips.length} clips, one per chapter. The full recording stays.`, [{ kind: "insert", moduleId: mod.id, afterBlockId: v.id, blocks: clips, label: `${clips.length} clips from ${v.title}` }]);
+  }
+
+  if (remove) {
+    const type = BLOCK_WORDS.find(([re]) => re.test(p))?.[1];
+    const b = (type && mod.blocks.find((x) => type.includes(x.type))) || mod.blocks.find((x) => quoted(raw) && x.title.toLowerCase().includes(quoted(raw)!.toLowerCase()));
+    if (!b) return null;
+    if (mod.required && (b.type === "lesson" || b.type === "keypoints")) return say(`${mod.title} is required for everyone, so its teaching stays. I can remove media or checks from it.`);
+    if (mod.blocks.length <= 1) return say(`That's the only piece in ${mod.title}. Remove the module instead?`);
+    return say(`I'll remove “${b.title}” from ${mod.title}.`, [{ kind: "removeBlock", moduleId: mod.id, blockId: b.id, label: b.title }]);
+  }
+
+  if (add && /audio|listen|podcast/.test(p)) {
+    const a = audioBlock(mod);
+    return a ? block(a, `An audio version of ${mod.title}. It reads the module's cited text aloud, so there's nothing new to check.`) : say(`${mod.title} has no lesson text to read aloud yet.`);
+  }
+  if (add && /visual aid|walkthrough|detailer/.test(p)) {
+    if (!va) return say("This course has no visual aid in its materials. Add one under Materials and I'll build a walkthrough.");
+    return block(visualAidBlock(mod, va, Object.keys(VA_PAGES[va]).map(Number).slice(0, 3)), "A walkthrough of the first three visual-aid pages, with what to say on each. Check the talking points before you publish.");
+  }
+  if (add && /pdf|pages|reading|read the/.test(p)) {
+    if (!pi) return say("None of this course's documents can be shown page by page yet.");
+    return block(documentBlock(mod, pi, Object.keys(DOC_PAGES[pi]).map(Number).slice(0, 2), ""), "Two pages for reps to read in the app, view-only. They count toward completion once every page is opened.");
+  }
+  if (add && /video/.test(p)) {
+    return block(videoFromModule(mod, "ai"), `A short explainer video for ${mod.title}, scripted only from the module's cited sentences. Watch it once before you publish.`);
+  }
+  return null;
+}
+
+/** Question-bank edits for the Assessment tab. */
+function questionAction(p: string, raw: string, course: Course): ChatTurn | null {
+  const move = p.match(/move .*to (?:the )?(screening|assessment|practice)/);
+  if (move) {
+    const q = quoted(raw);
+    const hits = q ? course.items.filter((i) => i.question.toLowerCase().includes(q.toLowerCase())) : [];
+    if (!hits.length) return { id: uid(), from: "ai", text: `Which question? Quote a few words of it, for example: Move “How is the loading dose given?” to ${move[1]}.` };
+    return { id: uid(), from: "ai", text: `Moving ${hits.length === 1 ? "it" : `${hits.length} questions`} to the ${move[1]} pool.`, changes: [{ kind: "pool", itemIds: hits.map((i) => i.id), pool: move[1] as Item["pool"], label: `${hits.map((i) => i.question).join(" · ")} → ${move[1]}` }], status: "pending" };
+  }
+  if (!/(retire|remove|delete|drop)/.test(p) || !/question/.test(p)) return null;
+  const q = quoted(raw);
+  const hits = q ? course.items.filter((i) => i.question.toLowerCase().includes(q.toLowerCase()))
+    : /(nobody gets wrong|too easy|everyone gets right)/.test(p) ? course.items.filter((i) => i.difficulty === 1).slice(0, 3) : [];
+  if (!hits.length) return { id: uid(), from: "ai", text: q ? "I couldn't find that question. Quote a few words of it exactly." : "Which one? Quote a few words of it, for example: Retire the question “How is the loading dose given?”" };
+  return { id: uid(), from: "ai", text: `I'll retire ${hits.length === 1 ? "this question" : `these ${hits.length} questions`}. Reps who already answered keep their scores.`, changes: [{ kind: "retire", itemIds: hits.map((i) => i.id), label: hits.map((i) => i.question).join(" · ") }], status: "pending" };
+}
 
 export function respond(prompt: string, course: Course, moduleId?: string): ChatTurn {
   const p = prompt.toLowerCase();
   const mod = course.modules.find((m) => m.id === moduleId) ?? course.modules[0];
+
+  const q = questionAction(p, prompt, course);
+  if (q) return q;
+  if (mod) {
+    const e = editAction(p, prompt, course, mod);
+    if (e) return e;
+  }
 
   if (/(teen|adolescent|pediatric|children|price|cost per|wac|competitor's data|head-to-head)/.test(p) && !/(fix|remove)/.test(p)) {
     return { id: uid(), from: "ai", text: "That isn't in your sources, so I can't write it. Add an approved source that covers it (for example a Medical Information response), and I'll use it with citations." };
@@ -93,7 +226,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
     return { id: uid(), from: "ai", text: "Three harder dosing questions, each with an answer key, rationale and PI page. Two go to the assessment pool, one to screening.", changes: [{ kind: "items", items }], status: "pending" };
   }
 
-  return { id: uid(), from: "ai", text: "I can change this course using its sources: fix wording, shorten a module, add checks or questions, or answer questions about coverage. Try one of the suggestions below." };
+  return { id: uid(), from: "ai", text: "I make every change to this course. For example: add a video, audio or PDF pages, split a recording into clips, add or remove a module, rename it, make it required, change a sentence (Change “…” to “…”), add checks or questions, or retire a question. Every change waits for your OK." };
 }
 
 export function applyChanges(course: Course, changes: Change[]): { modules: Module[]; items: Item[] } {
@@ -104,6 +237,20 @@ export function applyChanges(course: Course, changes: Change[]): { modules: Modu
   for (const ch of ordered) {
     if (ch.kind === "items") items = [...items, ...ch.items];
     if (ch.kind === "block") modules = modules.map((m) => (m.id === ch.moduleId ? { ...m, blocks: [...m.blocks, ch.block], minutes: m.minutes + ch.block.minutes } : m));
+    if (ch.kind === "insert") modules = modules.map((m) => {
+      if (m.id !== ch.moduleId) return m;
+      const i = m.blocks.findIndex((b) => b.id === ch.afterBlockId);
+      return { ...m, blocks: [...m.blocks.slice(0, i + 1), ...ch.blocks, ...m.blocks.slice(i + 1)], minutes: m.minutes + ch.blocks.reduce((a, b) => a + b.minutes, 0) };
+    });
+    if (ch.kind === "removeBlock") modules = modules.map((m) => {
+      const b = m.blocks.find((x) => x.id === ch.blockId);
+      return m.id !== ch.moduleId || !b ? m : { ...m, blocks: m.blocks.filter((x) => x.id !== ch.blockId), minutes: m.minutes - b.minutes };
+    });
+    if (ch.kind === "module") modules = modules.map((m) => (m.id === ch.moduleId ? { ...m, ...ch.patch } : m));
+    if (ch.kind === "addModule") modules = [...modules, ch.module];
+    if (ch.kind === "removeModule") modules = modules.filter((m) => m.id !== ch.moduleId);
+    if (ch.kind === "retire") items = items.filter((i) => !ch.itemIds.includes(i.id));
+    if (ch.kind === "pool") items = items.map((i) => (ch.itemIds.includes(i.id) ? { ...i, pool: ch.pool } : i));
     if (ch.kind === "para")
       modules = modules.map((m) => m.id !== ch.moduleId ? m : {
         ...m,

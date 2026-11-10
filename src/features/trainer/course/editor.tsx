@@ -2,24 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowUp, Lock, Trash2, PencilLine, MessageSquareText, FileText, Scissors } from "lucide-react";
+import { ArrowUp, Lock, PencilLine, MessageSquareText, FileText, Paperclip } from "lucide-react"; // v1-hidden: Trash2, Scissors
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
-import type { Block, Module } from "@/data/types";
+import type { Block, Module, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
+// v1-hidden: import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view";
 import { useCourse } from "./use-course";
 import { applyChanges, respond, SUGGESTIONS, type ChatTurn } from "./chat";
 import { runChecks } from "./checks";
-import { AddMediaRow } from "./add-media";
-import { clipsFrom } from "./media-builders";
+// v1-hidden: import { AddMediaRow } from "./add-media";
+import { formatOf, rememberFile } from "../source-preview";
+import { blockFor, howRepsGetIt } from "../materials";
+// v1-hidden: import { clipsFrom } from "./media-builders";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { CopilotOverride } from "@/features/copilot/copilot-panel";
 import { useCopilot } from "@/features/copilot/copilot-store";
@@ -29,14 +31,14 @@ export function CourseEditor() {
   const search = useSearchParams();
   const data = useCourse(id);
   const setModules = useApp((s) => s.setModules);
-  const updateCourse = useApp((s) => s.updateCourse);
   const backToDraft = useApp((s) => s.backToDraft);
   const [selected, setSelected] = useState<string | undefined>(search.get("module") ?? undefined);
   const [editing, setEditing] = useState<{ moduleId: string; block: Block } | null>(null);
-  const { message, open, showToast } = useToast();
+  const { message, open } = useToast();
   const copilotOpen = useCopilot((s) => s.open);
   const setCopilotOpen = useCopilot((s) => s.setOpen);
   const fresh = search.get("fresh") === "1";
+  const apply = useApplyChanges(id);
   useEffect(() => { if (fresh) setCopilotOpen(true); }, [fresh, setCopilotOpen]);
 
   const course = data?.course;
@@ -86,10 +88,8 @@ export function CourseEditor() {
             <div className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  {editable ? (
-                    <input aria-label="Module title" value={mod.title} onChange={(e) => patchModule(mod.id, { title: e.target.value })}
-                      className="w-full rounded-chip bg-transparent text-display font-bold tracking-tight outline-none hover:bg-subtle focus:bg-subtle" />
-                  ) : <Text as="h2" size="display" weight="bold" tracking="tight">{mod.title}</Text>}
+                  {/* v1-hidden: inline title editing. Every edit goes through the SwishX AI Agent ("Rename this module to …"). */}
+                  <Text as="h2" size="display" weight="bold" tracking="tight">{mod.title}</Text>
                   <Text size="body-lg" tone="subtle">{mod.summary}</Text>
                 </div>
                 {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
@@ -97,6 +97,8 @@ export function CourseEditor() {
               <div className="flex flex-wrap items-center gap-2">
                 <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>
                 <Chip size="md">{mod.minutes} min</Chip>
+                {course.type === "personalised" && <Chip size="md" iconLeft={mod.required ? <Lock className="size-3.5" aria-hidden="true" /> : undefined}>{mod.required ? "Required for everyone" : `Personalisable · ${mod.tier === "core" ? "core" : "extra practice"}`}</Chip>}
+                {/* v1-hidden: the Required / Personalisable toggle. Ask the agent: "Make this module required".
                 {course.type === "personalised" && (
                   <Segmented aria-label="Personalisation">
                     <SegmentedButton active={!!mod.required} disabled={!editable} onClick={() => patchModule(mod.id, { required: true })}>
@@ -108,6 +110,7 @@ export function CourseEditor() {
                     </SegmentedButton>
                   </Segmented>
                 )}
+                */}
               </div>
               {mod.competency === "c-safety" && <Text size="caption" tone="subtle">Safety content is always included for every rep and can&apos;t be switched off.</Text>}
             </div>
@@ -123,6 +126,7 @@ export function CourseEditor() {
                       <Text size="body-lg" weight="bold">{b.title}</Text>
                       <Text size="micro" tone="subtle">{Meta.label} · {b.minutes} min · {b.competencies.map((c) => competency(c)?.name).join(", ")}</Text>
                     </div>
+                    {/* v1-hidden: Edit text, Split into clips and Delete block. The agent does all three.
                     {editable && (b.type === "lesson" || b.type === "keypoints") && (
                       <IconButton aria-label="Edit text" onClick={() => setEditing({ moduleId: mod.id, block: b })}><PencilLine className="size-4" /></IconButton>
                     )}
@@ -137,6 +141,7 @@ export function CourseEditor() {
                     {editable && !mod.required && mod.blocks.length > 1 && (
                       <IconButton aria-label="Delete block" tone="danger" onClick={() => patchModule(mod.id, { blocks: mod.blocks.filter((x) => x.id !== b.id), minutes: mod.minutes - b.minutes })}><Trash2 className="size-4" /></IconButton>
                     )}
+                    */}
                   </header>
                   <BlockView block={b} sourceIds={course.sourceIds} flag siblings={mod.blocks} />
                   {blockIssues.length > 0 && (
@@ -152,7 +157,17 @@ export function CourseEditor() {
                 </article>
               );
             })}
-            {editable && <AddMediaRow course={course} module={mod} onAdd={(b, note) => { patchModule(mod.id, { blocks: [...mod.blocks, b], minutes: mod.minutes + b.minutes }); showToast(note); }} />}
+            {/* v1-hidden: <AddMediaRow …/> (Upload video, Generate a short video, Assign PDF pages, Audio version). The agent adds media now. */}
+            {editable && (
+              <button type="button" onClick={() => setCopilotOpen(true)}
+                className="squircle flex items-center gap-3 rounded-card border border-dashed border-hair-3 p-4 text-left transition-colors hover:bg-subtle">
+                <span className="grid size-9 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><AgentIcon className="size-4.5" /></span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <Text size="body-lg" weight="semibold">Change this module with the SwishX AI Agent</Text>
+                  <Text size="caption" tone="subtle">Add a video, audio or PDF pages, split a recording into clips, rename it, or remove something. Attach your own files in the chat.</Text>
+                </span>
+              </button>
+            )}
           </>
         ) : (
           <div className="squircle rounded-card border border-dashed border-hair-2 p-10 text-center"><Text tone="subtle">No modules yet.</Text></div>
@@ -161,13 +176,7 @@ export function CourseEditor() {
 
       {/* Locked versions get the trainer's general copilot instead: there's nothing to edit. */}
       {editable && <CopilotOverride>
-        <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={fresh} issues={issues.length}
-          onApply={(changes) => {
-            const next = applyChanges(course, changes);
-            if (data.cur.state === "ready") backToDraft(course.id);
-            setModules(course.id, next.modules);
-            if (next.items !== course.items) updateCourse(course.id, { items: next.items });
-          }} />
+        <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={fresh} issues={issues.length} onApply={apply} />
       </CopilotOverride>}
 
       {editing && <EditBlockModal editing={editing} onClose={() => setEditing(null)} onSave={(block) => {
@@ -180,12 +189,28 @@ export function CourseEditor() {
   );
 }
 
-/** The copilot while editing a course: proposes cited changes that wait for the trainer's OK. */
-function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply }: {
+/** Applies an accepted chat change to the course. Shared by every tab that hosts the editing chat. */
+export function useApplyChanges(courseId: string) {
+  const data = useCourse(courseId);
+  const setModules = useApp((s) => s.setModules);
+  const updateCourse = useApp((s) => s.updateCourse);
+  const backToDraft = useApp((s) => s.backToDraft);
+  return (changes: NonNullable<ChatTurn["changes"]>) => {
+    if (!data) return;
+    const next = applyChanges(data.course, changes);
+    if (data.cur.state === "ready") backToDraft(courseId);
+    if (next.modules !== data.course.modules) setModules(courseId, next.modules);
+    if (next.items !== data.course.items) updateCourse(courseId, { items: next.items });
+  };
+}
+
+/** The copilot while editing a course: the only way to change it. Proposes cited changes that wait for the trainer's OK. */
+export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply, suggestions = SUGGESTIONS }: {
   courseId: string; moduleId?: string; editable: boolean; fresh: boolean; issues: number;
-  onApply: (c: NonNullable<ChatTurn["changes"]>) => void;
+  onApply: (c: NonNullable<ChatTurn["changes"]>) => void; suggestions?: string[];
 }) {
   const data = useCourse(courseId);
+  const addUploads = useApp((s) => s.addUploads);
   const [turns, setTurns] = useState<ChatTurn[]>(() => [{
     id: "hello", from: "ai",
     text: fresh
@@ -197,6 +222,23 @@ function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply }: {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns, thinking]);
   if (!data) return null;
+
+  /* Your own files go into the module you're on, as a proposed change like any other. */
+  function attach(files: File[]) {
+    const mod = data!.course.modules.find((m) => m.id === moduleId) ?? data!.course.modules[0];
+    if (!files.length || !mod) return;
+    const added: Source[] = files.map((f, i) => {
+      const id = `up-${Date.now().toString(36)}-${i}`;
+      rememberFile(id, f);
+      return { id, title: f.name.replace(/\.[^.]+$/, ""), type: "Uploaded file", pages: 0, productId: data!.course.productId, uploaded: { fileName: f.name, format: formatOf(f.name), at: new Date().toISOString() } };
+    });
+    addUploads(added);
+    setTurns((t) => [...t,
+      { id: `u${Date.now()}`, from: "you", text: `Attached ${files.map((f) => f.name).join(", ")}` },
+      { id: `a${Date.now()}`, from: "ai", text: `I'll put ${added.length === 1 ? "it" : "them"} in ${mod.title}. ${added.map((s) => howRepsGetIt(s)).join(". ")}.`,
+        changes: added.map((s) => ({ kind: "block" as const, moduleId: mod.id, block: blockFor(s, mod) })), status: "pending" },
+    ]);
+  }
 
   function send(prompt: string) {
     if (!prompt.trim() || !data) return;
@@ -235,8 +277,12 @@ function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply }: {
                         {ch.after && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">{ch.after.text} <span className="text-micro font-bold">[{source(ch.after.cite?.sourceId ?? "")?.title}, p. {ch.after.cite?.page}]</span></span>}
                       </>
                     )}
-                    {ch.kind === "block" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {BLOCK_META[ch.block.type].label}: {ch.block.check?.question ?? ch.block.title}</span>}
+                    {ch.kind === "block" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.block.title.startsWith(BLOCK_META[ch.block.type].label) ? "" : `${BLOCK_META[ch.block.type].label}: `}{ch.block.check?.question ?? ch.block.title}</span>}
                     {ch.kind === "items" && ch.items.map((it) => <span key={it.id} className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {it.question} <span className="text-micro font-bold">({it.pool})</span></span>)}
+                    {ch.kind === "insert" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.label}</span>}
+                    {ch.kind === "addModule" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ Module: {ch.module.title} · {ch.module.minutes} min</span>}
+                    {(ch.kind === "removeBlock" || ch.kind === "removeModule" || ch.kind === "retire") && <span className="rounded-chip bg-danger-bg px-2 py-1 text-danger line-through decoration-danger/60">{ch.kind === "removeModule" ? "Module: " : ""}{ch.label}</span>}
+                    {(ch.kind === "module" || ch.kind === "pool") && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                   </div>
                 ))}
                 {t.status === "pending" ? (
@@ -254,13 +300,17 @@ function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply }: {
       </div>
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         <div className="flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map((s) => <Chip key={s} size="sm" onClick={() => send(s)}>{s}</Chip>)}
+          {suggestions.map((s) => <Chip key={s} size="sm" onClick={() => send(s)}>{s}</Chip>)}
         </div>
         <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); send(text); }}>
+          <label className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control border border-hair-2 bg-card text-ink-3 hover:bg-subtle hover:text-ink" title="Attach your own video, PDF, slides, image or audio">
+            <Paperclip className="size-4" aria-hidden="true" /><span className="sr-only">Attach a file</span>
+            <input type="file" multiple className="sr-only" onChange={(e) => { attach(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+          </label>
           <label className="sr-only" htmlFor="course-chat">Message</label>
           <textarea id="course-chat" rows={2} value={text} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(text); } }}
-            placeholder={moduleId ? "e.g. Shorten this module" : "Ask for a change"}
+            placeholder={moduleId ? "e.g. Add a short video to this module" : "Ask for a change"}
             className="squircle min-h-[44px] flex-1 resize-none rounded-control border border-hair-2 bg-card px-3 py-2.5 text-body-lg outline-none focus:border-brand" />
           <IconButton aria-label="Send" type="submit" size={9} tone="brand" className="bg-brand text-white hover:bg-brand-deep hover:text-white"><ArrowUp className="size-4" /></IconButton>
         </form>

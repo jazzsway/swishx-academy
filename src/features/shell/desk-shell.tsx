@@ -3,12 +3,12 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, FileCheck2, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, LineChart, Home } from "lucide-react";
+import { BarChart3, BookOpen, FileCheck2, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, LineChart, Home, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
-import { BrandLockup } from "./brand";
+import { BrandLockup, BrandMark } from "./brand";
 import { Notifications, ViewAs } from "./chrome";
 import { ORG } from "@/data/org";
 import { CopilotButton, CopilotPanel } from "@/features/copilot/copilot-panel";
@@ -62,20 +62,31 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  const nav = (
+  /* Collapsed shows icons only. Remembered per browser; a failed read just starts expanded. */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { try { setCollapsed(localStorage.getItem("sx-sidebar") === "collapsed"); } catch { /* storage blocked */ } }, []);
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem("sx-sidebar", next ? "collapsed" : "open"); } catch { /* storage blocked */ }
+  };
+
+  const renderNav = (compact: boolean) => (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-5">
       {groups.map((g, gi) => (
         <div key={gi} className="flex flex-col gap-0.5">
-          {g.label && <Text size="micro" tone="faint" weight="bold" uppercase tracking="wider" className="px-3 pb-1">{g.label}</Text>}
+          {g.label && (compact ? <span className="mx-auto mb-1 h-px w-6 bg-hair-2" aria-hidden="true" /> : <Text size="micro" tone="faint" weight="bold" uppercase tracking="wider" className="px-3 pb-1">{g.label}</Text>)}
           {g.items.map((it) => {
             const active = it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/");
             return (
-              <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined}
-                className={cn("focus-ring flex h-10 items-center gap-3 rounded-control px-3 text-body-lg transition-colors",
+              <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined} title={compact ? it.label : undefined} aria-label={compact ? it.label : undefined}
+                className={cn("focus-ring relative flex h-10 items-center gap-3 rounded-control text-body-lg transition-colors", compact ? "justify-center px-0" : "px-3",
                   active ? "bg-tint font-semibold text-brand-deep" : "font-medium text-ink-2 hover:bg-subtle hover:text-ink")}>
                 {it.icon}
-                <span className="flex-1">{it.label}</span>
-                {it.badge !== undefined && <span className="rounded-glyph bg-brand px-1.5 text-micro font-bold text-white">{it.badge}</span>}
+                {!compact && <span className="flex-1">{it.label}</span>}
+                {it.badge !== undefined && (compact
+                  ? <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand" aria-hidden="true" />
+                  : <span className="rounded-glyph bg-brand px-1.5 text-micro font-bold text-white">{it.badge}</span>)}
               </Link>
             );
           })}
@@ -86,10 +97,16 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
 
   return (
     <div className="flex min-h-dvh bg-canvas">
-      <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col gap-6 border-r border-hair bg-card px-3 py-5 lg:flex">
-        <div className="px-2"><BrandLockup sub={ORG.name} /></div>
-        {nav}
-        <Text as="p" size="micro" tone="faint" className="px-3">Prototype · all data fictional</Text>
+      <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col gap-6 border-r border-hair bg-card py-5 transition-[width] duration-200 lg:flex", collapsed ? "w-[72px] px-2.5" : "w-[248px] px-3")}>
+        <div className={collapsed ? "flex justify-center" : "px-2"}>{collapsed ? <BrandMark /> : <BrandLockup sub={ORG.name} />}</div>
+        {renderNav(collapsed)}
+        <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between px-1")}>
+          {!collapsed && <Text as="p" size="micro" tone="faint" className="px-2">Prototype · all data fictional</Text>}
+          <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="focus-ring grid size-9 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink">
+            {collapsed ? <PanelLeftOpen className="size-4.5" aria-hidden="true" /> : <PanelLeftClose className="size-4.5" aria-hidden="true" />}
+          </button>
+        </div>
       </aside>
 
       {mobileOpen && (
@@ -99,7 +116,7 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
             <div className="flex items-center justify-between px-2"><BrandLockup sub={ORG.name} />
               <button type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)} className="grid size-9 place-items-center rounded-full hover:bg-subtle"><X className="size-4" /></button>
             </div>
-            {nav}
+            {renderNav(false)}
           </aside>
         </div>
       )}

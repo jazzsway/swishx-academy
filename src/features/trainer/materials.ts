@@ -31,7 +31,7 @@ const PLACE: [RegExp, string][] = [
   [/visual aid|detailer|deck/i, "c-opening"],
 ];
 
-function blockFor(s: Source, m: Module): Block {
+export function blockFor(s: Source, m: Module): Block {
   const fmt = s.uploaded?.format;
   if (fmt === "video") return videoFromModule(m, "upload", s.uploaded!.fileName);
   if (fmt === "audio") {

@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Check, Trash2 } from "lucide-react";
+import { Check } from "lucide-react"; // v1-hidden: Trash2
 import { cn } from "@/lib/cn";
-import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
-import type { Item, Pool } from "@/data/types";
+import type { Pool } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
-import { IconButton } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
+import { ChatPanel, useApplyChanges } from "./editor";
+import { QUESTION_SUGGESTIONS } from "./chat";
+import { AgentIcon } from "@/components/ui/logo-mark";
+import { CopilotOverride } from "@/features/copilot/copilot-panel";
+import { useCopilot } from "@/features/copilot/copilot-store";
 
 const POOLS: { id: Pool | "all"; label: string }[] = [
   { id: "all", label: "All" }, { id: "screening", label: "Screening" }, { id: "assessment", label: "Assessment" }, { id: "practice", label: "Practice" },
@@ -20,7 +23,8 @@ const POOLS: { id: Pool | "all"; label: string }[] = [
 export function QuestionBank() {
   const { id } = useParams<{ id: string }>();
   const data = useCourse(id);
-  const updateCourse = useApp((s) => s.updateCourse);
+  const apply = useApplyChanges(id);
+  const setCopilotOpen = useCopilot((s) => s.setOpen);
   const [pool, setPool] = useState<Pool | "all">("all");
   const [comp, setComp] = useState<string>("all");
   if (!data) return null;
@@ -28,13 +32,20 @@ export function QuestionBank() {
   const items = course.items.filter((i) => (pool === "all" || i.pool === pool) && (comp === "all" || i.competency === comp));
   const coverage = course.competencyIds.map((c) => ({ c, n: course.items.filter((i) => i.competency === c).length }));
 
-  const patch = (item: Item, p: Partial<Item>) => updateCourse(course.id, { items: course.items.map((i) => (i.id === item.id ? { ...i, ...p } : i)) });
+  // v1-hidden: const patch = (item: Item, p: Partial<Item>) => updateCourse(course.id, { items: course.items.map((i) => (i.id === item.id ? { ...i, ...p } : i)) });
+
+  const chat = editable && (
+    <CopilotOverride>
+      <ChatPanel courseId={course.id} editable fresh={false} issues={0} onApply={apply} suggestions={QUESTION_SUGGESTIONS} />
+    </CopilotOverride>
+  );
 
   if (course.type === "linear" && course.items.length === 0)
     return <EmptyState title="Linear course" body="This course uses the knowledge checks inside its lessons. Switch to a personalised course to add screening and assessment questions." />;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      {chat}
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap gap-2">
           {POOLS.map((p) => <Chip key={p.id} size="lg" selected={pool === p.id} onClick={() => setPool(p.id)}>{p.label} · {p.id === "all" ? course.items.length : course.items.filter((i) => i.pool === p.id).length}</Chip>)}
@@ -46,6 +57,7 @@ export function QuestionBank() {
               <Chip size="sm" tone="brand">{competency(it.competency)?.name}</Chip>
               <Chip size="sm">{["", "Easy", "Medium", "Hard"][it.difficulty]}</Chip>
               <div className="ml-auto flex items-center gap-1">
+                {/* v1-hidden: the pool picker and Retire button. Ask the agent: Move “…” to practice, or Retire the question “…”.
                 {editable ? (
                   <select aria-label="Pool" value={it.pool} onChange={(e) => patch(it, { pool: e.target.value as Pool })}
                     className="h-8 rounded-chip border border-hair-2 bg-card px-2 text-body font-semibold">
@@ -53,6 +65,8 @@ export function QuestionBank() {
                   </select>
                 ) : <Chip size="sm">{it.pool}</Chip>}
                 {editable && <IconButton aria-label="Retire question" tone="danger" onClick={() => updateCourse(course.id, { items: course.items.filter((i) => i.id !== it.id) })}><Trash2 className="size-4" /></IconButton>}
+                */}
+                <Chip size="sm">{it.pool[0].toUpperCase() + it.pool.slice(1)}</Chip>
               </div>
             </div>
             <Text size="subhead" weight="bold" className="leading-snug">{it.question}</Text>
@@ -79,6 +93,12 @@ export function QuestionBank() {
             ))}
           </div>
         </Card>
+        {editable && (
+          <button type="button" onClick={() => setCopilotOpen(true)} className="squircle flex items-start gap-3 rounded-panel border border-dashed border-hair-3 p-3.5 text-left hover:bg-subtle">
+            <AgentIcon className="mt-0.5 size-4.5 text-brand" />
+            <span className="flex flex-col"><Text size="body" weight="semibold">Change questions with the SwishX AI Agent</Text><Text size="caption" tone="subtle">Add questions, retire one, or move it to another pool.</Text></span>
+          </button>
+        )}
         <Text size="caption" tone="subtle" className="px-1">Screening questions never give feedback. Assessment answer keys show only after a pass or the last attempt.</Text>
       </aside>
     </div>
