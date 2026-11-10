@@ -183,20 +183,33 @@ export function CopilotPanel({ role, variant }: { role: Role; variant: "desk" | 
 function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose: () => void; role: Role; children: ReactNode }) {
   const [full, setFull] = useState(false);
   const [drag, setDrag] = useState(0);
-  const start = useRef<number | null>(null);
   useEffect(() => { if (!open) { setFull(false); setDrag(0); } }, [open]);
 
-  /* The distance lives in a ref too: a release can arrive before React re-renders with the last move. */
-  const dy = useRef(0);
-  function down(e: React.PointerEvent) { start.current = e.clientY; dy.current = 0; (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); }
-  function move(e: React.PointerEvent) { if (start.current === null) return; dy.current = e.clientY - start.current; setDrag(dy.current); }
-  function up(e: React.PointerEvent) {
-    if (start.current === null) return;
-    const d = e.clientY - start.current || dy.current;
-    start.current = null;
-    if (d < -60) setFull(true);
-    else if (d > 90) { if (full) setFull(false); else onClose(); }
-    setDrag(0);
+  /* A press only becomes a drag after a few pixels, so taps still reach the buttons in the handle.
+     Once pressed, the whole window is watched: a quick flick leaves the handle straight away. */
+  const fullRef = useRef(full);
+  fullRef.current = full;
+  function down(e: React.PointerEvent) {
+    const y0 = e.clientY;
+    let dragging = false;
+    const move = (ev: PointerEvent) => {
+      const d = ev.clientY - y0;
+      if (!dragging && Math.abs(d) > 6) dragging = true;
+      if (dragging) { ev.preventDefault(); setDrag(d); }
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      setDrag(0);
+      if (!dragging) return;
+      const d = ev.clientY - y0;
+      if (d < -60) setFull(true);
+      else if (d > 90) { if (fullRef.current) setFull(false); else onClose(); }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   if (!open) return null;
@@ -212,14 +225,14 @@ function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose:
         }}
         className="sheet-up fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-[28px] bg-card shadow-modal sm:absolute">
         {/* The handle: drag it, or tap to switch between half and full. */}
-        <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+        <div onPointerDown={down}
           className="flex shrink-0 cursor-grab touch-none select-none flex-col gap-2 border-b border-hair px-4 pb-3 pt-2 active:cursor-grabbing">
           <button type="button" onClick={() => setFull(!full)} aria-label={full ? "Shrink to half screen" : "Expand to full screen"} className="mx-auto block h-1.5 w-11 rounded-full bg-black/15 hover:bg-black/25" />
           <div className="flex items-center gap-2.5">
             <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
-            <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]} · drag up for full screen</Text></div>
-            <IconButton aria-label={full ? "Shrink" : "Expand"} onClick={() => setFull(!full)}>{full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</IconButton>
-            <IconButton aria-label="Close SwishX AI Agent" onClick={onClose}><ChevronDown className="size-4.5" /></IconButton>
+            <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]} · {full ? "drag down to shrink" : "drag up for full screen"}</Text></div>
+            <IconButton aria-label={full ? "Back to half screen" : "Full screen"} title={full ? "Back to half screen" : "Full screen"} onClick={() => setFull(!full)}>{full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</IconButton>
+            <IconButton aria-label="Close SwishX AI Agent" title="Close" onClick={onClose}><ChevronDown className="size-4.5" /></IconButton>
           </div>
         </div>
         {children}
