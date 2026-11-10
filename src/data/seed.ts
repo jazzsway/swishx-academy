@@ -177,7 +177,14 @@ export function seed(): SeedState {
             p.attempts.push(mkAttempt(day(attemptAt, -4), Math.min(76, overall - 8), false, latest, ["c-access"]));
           }
           if (kind === "assessment") {
-            p.state = "assessment";
+            /* About half sat the final and missed: a real cohort has people on a retake path. */
+            if (!firstFail && r() < 0.6) {
+              const weak = Object.entries(latest).sort((a, b) => a[1] - b[1])[0][0];
+              p.attempts.push(mkAttempt(attemptAt, Math.min(77, overall - 6), false, latest, [weak]));
+              p.state = "remediation";
+            } else {
+              p.state = firstFail ? "remediation" : "assessment";
+            }
           } else {
             p.attempts.push(mkAttempt(attemptAt, passOverall, true, latest, []));
             if (kind === "certified") {
