@@ -15,8 +15,7 @@ import { CopilotButton, CopilotPanel } from "@/features/copilot/copilot-panel";
 
 type DeskRole = "Trainer" | "Manager";
 
-interface NavChild { label: string; href: string; exact?: boolean }
-interface NavItem { label: string; shortLabel?: string; href: string; icon: ReactNode; badge?: number; exact?: boolean; children?: NavChild[] }
+interface NavItem { label: string; shortLabel?: string; href: string; icon: ReactNode; badge?: number; exact?: boolean }
 
 /* Same icon weight as SwishX for Biz's rail. */
 const I = { size: 16, strokeWidth: 1.75 };
@@ -38,15 +37,7 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
         { label: "Analytics", href: "/trainer/analytics", icon: <LineChart {...I} /> },
         { label: "Teams", href: "/trainer/records", icon: <Users {...I} /> },
       ] },
-      { label: "Workspace", items: [{
-        label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} />,
-        children: [
-          { label: "Organisation", href: "/trainer/settings", exact: true },
-          { label: "People", href: "/trainer/settings/people" },
-          { label: "Products", href: "/trainer/settings/products" },
-          { label: "Competencies", href: "/trainer/settings/competencies" },
-        ],
-      }] },
+      { label: "Workspace", items: [{ label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} /> }] },
     ];
   return [
       { items: [
@@ -113,21 +104,6 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
                     ? <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand" aria-hidden="true" />
                     : <span className={cn("rounded-chip px-2 py-0.5 text-caption font-bold", active ? "bg-white/25 text-white" : "bg-brand text-white")}>{it.badge}</span>)}
                 </Link>
-                {!compact && it.children && (
-                  <div className="relative mt-1 w-full space-y-0.5 pl-[26px]">
-                    <span aria-hidden="true" className="absolute bottom-1.5 left-[15px] top-1 w-px bg-hair-2" />
-                    {it.children.map((c) => {
-                      const on = isOn(c.href, c.exact);
-                      return (
-                        <Link key={c.href} href={c.href} aria-current={on ? "page" : undefined}
-                          className={cn("flex h-8 w-full items-center rounded-glyph px-2.5 text-body transition-colors",
-                            on ? "bg-tint font-bold text-brand-deep" : "text-ink-2 hover:bg-tint/60 hover:text-brand-deep")}>
-                          <span className="truncate">{c.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -170,11 +146,19 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
     </button>
   );
 
+  /* Lockup: the knot on a soft tile, the wordmark, and "Academy" set beneath it. */
   const brand = (compact: boolean) => (
-    <div className="flex items-center gap-2.5 font-[800] text-title tracking-tight text-ink">
-      <LogoMark size={24} className="text-brand" />
-      {!compact && <span className="flex items-baseline gap-1.5">swish<span className="-ml-1.5 text-brand">X</span><span className="text-caption font-bold uppercase tracking-[0.14em] text-ink-3">Academy</span></span>}
-    </div>
+    <Link href={role === "Trainer" ? "/trainer" : "/manager"} aria-label="SwishX Academy home" className="focus-ring flex min-w-0 items-center gap-2.5 rounded-control">
+      <span className="grid size-9 shrink-0 place-items-center rounded-control border border-tint-line bg-gradient-to-br from-tint to-white shadow-hair">
+        <LogoMark size={20} className="text-brand" />
+      </span>
+      {!compact && (
+        <span className="flex min-w-0 flex-col leading-none">
+          <span className="text-title font-[800] tracking-tight text-ink">swish<span className="text-brand">X</span></span>
+          <span className="mt-1 text-micro font-bold uppercase tracking-[0.22em] text-brand-deep">Academy</span>
+        </span>
+      )}
+    </Link>
   );
 
   return (
@@ -184,7 +168,7 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
         <aside style={{ width: collapsed ? 80 : 252, transition: "width 0.32s cubic-bezier(0.22, 1, 0.36, 1)" }}
           className={cn("relative flex h-full flex-col overflow-hidden border border-hair bg-white/95 shadow-float backdrop-blur-xl", collapsed ? "rounded-panel" : "rounded-card")}>
           <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" aria-hidden="true" />
-          <div className={cn("flex items-center px-4 pb-2.5 pt-4", collapsed ? "flex-col gap-2.5" : "justify-between")}>
+          <div className={cn("flex items-center border-b border-hair px-3.5 pb-3 pt-3.5", collapsed ? "flex-col gap-2.5" : "justify-between")}>
             {brand(collapsed)}
             {toggle}
           </div>
