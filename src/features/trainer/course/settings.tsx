@@ -5,7 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useApp } from "@/store/app-store";
 import { competency, product } from "@/data/org";
-import { SCENARIOS } from "@/data/scenarios";
+// v1-hidden: import { SCENARIOS } from "@/data/scenarios";
 import type { CourseSettings } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
@@ -40,6 +40,9 @@ function Num({ value, onChange, suffix, disabled, label }: { value: number; onCh
     </div>
   );
 }
+
+/** v1-hidden: prerequisites between courses. Existing ones still apply; set this to true to show the card again. */
+const PREREQUISITES: boolean = false;
 
 export function CourseSettingsTab() {
   const { id } = useParams<{ id: string }>();
@@ -85,7 +88,7 @@ export function CourseSettingsTab() {
           </div>
         </Card>
 
-        {personalised && <Card title="Prerequisites" eyebrow="What comes first">
+        {PREREQUISITES && personalised && <Card title="Prerequisites" eyebrow="What comes first">
           <Text size="body" tone="subtle" className="-mt-2">Not content, so you can change it on a published version.</Text>
           <div className="-mt-1 flex flex-col">
             {/* v1-hidden: Library visibility and explore-before-starting (no Library in v1).
@@ -117,21 +120,25 @@ export function CourseSettingsTab() {
 
       {advanced && (
         <div className="grid gap-5 xl:grid-cols-2">
-          <Card title="Completion" eyebrow="What “complete” means">
+          <Card title="Attestation" eyebrow="Signed at the end">
             <div className="-mt-2 flex flex-col">
+              {/* v1-hidden: path and assessment toggles. A course always needs its path done and, if personalised, its assessment passed.
               <Row label="All blocks in the rep's path" hint="Required blocks are always in the path."><Toggle label="Path" on={s.completion.path} disabled={d} onChange={(v) => set({ completion: { ...s.completion, path: v } })} /></Row>
               {personalised && <Row label="Final assessment passed"><Toggle label="Assessment" on={s.completion.assessment} disabled={d} onChange={(v) => set({ completion: { ...s.completion, assessment: v } })} /></Row>}
-              <Row label="Attestation signed" hint="The rep types their full name."><Toggle label="Attestation" on={s.completion.attestation} disabled={d} onChange={(v) => set({ completion: { ...s.completion, attestation: v } })} /></Row>
+              */}
+              <Row label="Reps sign before they certify" hint="The rep types their full name under the statement."><Toggle label="Attestation" on={s.completion.attestation} disabled={d} onChange={(v) => set({ completion: { ...s.completion, attestation: v } })} /></Row>
               <Field label="Attestation statement" multiline rows={2} value={s.attestation} disabled={d} onChange={(e) => set({ attestation: (e.target as unknown as HTMLTextAreaElement).value })} />
             </div>
           </Card>
 
-          {personalised && (
+          {personalised && s.screening && (
             <Card title="Screening" eyebrow="The baseline">
               <div className="-mt-2 flex flex-col">
                 <Row label="Adaptive quiz length" hint="At least one question per competency."><Num label="Screening items" value={s.screeningItems} suffix="questions" disabled={d} onChange={(n) => set({ screeningItems: n })} /></Row>
                 <Row label="Voice call with an AI doctor" hint={hasScenario ? "~5 minutes. Typed fallback if the mic isn't available." : "Add a roleplay scenario for this product first."}><Toggle label="Screening call" on={s.screeningCall} disabled={d || !hasScenario} onChange={(v) => set({ screeningCall: v })} /></Row>
+                {/* v1-hidden: scenario picker. Each call has one doctor, set up in the AI roleplay tab.
                 {s.screeningCall && hasScenario && <Row label="Scenario"><select aria-label="Screening scenario" disabled={d} value={s.screeningScenarioId} onChange={(e) => set({ screeningScenarioId: e.target.value })} className="h-10 rounded-control border border-hair-2 bg-card px-3 text-body">{SCENARIOS.filter((x) => course.scenarioIds.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select></Row>}
+                */}
               </div>
             </Card>
           )}
@@ -139,8 +146,8 @@ export function CourseSettingsTab() {
           {personalised && (
             <Card title="Final assessment" eyebrow="Pass criteria" className="xl:col-span-2">
               <div className="-mt-2 flex flex-col">
-                <Row label="Quiz length"><Num label="Assessment items" value={s.assessmentItems} suffix="questions" disabled={d} onChange={(n) => set({ assessmentItems: n })} /></Row>
-                <Row label="Roleplay call" hint={hasScenario ? undefined : "Add a roleplay scenario for this product first."}><Toggle label="Assessment call" on={s.assessmentCall && hasScenario} disabled={d || !hasScenario} onChange={(v) => set({ assessmentCall: v })} /></Row>
+                <Row label="Quiz length" hint="Includes up to 2 written answers."><Num label="Assessment items" value={s.assessmentItems} suffix="questions" disabled={d} onChange={(n) => set({ assessmentItems: n })} /></Row>
+                <Row label="Roleplay call" hint={hasScenario ? "Counts for 40% of the final score. The doctor is set up in the AI roleplay tab." : "Add a roleplay scenario for this product first."}><Toggle label="Assessment call" on={s.assessmentCall && hasScenario} disabled={d || !hasScenario} onChange={(v) => set({ assessmentCall: v })} /></Row>
                 {/* Must-pass competencies: a floor per topic, on top of the overall pass mark. */}
                 <div className="flex flex-col gap-3 border-b border-hair py-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">

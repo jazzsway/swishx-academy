@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { Lock, PencilLine, MessageSquareText, FileText } from "lucide-react"; // v1-hidden: Trash2, Scissors
+import { ChevronRight, ListChecks, Lock, PencilLine, MessageSquareText, FileText } from "lucide-react"; // v1-hidden: Trash2, Scissors
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
+import { revealTop } from "@/lib/scroll";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
 import type { Block, Module, Source } from "@/data/types";
@@ -18,6 +20,7 @@ import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view"
 import { useCourse } from "./use-course";
 import { applyChanges, respond, SUGGESTIONS, type ChatTurn } from "./chat";
 import { runChecks } from "./checks";
+import { questionsByModule } from "./question-index";
 // v1-hidden: import { AddMediaRow } from "./add-media";
 import { formatOf, rememberFile } from "../source-preview";
 import { blockFor, howRepsGetIt } from "../materials";
@@ -34,6 +37,9 @@ export function CourseEditor() {
   const setModules = useApp((s) => s.setModules);
   const backToDraft = useApp((s) => s.backToDraft);
   const [selected, setSelected] = useState<string | undefined>(search.get("module") ?? undefined);
+  const paneTop = useRef<HTMLDivElement>(null);
+  /* Switching module shows the new one from its top; the index pane stays where it is. */
+  const pick = (mid: string) => { setSelected(mid); revealTop(paneTop.current); };
   const [editing, setEditing] = useState<{ moduleId: string; block: Block } | null>(null);
   const { message, open } = useToast();
   const copilotOpen = useCopilot((s) => s.open);
@@ -58,14 +64,14 @@ export function CourseEditor() {
   const patchModule = (mid: string, patch: Partial<Module>) => save(modules.map((m) => (m.id === mid ? { ...m, ...patch } : m)));
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
-      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:self-start">
+    <div ref={paneTop} className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 [scrollbar-width:thin]">
         <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{modules.length} modules</Text>
         {modules.map((m, i) => {
           const active = m.id === mod?.id;
           const modIssues = issues.filter((f) => f.moduleId === m.id).length;
           return (
-            <button key={m.id} type="button" onClick={() => setSelected(m.id)} aria-current={active}
+            <button key={m.id} type="button" onClick={() => pick(m.id)} aria-current={active}
               className={cn("squircle flex items-start gap-2.5 rounded-control px-2.5 py-2 text-left transition-colors", active ? "bg-tint" : "hover:bg-subtle")}>
               <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-glyph text-micro font-bold", active ? "bg-brand text-white" : "bg-black/[0.06] text-ink-3")}>{i + 1}</span>
               <span className="flex min-w-0 flex-1 flex-col">
@@ -116,7 +122,8 @@ export function CourseEditor() {
               {mod.competency === "c-safety" && <Text size="caption" tone="subtle">Safety content is always included for every rep and can&apos;t be switched off.</Text>}
             </div>
 
-            {mod.blocks.map((b) => {
+            {/* Knowledge checks live in the Questions tab; Content shows only the material. */}
+            {mod.blocks.filter((b) => b.type !== "check").map((b) => {
               const Meta = BLOCK_META[b.type];
               const blockIssues = issues.filter((f) => f.blockId === b.id);
               return (
@@ -158,6 +165,19 @@ export function CourseEditor() {
                 </article>
               );
             })}
+            {(() => {
+              const n = questionsByModule(course).byModule.get(mod.id)?.length ?? 0;
+              return n > 0 && (
+                <Link href={`/trainer/courses/${course.id}/questions?module=${mod.id}`} className="squircle flex items-center gap-3 rounded-card border border-hair bg-card p-4 transition-colors hover:bg-subtle">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-control bg-subtle text-ink-2"><ListChecks className="size-4.5" aria-hidden="true" /></span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <Text size="body-lg" weight="semibold">{n} question{n === 1 ? "" : "s"} test this module</Text>
+                    <Text size="caption" tone="subtle">Knowledge checks, screening and final-assessment questions are in the Questions tab.</Text>
+                  </span>
+                  <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
+                </Link>
+              );
+            })()}
             {/* v1-hidden: <AddMediaRow …/> (Upload video, Generate a short video, Assign PDF pages, Audio version). The agent adds media now. */}
             {editable && (
               <button type="button" onClick={() => setCopilotOpen(true)}

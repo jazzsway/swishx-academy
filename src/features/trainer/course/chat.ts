@@ -46,7 +46,7 @@ export const SUGGESTIONS = [
   "Fix all citation and wording issues",
   "Add a short video to this module",
   "Add an audio version",
-  "Add a quick check to this module",
+  "Add PDF pages for reps to read",
   "Add a module on dosing",
   "Shorten this module",
 ];
@@ -54,6 +54,7 @@ export const SUGGESTIONS = [
 /** Prompts for the Assessment tab, where the chat edits the question bank. */
 export const QUESTION_SUGGESTIONS = [
   "Add an open question for this module",
+  "Add a quick check to this module",
   "Which competencies have fewer than 6 questions?",
   "Add 3 harder questions on dosing",
   "Retire the questions nobody gets wrong",

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Check, ListChecks, Lock, PenLine } from "lucide-react"; // v1-hidden: Trash2
 import { cn } from "@/lib/cn";
+import { revealTop } from "@/lib/scroll";
 import { competency, source } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
@@ -34,6 +35,9 @@ export function QuestionBank() {
   const copilotOpen = useCopilot((s) => s.open);
   const setCopilotOpen = useCopilot((s) => s.setOpen);
   const [selected, setSelected] = useState<string | undefined>(search.get("module") ?? undefined);
+  const paneTop = useRef<HTMLDivElement>(null);
+  /* Switching module shows the new one from its top; the index pane stays where it is. */
+  const pick = (mid: string) => { setSelected(mid); revealTop(paneTop.current); };
   if (!data) return null;
   const { course, editable } = data;
   const { byModule, loose } = questionsByModule(course);
@@ -44,19 +48,19 @@ export function QuestionBank() {
   // v1-hidden: const patch = (item: Item, p: Partial<Item>) => updateCourse(course.id, { items: course.items.map((i) => (i.id === item.id ? { ...i, ...p } : i)) });
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+    <div ref={paneTop} className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
       {editable && (
         <CopilotOverride>
           <ChatPanel courseId={course.id} moduleId={mod?.id} editable fresh={false} issues={0} onApply={apply} suggestions={QUESTION_SUGGESTIONS} />
         </CopilotOverride>
       )}
-      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:self-start">
+      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 [scrollbar-width:thin]">
         <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{course.modules.length} modules</Text>
         {course.modules.map((m, i) => (
-          <IndexRow key={m.id} n={i + 1} title={m.title} active={m.id === mod?.id} onClick={() => setSelected(m.id)} locked={m.required}
+          <IndexRow key={m.id} n={i + 1} title={m.title} active={m.id === mod?.id} onClick={() => pick(m.id)} locked={m.required}
             meta={`${count(byModule.get(m.id)!.length)} · ${competency(m.competency)?.name}`} />
         ))}
-        {loose.length > 0 && <IndexRow n="+" title="Across the course" active={!mod} onClick={() => setSelected(LOOSE)} meta={`${count(loose.length)} · not tied to one module`} />}
+        {loose.length > 0 && <IndexRow n="+" title="Across the course" active={!mod} onClick={() => pick(LOOSE)} meta={`${count(loose.length)} · not tied to one module`} />}
 
         {course.items.length > 0 && (
           <div className="mt-3 rounded-panel border border-hair bg-card p-3">
