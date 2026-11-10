@@ -114,7 +114,8 @@ export function scoreCall(scenario: Scenario, turns: Turn[], typed: boolean): Ro
 export function sampleAnswers(state: CallState): { label: string; text: string }[] {
   if (state.done) return [];
   if (state.idx === -1)
-    return [{ label: "Open on the patient", text: state.scenario.id === "sc-kim" ? "Thanks, Doctor. Think of your adult patients still flaring despite topicals. In LUMEN-1 and LUMEN-2, 51% reached EASI-75 at week 16 versus 17% on placebo. How many of those patients did you see this month?" : "Thanks for the time. Think of your adult patients with moderate-to-severe eczema who are still flaring despite topicals. How many of those did you see this month?" }];
+    return [{ label: "Open on the patient", text: state.scenario.id === "sc-kim" ? "Thanks, Doctor. Think of your adult patients still flaring despite topicals. In LUMEN-1 and LUMEN-2, 51% reached EASI-75 at week 16 versus 17% on placebo. How many of those patients did you see this month?" : "Thanks for the time. Think of your adult patients with moderate-to-severe eczema who are still flaring despite topicals. How many of those did you see this month?" },
+      { label: "Lead with the product (try it)", text: "Hi Doctor, I'm here to tell you about Lumora, our new biologic. It's the best option out there." }];
   const cur = state.queue[state.idx];
   const answers: Record<string, string> = {
     "ob-cost": "I hear you, the paperwork is real. The Corvana Access Hub runs benefits verification and prepares the prior auth support for your office, and eligible commercially insured patients can use the copay program.",
@@ -126,6 +127,8 @@ export function sampleAnswers(state: CallState): { label: string; text: string }
   const out = cur ? [{ label: "Approved answer", text: answers[cur.id] }] : [];
   if (cur?.id === "ob-teen") out.push({ label: "Off-label answer (try it)", text: "Sure, it works great for teenagers too. Lots of offices are using it for their 15-year-olds." });
   if (cur?.id === "ob-eyes") out.push({ label: "Minimise risk (try it)", text: "Honestly there are basically no side effects, it's completely safe." });
+  /* A vague answer, to see the doctor push back. */
+  if (cur && out.length < 2) out.push({ label: "Vague answer (try it)", text: "Honestly, it just works really well. I think you'd like it." });
   return out;
 }
 

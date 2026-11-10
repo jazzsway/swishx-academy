@@ -22,12 +22,18 @@ const MODE: Record<CallMode, { label: string; tone: string }> = {
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
 };
 
-export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride }: {
+export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange }: {
   scenario: Scenario; objectionIds?: string[]; mode: CallMode; voiceAllowed: boolean;
   onComplete: (r: CallOutcome) => void; onExit: () => void; personaOverride?: Partial<Scenario["persona"]>;
+  /** The page did its own briefing: go straight into the call. */
+  skipPrep?: boolean;
+  /** Offer tap-to-answer lines (always in presenter mode). */
+  showSamples?: boolean;
+  /** Follows the call as it happens, for a live view next to it. */
+  onChange?: (state: CallState, elapsed: number, ended: boolean) => void;
 }) {
   const sc: Scenario = personaOverride ? { ...scenario, persona: { ...scenario.persona, ...personaOverride } } : scenario;
-  const [stage, setStage] = useState<"prep" | "call" | "ended">("prep");
+  const [stage, setStage] = useState<"prep" | "call" | "ended">(skipPrep ? "call" : "prep");
   const [state, setState] = useState<CallState>(() => startCall(sc, objectionIds));
   const [typing, setTyping] = useState(!voiceAllowed);
   const [text, setText] = useState("");
@@ -50,6 +56,10 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   useEffect(() => { if (state.done && stage === "call") window.setTimeout(() => setStage("ended"), 600); }, [state.done, stage]);
 
   function hcpSpeak(t: string) { if (!muted && !typing) voice.speak(t); }
+  /* Straight into the call: the doctor opens. */
+  const opened = useRef(false);
+  useEffect(() => { if (skipPrep && !opened.current) { opened.current = true; hcpSpeak(state.turns[0].text); } }); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onChange?.(state, elapsed, stage === "ended"); }, [state, elapsed, stage, onChange]);
 
   function submit(t: string, viaTyping: boolean) {
     if (!t.trim() || state.done) return;
@@ -62,7 +72,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 
   const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
   const presenter = useApp((s) => s.presenter);
-  const samples = presenter ? sampleAnswers(state) : [];
+  const samples = presenter || showSamples ? sampleAnswers(state) : [];
 
   if (stage === "prep") {
     return (
@@ -127,7 +137,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
             <Text size="title" weight="bold" tone="inverse">Call ended</Text>
             <Text size="body" tone="inverse" className="opacity-70">{state.turns.filter((t) => t.speaker === "rep").length} turns · {mmss(elapsed)}</Text>
             <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping)); }}>
-              <AgentIcon className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : "See my scorecard"}
+              <AgentIcon className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
             </Button>
           </div>
         )}
@@ -138,7 +148,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {samples.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Text size="micro" weight="bold" tone="inverse" className="opacity-50">PRESENTER · TAP TO ANSWER</Text>
+              <Text size="micro" weight="bold" tone="inverse" className="opacity-50">{presenter ? "PRESENTER · TAP TO ANSWER" : "TAP A LINE TO ANSWER, OR SAY YOUR OWN"}</Text>
               <div className="flex flex-wrap gap-1.5">
                 {samples.map((sa) => (
                   <button key={sa.label} type="button" onClick={() => submit(sa.text, true)} className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold", sa.label.includes("try it") ? "border-danger/60 text-[#ff9e9b]" : "border-white/20 text-white/85 hover:bg-white/10")}>{sa.label}</button>
