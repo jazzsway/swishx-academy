@@ -307,40 +307,45 @@ export function NewCourseWizard() {
             <Text tone="subtle" size="body-lg">Add the materials you already have, and the source material SwishX should build the rest of the course from.</Text>
           </div>
 
-          <section className="flex flex-col gap-2.5" aria-label="Put in the course">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <Text as="h2" size="title" weight="bold">Put in the course</Text>
-              <Text size="body" tone="subtle" className="max-w-[46ch] sm:text-right">Ready-made materials reps see as they are. SwishX also analyses them to write questions and assessments.</Text>
+          <section className="flex flex-col gap-3" aria-labelledby="in-course-h">
+            <div className="flex flex-col gap-0.5">
+              <Text as="h2" id="in-course-h" size="title" weight="bold">Put in the course{showItems.length ? <span className="font-semibold text-ink-3"> · {showItems.length}</span> : null}</Text>
+              <Text size="body" tone="subtle">Ready-made materials reps see as they are. SwishX also analyses them to write questions and assessments.</Text>
             </div>
-            {showItems.map((s) => <MaterialRow key={s.id} s={s} sub={howRepsGetIt(s)} move="Use as source only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
-            <Dropzone label="Drop files reps should see" kinds={["Video", "Audio", "PDF", "Slides", "Image"]} onFiles={(files) => addFiles(files, "course")} />
+            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+              {showItems.map((s) => <MaterialTile key={s.id} s={s} sub={howRepsGetIt(s)} move="Use as source only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
+              <Dropzone label="Add files reps should see" kinds="Video, audio, PDF, slides or images" onFiles={(files) => addFiles(files, "course")} />
+            </div>
           </section>
 
-          <section className="flex flex-col gap-2.5 border-t border-hair pt-5" aria-label="Source material for SwishX">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <Text as="h2" size="title" weight="bold">Source material for SwishX</Text>
-              <Text size="body" tone="subtle" className="max-w-[46ch] sm:text-right">SwishX uses these to create the rest of the course: lessons, questions and media. Reps don&apos;t see them directly.</Text>
+          <section className="flex flex-col gap-3 border-t border-hair pt-5" aria-labelledby="source-h">
+            <div className="flex flex-col gap-0.5">
+              <Text as="h2" id="source-h" size="title" weight="bold">Source material for SwishX<span className="font-semibold text-ink-3"> · {background.length}</span></Text>
+              <Text size="body" tone="subtle">SwishX uses these to create the rest of the course: lessons, questions and media. Reps don&apos;t see them directly.</Text>
             </div>
             {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">Add the Prescribing Information. SwishX needs it for any product course.</div>}
-            {background.map((s) => {
-              const pi = s.id === prod?.piSourceId;
-              return <MaterialRow key={s.id} s={s} sub={pi ? "Always included for a product course" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : "PDF"}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
-                move={pi ? undefined : "Put in the course"} onMove={() => setPlaces({ ...places, [s.id]: "course" })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
-            })}
+            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+              {background.map((s) => {
+                const pi = s.id === prod?.piSourceId;
+                return <MaterialTile key={s.id} s={s} sub={pi ? "Always included" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : "PDF"}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
+                  move={pi ? undefined : "Put in the course"} onMove={() => setPlaces({ ...places, [s.id]: "course" })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
+              })}
+              <Dropzone label="Add your own source material" kinds="PDF, documents or data" onFiles={(files) => addFiles(files, "background")} />
+            </div>
             {suggested.length > 0 && (
-              <div className="flex flex-col gap-1.5 pt-1">
-                <Text size="caption" weight="bold" tone="subtle">From your product library</Text>
-                {suggested.map((s) => (
-                  <button key={s.id} type="button" onClick={() => setSourceIds([...sourceIds, s.id])}
-                    className="squircle flex items-center gap-3 rounded-panel border border-dashed border-hair-3 bg-card px-3.5 py-2.5 text-left hover:bg-subtle">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-control border border-hair-2 text-ink-3"><Plus className="size-4" aria-hidden="true" /></span>
-                    <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-body-lg font-semibold text-ink-2">{s.title}</span><span className="text-caption text-ink-3">{s.type} · {s.pages} pages</span></span>
-                    <span className="shrink-0 text-body font-semibold text-brand-deep">Add</span>
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2 pt-1">
+                <Text size="caption" weight="bold" tone="subtle">Add from your product library</Text>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {suggested.map((s) => (
+                    <button key={s.id} type="button" onClick={() => setSourceIds([...sourceIds, s.id])} aria-label={`Add ${s.title}`}
+                      className="squircle flex items-center gap-2.5 rounded-panel border border-dashed border-hair-3 px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-tint">
+                      <Plus className="size-4 shrink-0 text-brand-deep" aria-hidden="true" />
+                      <span className="flex min-w-0 flex-col"><span className="line-clamp-2 text-body font-semibold leading-snug text-ink-2">{s.title}</span><span className="text-caption text-ink-3">{s.type} · {s.pages} pages</span></span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <Dropzone label="Add your own source material" kinds={["PDF", "Doc", "Data"]} compact onFiles={(files) => addFiles(files, "background")} />
           </section>
 
           <Text size="caption" tone="subtle" className="flex items-start gap-1.5 border-t border-hair pt-3">
@@ -503,37 +508,41 @@ const FORMAT_TINT: Record<string, string> = {
   video: "bg-ink text-white", audio: "bg-ok-bg text-ok", image: "bg-info-bg text-info", slides: "bg-tint text-brand-deep", visualaid: "bg-tint text-brand-deep",
 };
 
-/** One file in the Materials step: what it is, how reps get it, and a single move to the other section. */
-function MaterialRow({ s, sub, move, onMove, onPreview, onRemove, locked }: {
+/** One file in the Materials step: what it is, how reps get it, and one move to the other section. */
+function MaterialTile({ s, sub, move, onMove, onPreview, onRemove, locked }: {
   s: Source; sub: string; move?: string; onMove: () => void; onPreview: () => void; onRemove?: () => void; locked?: boolean;
 }) {
   const kind = s.uploaded?.format ?? (s.type === "Visual aid" ? "visualaid" : "pdf");
   const Icon = locked ? Lock : s.uploaded ? FORMAT_ICON[s.uploaded.format] : s.type === "Visual aid" ? FORMAT_ICON.slides : FileText;
   return (
-    <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair-2 bg-card px-3.5 py-2.5">
-      <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", locked ? "bg-subtle text-ink-3" : FORMAT_TINT[kind] ?? "bg-subtle text-ink-2")}><Icon className="size-4" aria-hidden="true" /></span>
-      <span className="flex min-w-0 flex-1 basis-[220px] flex-col">
-        <span className="truncate text-body-lg font-semibold text-ink">{s.title}</span>
-        <span className="text-caption text-ink-3">{sub}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1">
-        {move && <button type="button" onClick={onMove} className="rounded-control px-2 py-1 text-body font-semibold text-ink-3 underline-offset-2 hover:bg-subtle hover:text-ink hover:underline">{move}</button>}
-        <IconButton aria-label={`Preview ${s.title}`} onClick={onPreview}><Eye className="size-4" /></IconButton>
-        {onRemove && <IconButton aria-label={`Remove ${s.title}`} onClick={onRemove}><X className="size-4" /></IconButton>}
-      </span>
+    <div className="squircle flex min-h-[112px] flex-col gap-2 rounded-panel border border-hair-2 bg-card p-3">
+      <div className="flex items-start gap-2.5">
+        <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", locked ? "bg-subtle text-ink-3" : FORMAT_TINT[kind] ?? "bg-subtle text-ink-2")}><Icon className="size-4" aria-hidden="true" /></span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="line-clamp-2 text-body font-semibold leading-snug text-ink" title={s.title}>{s.title}</span>
+          <span className="text-caption text-ink-3">{sub}</span>
+        </span>
+      </div>
+      <div className="mt-auto flex items-center gap-1">
+        {move && <button type="button" onClick={onMove} className="-ml-1 rounded-control px-1.5 py-1 text-caption font-semibold text-ink-3 hover:bg-subtle hover:text-ink">{move}</button>}
+        <span className="ml-auto flex">
+          <IconButton aria-label={`Preview ${s.title}`} onClick={onPreview}><Eye className="size-4" /></IconButton>
+          {onRemove && <IconButton aria-label={`Remove ${s.title}`} onClick={onRemove}><X className="size-4" /></IconButton>}
+        </span>
+      </div>
     </div>
   );
 }
 
-function Dropzone({ label, kinds, compact, onFiles }: { label: string; kinds: string[]; compact?: boolean; onFiles: (files: File[]) => void }) {
+function Dropzone({ label, kinds, onFiles }: { label: string; kinds: string; onFiles: (files: File[]) => void }) {
   const [over, setOver] = useState(false);
   return (
     <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); onFiles(Array.from(e.dataTransfer.files)); }}
-      className={cn("squircle flex cursor-pointer flex-wrap items-center gap-2.5 rounded-panel border border-dashed px-4 hover:bg-subtle", compact ? "py-2.5" : "py-3.5", over ? "border-brand bg-tint" : "border-hair-3")}>
-      <Upload className="size-4 text-ink-3" aria-hidden="true" />
-      <span className="text-body-lg font-semibold text-ink-2">{label}</span>
-      <span className="flex flex-wrap gap-1.5">{kinds.map((k) => <span key={k} className="rounded-chip border border-hair-2 px-2 py-0.5 text-caption text-ink-3">{k}</span>)}</span>
+      className={cn("squircle flex min-h-[112px] cursor-pointer flex-col items-center justify-center gap-1 rounded-panel border border-dashed p-3 text-center transition-colors hover:border-brand hover:bg-tint", over ? "border-brand bg-tint" : "border-hair-3")}>
+      <Upload className="size-5 text-brand-deep" aria-hidden="true" />
+      <span className="text-body font-semibold text-ink-2">{label}</span>
+      <span className="text-caption text-ink-3">{kinds}</span>
       <input type="file" className="sr-only" multiple onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
     </label>
   );
