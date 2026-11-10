@@ -10,6 +10,7 @@ import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/features/shell/brand";
+import { ViewAs } from "@/features/shell/chrome";
 
 /** RH-2: three screens, voice consent, mic check. */
 export function RepOnboarding() {
@@ -63,6 +64,8 @@ export function RepOnboarding() {
     <div className="flex min-h-full flex-1 flex-col gap-6 px-5 pb-8 pt-8">
       <div className="flex items-center gap-2"><BrandMark size={30} /><Text size="body-lg" weight="extrabold">Academy</Text>
         <div className="ml-auto flex gap-1.5">{[0, 1, 2, 3].map((i) => <span key={i} className={cn("h-1.5 w-6 rounded-full", i <= step ? "bg-brand" : "bg-black/10")} />)}</div>
+        {/* Onboarding hides the rep header, so the persona switcher lives here too: otherwise a presenter is stuck as the rep. */}
+        <ViewAs currentRole="Rep" compact />
       </div>
 
       {step < 2 && (

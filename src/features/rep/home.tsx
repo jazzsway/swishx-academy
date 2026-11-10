@@ -14,7 +14,9 @@ export function RepHome() {
   const router = useRouter();
   const { me, s, next, dueSoon, courseOf } = useRep();
   const onboarded = s.onboarded[me.id];
-  useEffect(() => { if (!onboarded) router.replace("/rep/onboarding"); }, [onboarded, router]);
+  /* Only a rep is sent to onboarding: while switching persona to the trainer, this must not race the navigation away. */
+  const isRep = me.roles.includes("rep");
+  useEffect(() => { if (!onboarded && isRep) router.replace("/rep/onboarding"); }, [onboarded, isRep, router]);
   if (!onboarded) return null;
 
   const xp = xpFor(s, me.id);

@@ -51,14 +51,17 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
   const pathname = usePathname();
   const me = useMe();
   const viewAs = useApp((s) => s.viewAs);
+  /* Re-check once saved state has loaded: before that, "me" is the default persona. */
+  const hydrated = useApp((s) => s.hydrated);
   const groups = useNav(role);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  /* Keep the URL honest: a trainer route always renders as a trainer. */
+  /* Keep the URL honest: a trainer route always renders as a trainer. Checked on arrival only, so a
+     persona switch made here (View as → Rep) isn't undone before the navigation to /rep lands. */
   useEffect(() => {
     const need = role === "Manager" ? "manager" : "trainer";
     if (!me.roles.includes(need)) viewAs(role === "Manager" ? "u-david" : "u-maya");
-  }, [me, role, viewAs]);
+  }, [pathname, role, hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => setMobileOpen(false), [pathname]);
 

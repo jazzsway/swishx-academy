@@ -31,16 +31,18 @@ export function RepShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const me = useMe();
   const viewAs = useApp((s) => s.viewAs);
+  /* Re-check once saved state has loaded: before that, "me" is the default persona. */
+  const hydrated = useApp((s) => s.hydrated);
   const immersive = IMMERSIVE.some((r) => r.test(pathname));
   const copilot = !NO_COPILOT.some((r) => r.test(pathname));
   const openCopilot = useCopilot((s) => s.setOpen);
   const copilotOpen = useCopilot((s) => s.open);
   useEffect(() => { if (!copilot) openCopilot(false); }, [copilot, openCopilot]);
 
-  /* The rep app always renders as a rep. */
+  /* The rep app always renders as a rep. Checked on arrival only, so switching to the trainer from here isn't undone mid-navigation. */
   useEffect(() => {
     if (!me.roles.includes("rep")) viewAs("u-priya");
-  }, [me, viewAs]);
+  }, [pathname, hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-dvh bg-[#eceae6] sm:py-6">
