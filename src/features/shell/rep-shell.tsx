@@ -21,6 +21,17 @@ const TABS = [
   { label: "Me", href: "/rep/me", icon: UserRound },
 ];
 
+function Tab({ t, active }: { t: (typeof TABS)[number]; active: boolean }) {
+  const Icon = t.icon;
+  return (
+    <Link href={t.href} aria-current={active ? "page" : undefined}
+      className={cn("focus-ring flex flex-col items-center gap-1 rounded-control py-1.5 text-micro font-semibold transition-colors", active ? "text-brand-deep" : "text-ink-3 hover:text-ink")}>
+      <Icon size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" />
+      {t.label}
+    </Link>
+  );
+}
+
 /** Screens that take the whole phone: no tab bar, their own exit. */
 const IMMERSIVE = [/\/rep\/onboarding/, /\/rep\/course\/[^/]+\/(screening|call|learn|assessment|attest)/, /\/rep\/practice\/(call|prep)/];
 /** No copilot while being measured, or mid-call. */
@@ -59,26 +70,17 @@ export function RepShell({ children }: { children: ReactNode }) {
         )}
         <main id="rep-scroll" className={cn("flex flex-1 flex-col sm:min-h-0 sm:overflow-y-auto", !immersive && "pb-24 sm:pb-6")}>{children}</main>
         {!immersive && (
-          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] grid-cols-5 border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur sm:static sm:pb-3">
-            {TABS.map((t) => {
-              const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
-              const Icon = t.icon;
-              return (
-                <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}
-                  className={cn("focus-ring flex flex-col items-center gap-1 rounded-control py-1.5 text-micro font-semibold transition-colors",
-                    active ? "text-brand-deep" : "text-ink-3 hover:text-ink")}>
-                  <Icon size={22} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" />
-                  {t.label}
-                </Link>
-              );
-            })}
-            {/* The agent sits in the tab bar, not floating over the content. */}
+          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] grid-cols-5 items-end border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur-xl sm:static sm:pb-3">
+            {TABS.slice(0, 2).map((t) => <Tab key={t.href} t={t} active={t.exact ? pathname === t.href : pathname.startsWith(t.href)} />)}
+            {/* The agent sits in the middle of the tab bar, raised: the one thing a rep can always ask. */}
             <button type="button" onClick={() => openCopilot(true)} disabled={!copilot} aria-label="Open SwishX AI Agent" aria-expanded={copilotOpen}
-              className={cn("focus-ring flex flex-col items-center gap-1 rounded-control py-1.5 text-micro font-semibold transition-colors disabled:opacity-40",
-                copilotOpen ? "text-brand-deep" : "text-ink-3 hover:text-ink")}>
-              <AgentIcon className="size-[22px] text-brand" />
-              AI Agent
+              className="focus-ring group flex flex-col items-center gap-1 rounded-control pb-1.5 text-micro font-bold text-brand-deep disabled:opacity-40">
+              <span className={cn("-mt-6 grid size-14 place-items-center rounded-full bg-gradient-to-br from-brand to-brand-deep text-white shadow-brand-lift ring-4 ring-card transition-transform group-hover:scale-105 group-active:scale-95", copilotOpen && "scale-105")}>
+                <AgentIcon className="size-7" />
+              </span>
+              Ask SwishX
             </button>
+            {TABS.slice(2).map((t) => <Tab key={t.href} t={t} active={t.exact ? pathname === t.href : pathname.startsWith(t.href)} />)}
           </nav>
         )}
         {copilot && <Suspense><CopilotPanel role="rep" variant="phone" /></Suspense>}

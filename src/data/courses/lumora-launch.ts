@@ -1,7 +1,7 @@
 import type { Module } from "../types";
 import {
   CLIP_OBJ_EYES, CLIP_OBJ_TOPICALS, CLIP_OPEN_BRIDGE, CLIP_OPEN_NEEDS, CLIP_OPEN_PATIENT,
-  VIDEO_FAIR_BALANCE, VIDEO_HUB_ENROL, VIDEO_INJECTION, VIDEO_LUMEN, VIDEO_MOA, VIDEO_MODEL_CALL, VIDEO_PATIENT_MONTH,
+  VIDEO_FAIR_BALANCE, VIDEO_HUB_ENROL, YT_AD_LECTURE, YT_AD_PATHOPHYS, VIDEO_INJECTION, VIDEO_LUMEN, VIDEO_MOA, VIDEO_MODEL_CALL, VIDEO_PATIENT_MONTH,
 } from "../media";
 
 /* Lumora launch readiness: 14 modules, each with a lesson, at least one piece of media
@@ -36,6 +36,7 @@ const RAW: Module[] = [
         question: "Which symptom do adults with atopic dermatitis rate as most burdensome?",
         options: ["Dry skin", "Itch", "Redness", "Scaling"], answer: 1,
         rationale: "Itch is consistently rated the most burdensome symptom.", cite: c(AD, 4) } },
+      { id: "lm1-y1", type: "video", title: "Atopic dermatitis in 6 minutes", minutes: 6, competencies: ["c-disease"], video: YT_AD_LECTURE },
       { id: "lm1-g1", type: "graphic", title: "Atopic dermatitis by the numbers", minutes: 1, competencies: ["c-disease"], graphic: { sourceId: AD,
         headline: "A chronic disease that keeps coming back", stats: [{ value: "1 in 4", label: "adults with AD have moderate-to-severe disease" }, { value: "#1", label: "most burdensome symptom: itch" }, { value: "Type 2", label: "inflammation drives it" }],
         points: ["Chronic and relapsing: flares return even after the skin clears.", "Itch disrupts sleep, work and mood."], footnote: "Atopic dermatitis disease-state guide, pp. 2–4" } },
@@ -60,6 +61,10 @@ const RAW: Module[] = [
       { id: "lm2-v1", type: "video", title: "A month on topicals", minutes: 2, competencies: ["c-disease"], video: VIDEO_PATIENT_MONTH },
       { id: "lm2-d1", type: "document", title: "Read it in the disease-state guide", minutes: 2, competencies: ["c-disease"], document: { sourceId: AD, pages: [7, 8],
         callouts: [{ page: 8, text: "This is why you ask about the last month, not today." }] } },
+      { id: "lm2-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-disease"], check: {
+        question: "A patient says “it's fine right now”. What should you ask about?",
+        options: ["Only how the skin looks today", "Flares, sleep and missed work in the last month", "Their insurance", "Which cream they like"], answer: 1,
+        rationale: "Flares often settle before a visit. The last month gives the true picture.", cite: c(AD, 8) } },
     ],
   },
   {
@@ -72,9 +77,14 @@ const RAW: Module[] = [
         { text: "By binding IL-13, relvokimab prevents it from signalling through its receptor complex.", cite: c(PI, 9) },
       ] },
       { id: "lm3-b2", type: "video", title: "Mechanism in 3 minutes", minutes: 3, competencies: ["c-moa"], video: VIDEO_MOA },
+      { id: "lm3-y1", type: "video", title: "Background: the inflammation behind AD", minutes: 3, competencies: ["c-moa", "c-disease"], video: YT_AD_PATHOPHYS },
       { id: "lm3-g1", type: "graphic", title: "IL-13 in three steps", minutes: 1, competencies: ["c-moa"], graphic: { sourceId: PI,
         headline: "How relvokimab works", stats: [{ value: "IL-13", label: "the cytokine it binds" }, { value: "mAb", label: "human monoclonal antibody" }],
         points: ["IL-13 drives type 2 inflammation in the skin.", "It contributes to barrier dysfunction, itch and inflammation.", "Relvokimab binds IL-13 so it can't signal through its receptor complex."], footnote: "Lumora Prescribing Information, section 12.1" } },
+      { id: "lm3-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-moa"], check: {
+        question: "Lumora (relvokimab) binds which cytokine?",
+        options: ["IL-4", "IL-13", "IL-17A", "TNF-α"], answer: 1,
+        rationale: "Relvokimab is a human monoclonal antibody that binds IL-13.", cite: c(PI, 9) } },
     ],
   },
   {
@@ -123,6 +133,10 @@ const RAW: Module[] = [
         headline: "What patients feel first", stats: [{ value: "44%", label: "≥4-point itch improvement vs 13% placebo" }, { value: "Week 2", label: "earliest separation from placebo" }],
         points: ["“As early as week 2” is about itch, not skin clearance."], footnote: "Lumora Prescribing Information, p. 12" } },
       { id: "lm5-a1", type: "audio", title: "Listen: itch numbers in 1 minute", minutes: 1, competencies: ["c-efficacy"], audio: { fromBlockIds: ["lm5-b1"], durationSec: 55 } },
+      { id: "lm5-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-efficacy"], check: {
+        question: "“As early as week 2” refers to:",
+        options: ["Clear skin", "Itch separating from placebo", "EASI-75", "Every-4-week dosing"], answer: 1,
+        rationale: "Week 2 is when itch separated from placebo, not skin clearance.", cite: c(PI, 12) } },
     ],
   },
   {
@@ -167,6 +181,10 @@ const RAW: Module[] = [
       ] },
       { id: "lm7-d1", type: "document", title: "Read it in the PI: sections 16–17", minutes: 1, competencies: ["c-dosing"], document: { sourceId: PI, pages: [16],
         callouts: [{ page: 16, text: "The 30-minute room-temperature rule is the office's most common question." }] } },
+      { id: "lm7-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-dosing"], check: {
+        question: "Who may inject into the upper arm?",
+        options: ["Anyone", "Only a caregiver", "Only the doctor", "No one"], answer: 1,
+        rationale: "Thigh or abdomen for self-injection; the upper arm only if a caregiver injects.", cite: c(PI, 16) } },
     ],
   },
   {
@@ -213,6 +231,10 @@ const RAW: Module[] = [
       { id: "lm9-v1", type: "video", title: "Fair balance in 80 seconds", minutes: 2, competencies: ["c-safety", "c-compliance"], video: VIDEO_FAIR_BALANCE },
       { id: "lm9-d1", type: "document", title: "Read it in the compliance policy", minutes: 2, competencies: ["c-compliance"], document: { sourceId: CODE, pages: [4, 5, 6, 8],
         callouts: [{ page: 8, text: "24 hours, whatever the source. Even if the doctor mentions it in passing." }] } },
+      { id: "lm9-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-compliance"], check: {
+        question: "An HCP asks about use in a 15-year-old. You:",
+        options: ["Share what you've heard", "Say it's approved for adults and offer a medical information request", "Say it's probably fine", "Change the subject"], answer: 1,
+        rationale: "Off-label questions go to Medical Information.", cite: c(CODE, 6) } },
     ],
   },
   {
@@ -254,6 +276,10 @@ const RAW: Module[] = [
       { id: "lm11-g1", type: "graphic", title: "The PA checklist", minutes: 1, competencies: ["c-access"], graphic: { sourceId: PAY,
         headline: "What the office sends with a PA", stats: [{ value: "3", label: "things to document" }, { value: "$0", label: "copay for eligible commercial patients" }],
         points: ["Diagnosis of moderate-to-severe AD.", "Topical prescription therapies tried, with dates and outcome.", "Body surface area or severity score."], footnote: "Corvana Access Hub payer guide, p. 2" } },
+      { id: "lm11-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-access"], check: {
+        question: "Most commercial plans want the PA to document:",
+        options: ["A failed biologic", "An inadequate response to at least one topical prescription therapy", "A dermatologist's letter only", "Nothing"], answer: 1,
+        rationale: "An inadequate response to at least one topical prescription therapy.", cite: c(PAY, 2) } },
     ],
   },
   {
@@ -297,6 +323,10 @@ const RAW: Module[] = [
         { page: 3, say: "Share the week-16 data exactly: 51% vs 17% EASI-75. Point to the placebo bar.", avoid: "No comparisons with other biologics." },
         { page: 4, say: "Always present this page when you show page 3. Read the contraindication and the most common adverse reactions.", avoid: "Never skip or rush the safety page." },
       ] } },
+      { id: "lm13-b3", type: "check", title: "Quick check", minutes: 2, competencies: ["c-opening"], check: {
+        question: "The best way to open a Lumora call is with:",
+        options: ["The product name and price", "The patient the HCP already sees", "A competitor comparison", "Samples"], answer: 1,
+        rationale: "Lead with the patient, not the product.", cite: c(VA, 1) } },
     ],
   },
   {

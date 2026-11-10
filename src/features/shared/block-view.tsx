@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, CirclePlay, Layers, ListChecks, BookOpenText, Mic, X, FileText, Presentation, Headphones, ChartPie } from "lucide-react";
 import { VideoPlayer } from "@/features/media/video-player";
+import { YouTubePlayer } from "@/features/media/youtube-player";
 import { AudioPlayer, DocumentViewer, GraphicView, VisualAidWalkthrough } from "@/features/media/readers";
 import { cn } from "@/lib/cn";
 import type { Block, Citation as Cite, Para } from "@/data/types";
@@ -70,7 +71,9 @@ export function BlockView({ block, sourceIds, interactive, flag, onCheckAnswered
   if (block.type === "flashcards") return <Flashcards block={block} sourceIds={sourceIds} interactive={interactive} />;
   if (block.type === "check") return <KnowledgeCheck block={block} sourceIds={sourceIds} interactive={interactive} onAnswered={onCheckAnswered} size={size} />;
   if (block.type === "video" && block.video)
-    return <VideoPlayer spec={block.video} title={block.title} compact={!interactive} onWatched={(pct) => { if (pct >= 90) onComplete?.(); }} />;
+    return block.video.origin === "youtube"
+      ? <YouTubePlayer spec={block.video} title={block.title} interactive={interactive} onComplete={onComplete} />
+      : <VideoPlayer spec={block.video} title={block.title} compact={!interactive} interactive={interactive} onComplete={onComplete} />;
   if (block.type === "document" && block.document) return <DocumentViewer spec={block.document} compact={!interactive} onAllViewed={onComplete} />;
   if (block.type === "visualaid" && block.visualaid) return <VisualAidWalkthrough spec={block.visualaid} onDone={onComplete} />;
   if (block.type === "graphic" && block.graphic) return <GraphicView spec={block.graphic} />;

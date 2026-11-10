@@ -1,6 +1,6 @@
 import type { AnswerGuide, Citation, Course, Item, Module, Pool } from "@/data/types";
 
-export type QuestionKind = "check" | Pool;
+export type QuestionKind = "check" | "chapter" | Pool;
 
 /** One question as the trainer sees it: a knowledge check inside a lesson, or a pool question. */
 export interface Question {
@@ -15,7 +15,7 @@ export interface Question {
   answer: number;
   rationale: string;
   cite?: Citation;
-  /** The block a knowledge check follows. */
+  /** Where the rep meets it: the video chapter, or the module's material for a module check. */
   lesson?: string;
 }
 
@@ -28,8 +28,11 @@ function homeOf(i: Item, mods: Module[]) {
 
 /** Every question in the course, filed under the module it belongs to, in outline order. */
 export function questionsByModule(course: Course) {
-  const byModule = new Map<string, Question[]>(course.modules.map((m) => [m.id, m.blocks.flatMap((b, i) =>
-    b.check ? [{ id: b.id, kind: "check" as const, competency: b.competencies[0] ?? m.competency, lesson: m.blocks[i - 1]?.title, ...b.check }] : [])]));
+  const byModule = new Map<string, Question[]>(course.modules.map((m) => [m.id, m.blocks.flatMap((b): Question[] => {
+    if (b.check) return [{ id: b.id, kind: "check", competency: b.competencies[0] ?? m.competency, lesson: "the module's material", ...b.check }];
+    /* Questions that pop up inside a video, at the end of their chapter. */
+    return (b.video?.chapters ?? []).flatMap((ch, k) => (ch.check ? [{ id: `${b.id}-ch${k}`, kind: "chapter" as const, competency: b.competencies[0] ?? m.competency, lesson: `${b.title} · chapter ${k + 1}: ${ch.title}`, ...ch.check }] : []));
+  })]));
   const loose: Question[] = [];
   for (const i of course.items) {
     const q: Question = { ...i, kind: i.pool };
@@ -39,5 +42,7 @@ export function questionsByModule(course: Course) {
   return { byModule, loose };
 }
 
-export const questionCount = (course: Course) =>
-  course.items.length + course.modules.reduce((a, m) => a + m.blocks.filter((b) => b.check).length, 0);
+export const questionCount = (course: Course) => {
+  const { byModule, loose } = questionsByModule(course);
+  return [...byModule.values()].reduce((a, q) => a + q.length, loose.length);
+};

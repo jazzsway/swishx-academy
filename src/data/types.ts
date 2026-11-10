@@ -83,14 +83,21 @@ export interface Para { text: string; cite?: Citation; missing?: boolean }
 export type BlockType = "lesson" | "keypoints" | "flashcards" | "check" | "video" | "document" | "visualaid" | "audio" | "graphic" | "scenario";
 
 /** A short video. Captions are the approved script; scenes drive the simulated picture in the prototype. */
+/** A question that pops up when a video chapter ends. The rep answers before the video continues. */
+export interface ChapterCheck { question: string; options: string[]; answer: number; rationale: string }
+
 export interface VideoSpec {
   durationSec: number;
-  origin: "upload" | "ai" | "clip";
-  chapters: { at: number; title: string }[];
+  /** "youtube": a public video embedded from YouTube; the rest play in the simulated player. */
+  origin: "upload" | "ai" | "clip" | "youtube";
+  chapters: { at: number; title: string; check?: ChapterCheck }[];
   captions: { at: number; text: string }[];
   scenes: { at: number; headline: string; sub?: string; stat?: string }[];
   clipOf?: { blockId: string; from: number; to: number; title: string };
   fileName?: string;
+  /** YouTube only: the video id and who made it. */
+  youtubeId?: string;
+  credit?: string;
 }
 
 /** Assigned pages of an approved PDF, read in-app. */

@@ -20,7 +20,8 @@ import { useCopilot } from "@/features/copilot/copilot-store";
 /* When a rep meets each kind of question, in the order they meet them. */
 const KINDS: { id: QuestionKind; label: string; when: string }[] = [
   { id: "screening", label: "Screening", when: "Asked before the course starts, to skip what reps already know. No feedback." },
-  { id: "check", label: "Knowledge checks", when: "Inside the lessons. Reps see the answer straight away." },
+  { id: "chapter", label: "In-video questions", when: "The video pauses when the chapter ends. Reps answer before it carries on; a wrong answer offers to rewatch the chapter." },
+  { id: "check", label: "Module check", when: "At the end of the module. Reps see each answer straight away, and need the pass mark to finish the module, or re-read and retake." },
   { id: "assessment", label: "Final assessment", when: "Drawn into the final assessment: multiple choice, plus written answers SwishX marks against the points below. Answer keys show after a pass or the last attempt." },
   { id: "practice", label: "Practice", when: "Practice mode only. Doesn't count toward certification." },
 ];
@@ -147,7 +148,7 @@ function QuestionCard({ q, n, editable }: { q: Question; n: number; editable?: b
         <Chip size="sm" tone="brand">{competency(q.competency)?.name}</Chip>
         {q.difficulty && <Chip size="sm">{["", "Easy", "Medium", "Hard"][q.difficulty]}</Chip>}
         <Chip size="sm" iconLeft={q.format === "open" ? <PenLine className="size-3" aria-hidden="true" /> : <ListChecks className="size-3" aria-hidden="true" />}>{q.format === "open" ? "Written answer" : "Multiple choice"}</Chip>
-        {q.lesson && <Text size="caption" tone="subtle" className="ml-auto">After “{q.lesson}”</Text>}
+        {q.lesson && <Text size="caption" tone="subtle" className="ml-auto truncate">After {q.kind === "chapter" ? `“${q.lesson}”` : q.lesson}</Text>}
         {/* v1-hidden: the pool picker and Retire button. Ask the agent: Move “…” to practice, or Retire the question “…”. */}
       </div>
       <Text size="subhead" weight="bold" className="leading-snug">{q.question}</Text>

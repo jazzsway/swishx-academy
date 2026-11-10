@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, MessageSquareQuote, Check, X, Pause, Play, Headphones, Users, LineChart, ShieldAlert, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, MessageSquareQuote, Check, X, Pause, Play, Headphones, Users, LineChart, ShieldAlert, Building2, FileText, Maximize2, Minimize2, Presentation } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { AudioSpec, Block, DocumentSpec, VisualAidSpec } from "@/data/types";
 import { DOC_PAGES, VA_PAGES, fmtTime } from "@/data/media";
@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentSpec; onAllViewed?: () => void; compact?: boolean }) {
   const [i, setI] = useState(0);
   const [seen, setSeen] = useState<number[]>([spec.pages[0]]);
+  const [full, setFull] = useState(false);
   const src = source(spec.sourceId);
   const page = spec.pages[i];
-  const content = DOC_PAGES[spec.sourceId]?.[page];
   const callout = spec.callouts.find((c) => c.page === page);
   const fired = useRef(false);
 
@@ -24,43 +24,73 @@ export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentS
   }, [seen, spec.pages, onAllViewed]);
   const go = (n: number) => { setI(n); setSeen((s) => (s.includes(spec.pages[n]) ? s : [...s, spec.pages[n]])); };
 
-  return (
+  const reader = (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2 text-caption text-ink-3">
-        <span className="truncate font-semibold text-ink-2">{src?.title}</span>
+      <div className="flex items-center gap-2 text-caption text-ink-3">
+        <FileText className="size-4 shrink-0 text-brand" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate font-semibold text-ink-2">{src?.title}</span>
         <span className="flex shrink-0 items-center gap-1"><Lock className="size-3" aria-hidden="true" />View only</span>
+        {!compact && (
+          <button type="button" onClick={() => setFull(!full)} aria-label={full ? "Exit full screen" : "Read full screen"} className="grid size-8 shrink-0 place-items-center rounded-full bg-card shadow-hair hover:bg-subtle">
+            {full ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
+          </button>
+        )}
       </div>
-      <div className={cn("squircle relative mx-auto flex w-full flex-col gap-3 rounded-control border border-hair-2 bg-white p-5 shadow-soft", compact ? "max-w-[520px]" : "aspect-[8.5/11] max-w-[560px] sm:p-8")}>
-        <div className="flex items-center justify-between border-b border-hair pb-2 text-micro font-semibold uppercase tracking-wider text-ink-4">
-          <span>{src?.title}</span><span>Page {page}</span>
-        </div>
-        {content ? (
-          <>
-            <Text size="title" weight="bold">{content.title}</Text>
-            {content.sections.map((sec, k) => (
-              <div key={k} className="flex flex-col gap-1">
-                {sec.h && <Text size="body" weight="bold">{sec.h}</Text>}
-                <Text size="body" tone="muted" className="leading-relaxed">{sec.p}</Text>
-              </div>
-            ))}
-          </>
-        ) : <Text tone="subtle">Page {page}</Text>}
-        <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">For internal training use only</div>
-      </div>
+      <Paper sourceId={spec.sourceId} page={page} title={src?.title} compact={compact} />
       {callout && (
         <div className="squircle flex items-start gap-2.5 rounded-panel border border-tint-line bg-tint px-4 py-3">
           <MessageSquareQuote className="mt-0.5 size-4 shrink-0 text-brand-deep" aria-hidden="true" />
           <Text size="body-lg"><strong className="text-brand-deep">Trainer note. </strong>{callout.text}</Text>
         </div>
       )}
+      {spec.pages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="tablist" aria-label="Pages">
+          {spec.pages.map((p, k) => (
+            <button key={p} type="button" role="tab" aria-selected={k === i} onClick={() => go(k)}
+              className={cn("relative flex h-[76px] w-[58px] shrink-0 flex-col gap-1 rounded-glyph border bg-white p-1.5 shadow-hair transition-all", k === i ? "border-brand ring-2 ring-brand/25" : "border-hair-2 hover:border-ink-4")}>
+              {[90, 70, 85, 60, 80].map((w, j) => <span key={j} className="h-1 rounded-full bg-black/10" style={{ width: `${w}%` }} />)}
+              <span className="mt-auto text-center text-micro font-bold text-ink-3">{p}</span>
+              {seen.includes(p) && <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-ok text-white"><Check className="size-2.5" aria-hidden="true" /></span>}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
-        <div className="flex gap-1.5" aria-label={`Page ${i + 1} of ${spec.pages.length}`}>
-          {spec.pages.map((p, k) => <span key={p} className={cn("size-2 rounded-full", k === i ? "bg-brand" : seen.includes(p) ? "bg-ink-4" : "bg-black/10")} />)}
-        </div>
+        <Text size="caption" tone="subtle" tabular>{seen.length} of {spec.pages.length} read</Text>
         <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
       </div>
-      <Text size="caption" tone="subtle" className="text-center">Pages {spec.pages.join(", ")} assigned · {seen.length} of {spec.pages.length} read</Text>
+    </div>
+  );
+
+  if (!full) return reader;
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-canvas p-4 sm:p-8" role="dialog" aria-modal="true" aria-label={src?.title}>
+      <div className="mx-auto max-w-[720px]">{reader}</div>
+    </div>
+  );
+}
+
+/** One page of an approved document, laid out like the printed page. */
+function Paper({ sourceId, page, title, compact }: { sourceId: string; page: number; title?: string; compact?: boolean }) {
+  const content = DOC_PAGES[sourceId]?.[page];
+  return (
+    <div key={page} className={cn("rise-in squircle relative mx-auto flex w-full flex-col gap-3 rounded-control border border-hair-2 bg-white p-5 shadow-soft", compact ? "max-w-[520px]" : "min-h-[420px] max-w-[620px] sm:p-9")}>
+      <div className="flex items-center justify-between border-b border-hair pb-2 text-micro font-semibold uppercase tracking-wider text-ink-4">
+        <span className="truncate">{title}</span><span className="shrink-0">Page {page}</span>
+      </div>
+      {content ? (
+        <>
+          <Text size="title" weight="bold" className="font-serif">{content.title}</Text>
+          {content.sections.map((sec, k) => (
+            <div key={k} className="flex flex-col gap-1">
+              {sec.h && <Text size="body" weight="bold">{sec.h}</Text>}
+              <Text size="body-lg" tone="muted" className="font-serif leading-relaxed">{sec.p}</Text>
+            </div>
+          ))}
+        </>
+      ) : <Text tone="subtle">Page {page}</Text>}
+      <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">For internal training use only</div>
     </div>
   );
 }
@@ -97,9 +127,23 @@ export function VisualAidWalkthrough({ spec, onDone }: { spec: VisualAidSpec; on
         <div className="squircle flex gap-2.5 rounded-panel bg-ok-bg px-4 py-3"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" /><Text size="body-lg"><strong className="text-ok">Say. </strong>{step.say}</Text></div>
         {step.avoid && <div className="squircle flex gap-2.5 rounded-panel bg-danger-bg px-4 py-3"><X className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" /><Text size="body-lg"><strong className="text-danger">Avoid. </strong>{step.avoid}</Text></div>}
       </div>
+      {spec.pages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="tablist" aria-label="Deck pages">
+          {spec.pages.map((pg, k) => {
+            const vp = VA_PAGES[spec.sourceId]?.[pg.page];
+            return (
+              <button key={pg.page} type="button" role="tab" aria-selected={k === i} onClick={() => go(k)}
+                className={cn("relative flex aspect-[16/10] w-[96px] shrink-0 flex-col justify-end rounded-glyph border bg-gradient-to-br from-tint-2 to-tint-strong p-1.5 text-left shadow-hair transition-all", k === i ? "border-brand ring-2 ring-brand/25" : "border-hair-2 hover:border-ink-4")}>
+                <span className="line-clamp-2 text-[10px] font-bold leading-tight text-ink">{vp?.title ?? `Page ${pg.page}`}</span>
+                {seen.includes(k) && <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-ok text-white"><Check className="size-2.5" aria-hidden="true" /></span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
-        <Text size="caption" tone="subtle">Page {i + 1} of {spec.pages.length}</Text>
+        <Text size="caption" tone="subtle" className="flex items-center gap-1"><Presentation className="size-3.5" aria-hidden="true" />Page {i + 1} of {spec.pages.length}</Text>
         <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
       </div>
     </div>

@@ -5,7 +5,11 @@ import type { VideoSpec } from "./types";
 
 export const VIDEO_MOA: VideoSpec = {
   durationSec: 160, origin: "upload", fileName: "lumora-moa-animation.mp4",
-  chapters: [{ at: 0, title: "Type 2 inflammation" }, { at: 55, title: "Where IL-13 acts" }, { at: 110, title: "How relvokimab blocks it" }],
+  chapters: [
+    { at: 0, title: "Type 2 inflammation", check: { question: "What drives itch, barrier damage and flares in atopic dermatitis?", options: ["Bacterial infection", "Type 2 inflammation", "Dry air", "A fungal overgrowth"], answer: 1, rationale: "Type 2 inflammation drives itch, barrier damage and flares." } },
+    { at: 55, title: "Where IL-13 acts" },
+    { at: 110, title: "How relvokimab blocks it", check: { question: "How does relvokimab work?", options: ["It replaces the skin barrier", "It binds IL-13 so it can't signal through its receptor", "It suppresses every immune cell", "It kills skin bacteria"], answer: 1, rationale: "Relvokimab binds IL-13 and stops it signalling through its receptor complex." } },
+  ],
   captions: [
     { at: 0, text: "In atopic dermatitis, type 2 inflammation drives itch, barrier damage and flares." },
     { at: 28, text: "Cytokines released in the skin keep that cycle going." },
@@ -23,7 +27,12 @@ export const VIDEO_MOA: VideoSpec = {
 
 export const VIDEO_LUMEN: VideoSpec = {
   durationSec: 190, origin: "upload", fileName: "lumen-results-in-3-minutes.mp4",
-  chapters: [{ at: 0, title: "Who was studied" }, { at: 60, title: "Week-16 results" }, { at: 130, title: "Holding the response" }, { at: 165, title: "Safety in balance" }],
+  chapters: [
+    { at: 0, title: "Who was studied", check: { question: "How many adults were in LUMEN-1 and LUMEN-2?", options: ["540", "1,040", "1,540", "2,540"], answer: 2, rationale: "1,540 adults with moderate-to-severe atopic dermatitis." } },
+    { at: 60, title: "Week-16 results", check: { question: "EASI-75 at week 16 with Lumora vs placebo was:", options: ["36% vs 10%", "51% vs 17%", "44% vs 13%", "78% vs 20%"], answer: 1, rationale: "51% vs 17%. 36% vs 10% is clear or almost clear skin." } },
+    { at: 130, title: "Holding the response" },
+    { at: 165, title: "Safety in balance", check: { question: "Which adverse reactions does the video name as most common?", options: ["Headache and nausea", "Conjunctivitis and injection-site reactions", "Weight gain", "Liver enzyme changes"], answer: 1, rationale: "Conjunctivitis and injection-site reactions were among the most common." } },
+  ],
   captions: [
     { at: 0, text: "LUMEN-1 and LUMEN-2 enrolled 1,540 adults with moderate-to-severe atopic dermatitis." },
     { at: 30, text: "Both were 16-week, randomized, double-blind, placebo-controlled Phase 3 trials." },
@@ -43,7 +52,11 @@ export const VIDEO_LUMEN: VideoSpec = {
 
 export const VIDEO_INJECTION: VideoSpec = {
   durationSec: 110, origin: "upload", fileName: "lumora-first-injection.mp4",
-  chapters: [{ at: 0, title: "Before injecting" }, { at: 45, title: "Sites" }, { at: 80, title: "Day one" }],
+  chapters: [
+    { at: 0, title: "Before injecting", check: { question: "How long should the pen sit at room temperature?", options: ["5 minutes", "15 minutes", "30 minutes", "2 hours"], answer: 2, rationale: "30 minutes out of the fridge before injecting." } },
+    { at: 45, title: "Sites" },
+    { at: 80, title: "Day one", check: { question: "On day one, the loading dose is given as:", options: ["One injection", "Two 250 mg injections at different sites", "Two injections at the same site", "Four injections"], answer: 1, rationale: "500 mg as two 250 mg injections at different sites." } },
+  ],
   captions: [
     { at: 0, text: "Take the pen out of the fridge and let it reach room temperature for 30 minutes." },
     { at: 45, text: "Inject into the thigh or abdomen, avoiding two inches around the navel." },
@@ -59,7 +72,12 @@ export const VIDEO_INJECTION: VideoSpec = {
 
 export const VIDEO_MODEL_CALL: VideoSpec = {
   durationSec: 150, origin: "upload", fileName: "model-call-cost-objection.mp4",
-  chapters: [{ at: 0, title: "The objection" }, { at: 40, title: "Acknowledge" }, { at: 75, title: "The Access Hub" }, { at: 120, title: "Ask for the next step" }],
+  chapters: [
+    { at: 0, title: "The objection" },
+    { at: 40, title: "Acknowledge", check: { question: "What does the rep do first?", options: ["Argues the drug is worth it", "Acknowledges the paperwork is real", "Promises the plan will cover it", "Changes the subject"], answer: 1, rationale: "Acknowledge first: don't argue, don't promise." } },
+    { at: 75, title: "The Access Hub" },
+    { at: 120, title: "Ask for the next step", check: { question: "How does the rep close?", options: ["Asks for a prescription today", "Offers to send the Hub enrolment form to the nurse", "Leaves samples", "Books lunch"], answer: 1, rationale: "A small, concrete next step: the enrolment form to the nurse." } },
+  ],
   captions: [
     { at: 0, text: "Doctor: My patients' plans fight every biologic. The prior auth paperwork kills my staff." },
     { at: 40, text: "Rep: I hear you, the paperwork is real, and it lands on your staff." },
@@ -98,7 +116,11 @@ export const VIDEO_WEBINAR: VideoSpec = {
 /* Short videos SwishX scripted from the cited sentences of a module, and a short series of model-call clips. */
 export const VIDEO_PATIENT_MONTH: VideoSpec = {
   durationSec: 95, origin: "ai",
-  chapters: [{ at: 0, title: "The visit" }, { at: 40, title: "The month before" }, { at: 70, title: "What to ask" }],
+  chapters: [
+    { at: 0, title: "The visit" },
+    { at: 40, title: "The month before", check: { question: "Why might a patient seem fine at the visit?", options: ["Their disease is mild", "The flare has often settled by the time they're seen", "They're on a biologic", "Doctors don't ask"], answer: 1, rationale: "Flares often settle before the visit, so symptoms are under-reported." } },
+    { at: 70, title: "What to ask" },
+  ],
   captions: [
     { at: 0, text: "Many adults start on topical corticosteroids and cycle through several before a systemic therapy is considered." },
     { at: 40, text: "By the time they are seen, a flare may have settled, so symptoms are often under-reported." },
@@ -113,7 +135,11 @@ export const VIDEO_PATIENT_MONTH: VideoSpec = {
 
 export const VIDEO_FAIR_BALANCE: VideoSpec = {
   durationSec: 80, origin: "ai",
-  chapters: [{ at: 0, title: "Comparable prominence" }, { at: 35, title: "Words to avoid" }, { at: 60, title: "Off-label questions" }],
+  chapters: [
+    { at: 0, title: "Comparable prominence" },
+    { at: 35, title: "Words to avoid", check: { question: "Which word should you never use?", options: ["Studied", "Safest", "Approved", "Placebo"], answer: 1, rationale: "Absolute terms like “safest” minimise risk." } },
+    { at: 60, title: "Off-label questions" },
+  ],
   captions: [
     { at: 0, text: "Whenever you discuss efficacy, present the important safety information with comparable prominence." },
     { at: 35, text: "Never minimise risk. Avoid absolute terms such as safest, no side effects or guaranteed." },
@@ -128,7 +154,11 @@ export const VIDEO_FAIR_BALANCE: VideoSpec = {
 
 export const VIDEO_HUB_ENROL: VideoSpec = {
   durationSec: 105, origin: "upload", fileName: "access-hub-enrolment.mp4",
-  chapters: [{ at: 0, title: "One form" }, { at: 40, title: "Benefits in 2 days" }, { at: 75, title: "Bridge supply" }],
+  chapters: [
+    { at: 0, title: "One form" },
+    { at: 40, title: "Benefits in 2 days", check: { question: "How fast does the Hub confirm benefits?", options: ["Same day", "Within 2 business days", "Within 2 weeks", "After the PA is approved"], answer: 1, rationale: "Within 2 business days." } },
+    { at: 75, title: "Bridge supply" },
+  ],
   captions: [
     { at: 0, text: "Offices enrol patients in the Corvana Access Hub with one form." },
     { at: 40, text: "The Hub runs benefits verification and confirms benefits within 2 business days." },
@@ -169,6 +199,30 @@ export const CLIP_OBJ_TOPICALS = clip("objection-fine-on-topicals.mp4", 60, [
   ["Doctor: Honestly, my patients are fine on topicals.", "“They're fine on topicals”", "The objection"],
   ["Rep: In the last month, how many of them had a flare or lost sleep to itch?", "Ask about the last month", "Flares · sleep · missed work"],
 ]);
+
+/* Public videos embedded from YouTube. Their in-video questions stay within what each chapter's title says it covers. */
+export const YT_AD_LECTURE: VideoSpec = {
+  durationSec: 365, origin: "youtube", youtubeId: "dfQTiTfiUG0", credit: "MedNerd, Dr. Waqas Fazal · YouTube",
+  chapters: [
+    { at: 0, title: "A patient scenario" },
+    { at: 55, title: "What atopic dermatitis is", check: { question: "Atopic dermatitis is best described as:", options: ["An acute skin infection", "A chronic, relapsing inflammatory skin disease", "An allergy that clears in weeks", "A fungal condition"], answer: 1, rationale: "It's chronic and relapsing: flares come back even after the skin clears." } },
+    { at: 85, title: "Pathophysiology", check: { question: "Which two things drive atopic dermatitis?", options: ["Sun damage and ageing", "A weakened skin barrier and immune (type 2) inflammation", "Diet and dehydration", "Bacteria and fungi"], answer: 1, rationale: "Barrier dysfunction and immune dysregulation feed each other." } },
+    { at: 152, title: "Commonly affected areas", check: { question: "In adults, atopic dermatitis typically affects:", options: ["Only the scalp", "Skin creases such as the elbows and behind the knees, plus hands and face", "Only the feet", "Only sun-exposed skin"], answer: 1, rationale: "Flexural areas, hands, face and neck are typical in adults." } },
+    { at: 193, title: "Clinical presentation & associations", check: { question: "Atopic dermatitis is commonly associated with:", options: ["Diabetes and gout", "Asthma and allergic rhinitis", "Migraine", "High blood pressure"], answer: 1, rationale: "The “atopic triad”: eczema, asthma and allergic rhinitis." } },
+    { at: 218, title: "Diagnosis" },
+    { at: 232, title: "Treatment", check: { question: "What is the foundation of care for every patient?", options: ["Antibiotics", "Moisturisers (emollients), with topical anti-inflammatories for flares", "Surgery", "Antihistamines alone"], answer: 1, rationale: "Emollients for everyone; topical anti-inflammatories for flares; systemics when that isn't enough." } },
+    { at: 299, title: "Summary" },
+  ],
+  captions: [], scenes: [],
+};
+
+export const YT_AD_PATHOPHYS: VideoSpec = {
+  durationSec: 192, origin: "youtube", youtubeId: "Jz_k9AWjZAM", credit: "AJMCtv · YouTube",
+  chapters: [
+    { at: 0, title: "How the disease evolves in adolescents and adults", check: { question: "Which kind of inflammation is central to atopic dermatitis?", options: ["Type 1", "Type 2", "Type 3", "None: it isn't inflammatory"], answer: 1, rationale: "Type 2 inflammation, driven by cytokines such as IL-4 and IL-13." } },
+  ],
+  captions: [], scenes: [],
+};
 
 export interface DocPage { title: string; sections: { h?: string; p: string }[] }
 

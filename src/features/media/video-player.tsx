@@ -7,14 +7,17 @@ import { cn } from "@/lib/cn";
 import type { VideoSpec } from "@/data/types";
 import { fmtTime } from "@/data/media";
 import { Text } from "@/components/ui/text";
+import { ChapterList, ChapterQuestion, useChapterChecks } from "./chapter-checks";
 
 /**
  * A simulated video: the timeline, chapters and captions are real; the picture is drawn
  * from the script's scenes. Narration reads the approved captions aloud (text-to-speech).
  * Reports the furthest point watched so completion can require 90%.
  */
-export function VideoPlayer({ spec, title, onWatched, compact }: {
+export function VideoPlayer({ spec, title, onWatched, onComplete, compact, interactive }: {
   spec: VideoSpec; title: string; onWatched?: (pct: number) => void; compact?: boolean;
+  /** Pauses for chapter questions; onComplete fires once 90% is watched and every question is answered. */
+  interactive?: boolean; onComplete?: () => void;
 }) {
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -26,19 +29,30 @@ export function VideoPlayer({ spec, title, onWatched, compact }: {
   const watched = useRef(new Set<number>());
   const lastCaption = useRef(-1);
   const dur = spec.durationSec;
+  const checks = useChapterChecks(spec, !!interactive);
+  const checksRef = useRef(checks);
+  checksRef.current = checks;
+  const [pct, setPct] = useState(0);
+  const fired = useRef(false);
+  useEffect(() => {
+    if (!fired.current && pct >= 90 && checks.allPassed) { fired.current = true; onComplete?.(); }
+  }, [pct, checks.allPassed, onComplete]);
 
+  const tRef = useRef(0);
   useEffect(() => {
     if (!playing) return;
     const id = window.setInterval(() => {
-      setT((x) => {
-        const n = Math.min(dur, x + 0.25 * speed);
-        /* Coverage, not position: seeking ahead doesn't count as watching. */
-        for (let sec = Math.floor(x); sec < Math.ceil(n); sec++) watched.current.add(sec);
-        if (n > maxT.current) maxT.current = n;
-        onWatched?.(Math.round((watched.current.size / dur) * 100));
-        if (n >= dur) setPlaying(false);
-        return n;
-      });
+      const x = tRef.current;
+      const n = Math.min(dur, x + 0.25 * speed);
+      /* Coverage, not position: seeking ahead doesn't count as watching. */
+      for (let sec = Math.floor(x); sec < Math.ceil(n); sec++) watched.current.add(sec);
+      if (n > maxT.current) maxT.current = n;
+      const p = Math.round((watched.current.size / dur) * 100);
+      tRef.current = n;
+      setT(n);
+      setPct(p);
+      onWatched?.(p);
+      if (checksRef.current.crossed(x, n) || n >= dur) setPlaying(false);
     }, 250);
     return () => window.clearInterval(id);
   }, [playing, speed, dur, onWatched]);
@@ -60,7 +74,7 @@ export function VideoPlayer({ spec, title, onWatched, compact }: {
   useEffect(() => () => { if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
   useEffect(() => { if (!playing && typeof window !== "undefined") window.speechSynthesis?.cancel(); }, [playing]);
 
-  const seek = (s: number) => { setT(s); lastCaption.current = -1; };
+  const seek = (s: number) => { tRef.current = s; setT(s); lastCaption.current = -1; };
 
   return (
     <div className="flex flex-col gap-3">
@@ -80,6 +94,11 @@ export function VideoPlayer({ spec, title, onWatched, compact }: {
           {spec.origin === "clip" && <span className="flex items-center gap-1 rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold"><Scissors className="size-3" aria-hidden="true" />Clip</span>}
           {chapter && <span className="rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold">{chapter.title}</span>}
         </div>
+        {checks.pending !== null && (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-ink/70 backdrop-blur-sm">
+            <span className="rounded-chip bg-white/95 px-3 py-1.5 text-body font-semibold text-ink">Answer below to keep watching</span>
+          </div>
+        )}
         {cc && caption && t > 0 && <div className="pointer-events-none absolute inset-x-4 bottom-12 text-center"><span className="rounded-chip bg-black/70 px-2.5 py-1 text-body leading-relaxed">{caption.text}</span></div>}
         <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6">
           <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={() => setPlaying(!playing)} className="grid size-8 place-items-center rounded-full hover:bg-white/15">{playing ? <Pause className="size-4" /> : <Play className="size-4" />}</button>
@@ -96,14 +115,9 @@ export function VideoPlayer({ spec, title, onWatched, compact }: {
           <button type="button" aria-label="Playback speed" onClick={() => setSpeed(speed >= 2 ? 1 : speed + 0.5)} className="rounded-glyph px-1.5 text-micro font-bold hover:bg-white/15">{speed}×</button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {spec.chapters.map((c, i) => (
-          <button key={c.at} type="button" onClick={() => { seek(c.at); setPlaying(true); }}
-            className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold transition-colors", chapter?.at === c.at ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:bg-subtle")}>
-            {i + 1}. {c.title} <span className="font-normal text-ink-3">{fmtTime(c.at)}</span>
-          </button>
-        ))}
-      </div>
+      {interactive && <ChapterQuestion spec={spec} checks={checks} onResume={() => setPlaying(true)} onRewatch={(at) => { seek(at); setPlaying(true); }} />}
+      {interactive && checks.due.length > 0 && <Text size="caption" tone="subtle" tabular>{Math.min(pct, 100)}% watched · {checks.passed.length} of {checks.due.length} chapter questions answered</Text>}
+      {spec.chapters.length > 1 && <ChapterList spec={spec} current={spec.chapters.findLastIndex((c) => c.at <= t)} checks={interactive ? checks : undefined} onSeek={(at) => { seek(at); setPlaying(true); }} />}
       {spec.clipOf && <Text size="caption" tone="subtle">Clip of “{spec.clipOf.title}” · {fmtTime(spec.clipOf.from)}–{fmtTime(spec.clipOf.to)}</Text>}
       <button type="button" onClick={() => setShowTranscript(!showTranscript)} className="self-start text-body font-semibold text-ink-2 underline-offset-2 hover:underline">{showTranscript ? "Hide transcript" : "Show transcript"}</button>
       {showTranscript && (
