@@ -304,22 +304,22 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What do you already have?</Text>
-            <Text tone="subtle" size="body-lg">Add your own files. SwishX builds the rest.</Text>
+            <Text tone="subtle" size="body-lg">Add the materials you already have, and the source material SwishX should build the rest of the course from.</Text>
           </div>
 
           <section className="flex flex-col gap-2.5" aria-label="Put in the course">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <Text as="h2" size="title" weight="bold">Put in the course</Text>
-              <Text size="body" tone="subtle">Reps watch, read or listen to these</Text>
+              <Text size="body" tone="subtle" className="max-w-[46ch] sm:text-right">Ready-made materials reps see as they are. SwishX also analyses them to write questions and assessments.</Text>
             </div>
-            {showItems.map((s) => <MaterialRow key={s.id} s={s} sub={howRepsGetIt(s)} move="Background only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
+            {showItems.map((s) => <MaterialRow key={s.id} s={s} sub={howRepsGetIt(s)} move="Use as source only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
             <Dropzone label="Drop files reps should see" kinds={["Video", "Audio", "PDF", "Slides", "Image"]} onFiles={(files) => addFiles(files, "course")} />
           </section>
 
-          <section className="flex flex-col gap-2.5 border-t border-hair pt-5" aria-label="Background for SwishX">
+          <section className="flex flex-col gap-2.5 border-t border-hair pt-5" aria-label="Source material for SwishX">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <Text as="h2" size="title" weight="bold">Background for SwishX</Text>
-              <Text size="body" tone="subtle">SwishX writes from these. Reps don&apos;t see them.</Text>
+              <Text as="h2" size="title" weight="bold">Source material for SwishX</Text>
+              <Text size="body" tone="subtle" className="max-w-[46ch] sm:text-right">SwishX uses these to create the rest of the course: lessons, questions and media. Reps don&apos;t see them directly.</Text>
             </div>
             {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">Add the Prescribing Information. SwishX needs it for any product course.</div>}
             {background.map((s) => {
@@ -340,11 +340,11 @@ export function NewCourseWizard() {
                 ))}
               </div>
             )}
-            <Dropzone label="Add a background document" kinds={["PDF", "Doc", "Data"]} compact onFiles={(files) => addFiles(files, "background")} />
+            <Dropzone label="Add your own source material" kinds={["PDF", "Doc", "Data"]} compact onFiles={(files) => addFiles(files, "background")} />
           </section>
 
           <Text size="caption" tone="subtle" className="flex items-start gap-1.5 border-t border-hair pt-3">
-            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />SwishX also reads everything in the course, so it can write questions about your videos and slides.
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />In one go: your ready-made materials go straight into the course, and SwishX uses the source material to create whatever else the course needs.
           </Text>
           {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
         </Card>
@@ -484,7 +484,7 @@ export function NewCourseWizard() {
           <div className="flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float">
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
               {step === 0 && "Next: add your materials"}
-              {step === 1 && `${showItems.length} in the course · ${background.length} in the background`}
+              {step === 1 && `${showItems.length} in the course · ${background.length} source material${background.length === 1 ? "" : "s"}`}
               {step === 2 && `${comps.length} competencies`}
               {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
             </Text>
