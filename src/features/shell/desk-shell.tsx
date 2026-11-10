@@ -8,16 +8,18 @@ import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
-import { BrandLockup, BrandMark } from "./brand";
+import { LogoMark } from "@/components/ui/logo-mark";
 import { Notifications, ViewAs } from "./chrome";
 import { ORG } from "@/data/org";
 import { CopilotButton, CopilotPanel } from "@/features/copilot/copilot-panel";
 
 type DeskRole = "Trainer" | "Manager";
 
-interface NavItem { label: string; href: string; icon: ReactNode; badge?: number; exact?: boolean }
+interface NavChild { label: string; href: string; exact?: boolean }
+interface NavItem { label: string; shortLabel?: string; href: string; icon: ReactNode; badge?: number; exact?: boolean; children?: NavChild[] }
 
-const I = { size: 17, strokeWidth: 1.85 };
+/* Same icon weight as SwishX for Biz's rail. */
+const I = { size: 16, strokeWidth: 1.75 };
 
 function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
   const me = useMe();
@@ -26,15 +28,25 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
   );
   if (role === "Trainer")
     return [
-      { items: [
-        { label: "Home", href: "/trainer", icon: <Home {...I} />, exact: true },
+      { items: [{ label: "Home", href: "/trainer", icon: <Home {...I} />, exact: true }] },
+      { label: "Training", items: [
         { label: "Courses", href: "/trainer/courses", icon: <BookOpen {...I} /> },
         // v1-hidden: { label: "Campaigns", href: "/trainer/campaigns", icon: <Flag {...I} /> },
         // v1-hidden: { label: "Library", href: "/trainer/library", icon: <Library {...I} /> },
+      ] },
+      { label: "Insights", items: [
         { label: "Analytics", href: "/trainer/analytics", icon: <LineChart {...I} /> },
         { label: "Teams", href: "/trainer/records", icon: <Users {...I} /> },
       ] },
-      { label: "Workspace", items: [{ label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} /> }] },
+      { label: "Workspace", items: [{
+        label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} />,
+        children: [
+          { label: "Organisation", href: "/trainer/settings", exact: true },
+          { label: "People", href: "/trainer/settings/people" },
+          { label: "Products", href: "/trainer/settings/products" },
+          { label: "Competencies", href: "/trainer/settings/competencies" },
+        ],
+      }] },
     ];
   return [
       { items: [
@@ -74,23 +86,49 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
     try { localStorage.setItem("sx-sidebar", next ? "collapsed" : "open"); } catch { /* storage blocked */ }
   };
 
+  const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname === href || pathname.startsWith(href + "/"));
+
+  /* The SwishX for Biz rail: small uppercase group labels, a solid orange row for the section
+     you're in, and sub-pages hung off their parent on a hairline. Collapsed, each row is an icon
+     with a short label under it. */
   const renderNav = (compact: boolean) => (
-    <nav aria-label="Main" className="flex flex-1 flex-col gap-5">
+    <nav aria-label="Main" className={cn("flex flex-1 flex-col gap-3.5 overflow-y-auto py-2 [scrollbar-width:none]", compact ? "items-center px-2" : "px-3")}>
       {groups.map((g, gi) => (
-        <div key={gi} className="flex flex-col gap-0.5">
-          {g.label && (compact ? <span className="mx-auto mb-1 h-px w-6 bg-hair-2" aria-hidden="true" /> : <Text size="micro" tone="faint" weight="bold" uppercase tracking="wider" className="px-3 pb-1">{g.label}</Text>)}
+        <div key={gi} className={cn("flex flex-col gap-1.5", compact && "items-center")}>
+          {g.label && (compact
+            ? <span className="my-1 h-px w-7 bg-gradient-to-r from-transparent via-hair-2 to-transparent" aria-hidden="true" />
+            : <span className="px-2 pt-1 text-caption font-extrabold uppercase tracking-[0.14em] text-ink-3">{g.label}</span>)}
           {g.items.map((it) => {
-            const active = it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/");
+            const active = isOn(it.href, it.exact);
             return (
-              <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined} title={compact ? it.label : undefined} aria-label={compact ? it.label : undefined}
-                className={cn("focus-ring relative flex h-10 items-center gap-3 rounded-control text-body-lg transition-colors", compact ? "justify-center px-0" : "px-3",
-                  active ? "bg-tint font-semibold text-brand-deep" : "font-medium text-ink-2 hover:bg-subtle hover:text-ink")}>
-                {it.icon}
-                {!compact && <span className="flex-1">{it.label}</span>}
-                {it.badge !== undefined && (compact
-                  ? <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand" aria-hidden="true" />
-                  : <span className="rounded-glyph bg-brand px-1.5 text-micro font-bold text-white">{it.badge}</span>)}
-              </Link>
+              <div key={it.href} className={cn("flex flex-col", compact && "items-center")}>
+                <Link href={it.href} aria-current={active ? "page" : undefined} title={compact ? it.label : undefined}
+                  className={cn("focus-ring group relative flex items-center rounded-control transition-all duration-150",
+                    compact ? "w-[58px] flex-col justify-center gap-1 px-1 py-2" : "h-[42px] w-full gap-3 px-3",
+                    active ? "bg-brand text-white shadow-brand-lift" : "text-ink-2 hover:bg-tint hover:text-brand-deep")}>
+                  <span className={cn("shrink-0", active ? "text-white" : "text-ink-3 group-hover:text-brand")}>{it.icon}</span>
+                  <span className={cn("truncate tracking-tight", compact ? "text-caption leading-none" : "flex-1 text-body-lg",
+                    active ? "font-[750] text-white" : "font-normal text-ink group-hover:font-bold")}>{compact ? it.shortLabel ?? it.label : it.label}</span>
+                  {it.badge !== undefined && (compact
+                    ? <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand" aria-hidden="true" />
+                    : <span className={cn("rounded-chip px-2 py-0.5 text-caption font-bold", active ? "bg-white/25 text-white" : "bg-brand text-white")}>{it.badge}</span>)}
+                </Link>
+                {!compact && it.children && (
+                  <div className="relative mt-1 w-full space-y-0.5 pl-[26px]">
+                    <span aria-hidden="true" className="absolute bottom-1.5 left-[15px] top-1 w-px bg-hair-2" />
+                    {it.children.map((c) => {
+                      const on = isOn(c.href, c.exact);
+                      return (
+                        <Link key={c.href} href={c.href} aria-current={on ? "page" : undefined}
+                          className={cn("flex h-8 w-full items-center rounded-glyph px-2.5 text-body transition-colors",
+                            on ? "bg-tint font-bold text-brand-deep" : "text-ink-2 hover:bg-tint/60 hover:text-brand-deep")}>
+                          <span className="truncate">{c.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -98,28 +136,72 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
     </nav>
   );
 
+  /* The org and the person signed in, at the foot of the rail. */
+  const footer = (compact: boolean) => (
+    <div className="space-y-1.5 border-t border-hair p-2">
+      {!compact && (
+        <div className="flex items-center gap-2 rounded-control border border-tint-line bg-gradient-to-r from-tint to-white px-2.5 py-2">
+          <GraduationCap className="size-4 shrink-0 text-brand" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-label font-extrabold leading-none text-ink">{ORG.name}</span>
+            <span className="mt-0.5 block truncate text-micro font-bold uppercase text-ink-3">Academy · prototype data</span>
+          </div>
+        </div>
+      )}
+      <Link href="/trainer/settings/people" title={compact ? `${me.name} · ${role}` : undefined}
+        className={cn("flex w-full items-center rounded-control border border-hair bg-black/[0.02] p-1.5 transition-all hover:bg-black/[0.05]", compact ? "justify-center" : "gap-2.5")}>
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand to-brand-deep text-label font-[800] text-white shadow-hair">{me.initials}</span>
+        {!compact && (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-bold leading-tight text-ink">{me.name}</span>
+            <span className="mt-0.5 block truncate text-caption font-bold text-brand">{role}</span>
+          </span>
+        )}
+      </Link>
+    </div>
+  );
+
+  /* Collapse chip: the same small raised control as SwishX for Biz, in both states. */
+  const toggle = (
+    <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      className="group grid size-8 shrink-0 place-items-center rounded-control border border-hair-2 text-ink-3 transition-all duration-200 hover:scale-105 hover:border-tint-line hover:text-brand-deep active:scale-95"
+      style={{ background: "linear-gradient(155deg,#ffffff,#f6f4f2)", boxShadow: "0 2px 6px -2px rgba(10,13,20,.1), inset 0 1px 0 rgba(255,255,255,.9)" }}>
+      {collapsed ? <PanelLeftOpen size={15} strokeWidth={2} className="transition-transform duration-300 group-hover:translate-x-0.5" /> : <PanelLeftClose size={15} strokeWidth={2} className="transition-transform duration-300 group-hover:-translate-x-0.5" />}
+    </button>
+  );
+
+  const brand = (compact: boolean) => (
+    <div className="flex items-center gap-2.5 font-[800] text-title tracking-tight text-ink">
+      <LogoMark size={24} className="text-brand" />
+      {!compact && <span className="flex items-baseline gap-1.5">swish<span className="-ml-1.5 text-brand">X</span><span className="text-caption font-bold uppercase tracking-[0.14em] text-ink-3">Academy</span></span>}
+    </div>
+  );
+
   return (
     <div className="flex min-h-dvh bg-canvas">
-      <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col gap-6 border-r border-hair bg-card py-5 transition-[width] duration-200 lg:flex", collapsed ? "w-[72px] px-2.5" : "w-[248px] px-3")}>
-        <div className={collapsed ? "flex justify-center" : "px-2"}>{collapsed ? <BrandMark /> : <BrandLockup sub={ORG.name} />}</div>
-        {renderNav(collapsed)}
-        <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between px-1")}>
-          {!collapsed && <Text as="p" size="micro" tone="faint" className="px-2">Prototype · all data fictional</Text>}
-          <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="focus-ring grid size-9 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink">
-            {collapsed ? <PanelLeftOpen className="size-4.5" aria-hidden="true" /> : <PanelLeftClose className="size-4.5" aria-hidden="true" />}
-          </button>
-        </div>
-      </aside>
+      {/* Floating island, as in SwishX for Biz. */}
+      <div className="sticky top-0 hidden h-dvh shrink-0 p-3 lg:flex">
+        <aside style={{ width: collapsed ? 80 : 252, transition: "width 0.32s cubic-bezier(0.22, 1, 0.36, 1)" }}
+          className={cn("relative flex h-full flex-col overflow-hidden border border-hair bg-white/95 shadow-float backdrop-blur-xl", collapsed ? "rounded-panel" : "rounded-card")}>
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" aria-hidden="true" />
+          <div className={cn("flex items-center px-4 pb-2.5 pt-4", collapsed ? "flex-col gap-2.5" : "justify-between")}>
+            {brand(collapsed)}
+            {toggle}
+          </div>
+          {renderNav(collapsed)}
+          {footer(collapsed)}
+        </aside>
+      </div>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="absolute inset-0 bg-ink/40" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex h-full w-[280px] flex-col gap-6 bg-card px-3 py-5 shadow-modal">
-            <div className="flex items-center justify-between px-2"><BrandLockup sub={ORG.name} />
+          <aside className="relative m-3 flex w-[272px] flex-col overflow-hidden rounded-card border border-hair bg-white shadow-modal">
+            <div className="flex items-center justify-between px-4 pb-2.5 pt-4">{brand(false)}
               <button type="button" aria-label="Close menu" onClick={() => setMobileOpen(false)} className="grid size-9 place-items-center rounded-full hover:bg-subtle"><X className="size-4" /></button>
             </div>
             {renderNav(false)}
+            {footer(false)}
           </aside>
         </div>
       )}
