@@ -28,7 +28,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
     { id: "questions", label: course.type === "personalised" ? "Assessment" : "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
     { id: "settings", label: "Settings", href: `${base}/settings` },
     { id: "people", label: "People & progress", href: `${base}/people` },
-    { id: "preview", label: "Preview as rep", href: `${base}/preview` },
+    // v1-hidden: { id: "preview", label: "Preview as rep", href: `${base}/preview` },
     { id: "review", label: "Publish & versions", href: `${base}/review` },
   ];
   const active = tabs.find((t) => t.href !== base && pathname.startsWith(t.href))?.id ?? "content";

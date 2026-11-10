@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
         ["/trainer/library", "/trainer/analytics"],
         ["/trainer/verify", "/trainer/records"], ["/trainer/verify/:path*", "/trainer/records"],
         ["/trainer/settings/compliance", "/trainer/settings"],
+        ["/trainer/courses/:id/preview", "/trainer/courses/:id"],
         ["/manager", "/trainer"], ["/manager/:path*", "/trainer"],
         ["/rep/library", "/rep/learn"], ["/rep/library/:path*", "/rep/learn"], ["/rep/watch/:path*", "/rep/learn"],
         ["/rep/practice/quiz", "/rep/practice"], ["/rep/practice/flashcards", "/rep/practice"],
