@@ -3,12 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, Lock, ChevronDown, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag } from "lucide-react";
+import { ArrowLeft, Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, Library as LibraryIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday, isOverdue, ASSIGN_LABEL } from "@/store/selectors";
-import { competency } from "@/data/org";
-import type { Progress } from "@/data/types";
+import { competency, DIVISIONS } from "@/data/org";
+import type { Course, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -17,44 +17,117 @@ import { modulesOf, nextStepFor, pathDone, pathModules, pathProgress } from "./u
 import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { MediaSummary } from "./watch";
 
+const TAG: Record<Progress["assignType"], { label: string; tone: "brand" | "default" | "ok" | "warn" }> = {
+  default: { label: "Start here", tone: "brand" }, required: { label: "Required", tone: "warn" }, recommended: { label: "Recommended", tone: "default" }, self: { label: "You chose", tone: "ok" },
+};
+
+/**
+ * My learning, in three parts: what's assigned to you (with due dates), what you're certified on,
+ * and the Library of open courses you can take any time, for your team or for everyone.
+ */
 export function RepLearn() {
   const me = useMe();
   const s = useApp();
+  const [filter, setFilter] = useState<"all" | "team" | "everyone">("all");
   const mine = s.progress.filter((p) => p.userId === me.id);
-  const groups: { label: string; items: Progress[] }[] = [
-    { label: "Required", items: mine.filter((p) => p.assignType === "required" && p.state !== "certified") },
-    { label: "Start here", items: mine.filter((p) => p.assignType === "default" && p.state !== "certified") },
-    { label: "Recommended", items: mine.filter((p) => p.assignType === "recommended" && p.state !== "certified") },
-    { label: "Opted in", items: mine.filter((p) => p.assignType === "self" && p.state !== "certified") },
-    { label: "Certified", items: mine.filter((p) => p.state === "certified") },
-  ].filter((g) => g.items.length);
+  const courseOf = (p: Progress) => s.courses.find((x) => x.id === p.courseId)!;
+  const due = (p: Progress) => (isOverdue(p) ? "0" : p.dueAt ?? "9999");
+  const assigned = mine.filter((p) => p.assignType !== "self" && p.state !== "certified").sort((a, b) => due(a).localeCompare(due(b)));
+  const certified = mine.filter((p) => p.state === "certified");
+  const overdue = assigned.filter(isOverdue).length;
+  const nextDue = assigned.find((p) => p.dueAt && !isOverdue(p));
+
+  /* The Library: open courses for your team or everyone, minus anything already on your list. */
+  const team = DIVISIONS.find((d) => d.id === me.divisionId)?.name ?? "your team";
+  const onList = new Set(mine.filter((p) => p.assignType !== "self").map((p) => p.courseId));
+  const library = libraryCourses(s, me).filter((c) => !onList.has(c.id)).map((c) => ({ c, everyone: c.visibility === "everyone", p: mine.find((p) => p.courseId === c.id) }));
+  const shown = library.filter((x) => filter === "all" || (filter === "everyone") === x.everyone);
+
   return (
-    <div className="flex flex-col gap-5 px-4 pt-5">
-      <div className="flex items-end justify-between gap-3">
+    <div className="flex flex-col gap-7 px-4 pb-6 pt-5">
+      <div className="flex flex-col gap-1">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight">My learning</Text>
-        {/* v1-hidden: <Link href="/rep/library" className="pb-1.5 text-body font-semibold text-brand-deep">Browse the Library</Link> */}
+        <Text size="body" tone={overdue ? "danger" : "subtle"}>
+          {assigned.length ? `${assigned.length} assigned to finish${overdue ? ` · ${overdue} overdue` : nextDue ? ` · next due ${fmtDate(nextDue.dueAt)}` : ""}` : "Nothing assigned right now. Pick something from the Library."}
+        </Text>
       </div>
-      {groups.map((g) => (
-        <section key={g.label} className="flex flex-col gap-2">
-          <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">{g.label}</Text>
-          {g.items.map((p) => {
-            const c = s.courses.find((x) => x.id === p.courseId)!;
-            const pr = pathProgress(p, c);
-            return (
-              <Link key={p.id} href={`/rep/course/${c.id}`} className="squircle flex items-center gap-3.5 rounded-panel border border-hair bg-card p-4 hover:bg-subtle">
-                {p.state === "certified" ? <span className="grid size-11 place-items-center rounded-full bg-ok-bg text-ok"><Award className="size-5" aria-hidden="true" /></span> : <Ring value={p.state === "not_started" ? 0 : pr.pct} size={44} label={`${pr.pct}%`}><Text size="micro" weight="bold">{p.state === "not_started" ? "0" : pr.pct}%</Text></Ring>}
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <Text size="subhead" weight="bold">{c.title}</Text>
-                  <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"}>
-                    {p.state === "certified" ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : `${c.type === "personalised" ? "Personalised" : "Same for everyone"} · ${p.dueAt ? (isOverdue(p) ? `overdue since ${fmtDate(p.dueAt)}` : `due ${fmtDate(p.dueAt)}`) : "no due date"}`}
-                  </Text>
-                </div>
-              </Link>
-            );
-          })}
+
+      {assigned.length > 0 && (
+        <section className="flex flex-col gap-2.5" aria-labelledby="assigned-h">
+          <div className="flex flex-col gap-0.5">
+            <Text as="h2" id="assigned-h" size="title" weight="bold">Assigned to you</Text>
+            <Text size="caption" tone="subtle">Set by your training team. Finish each by its due date.</Text>
+          </div>
+          {assigned.map((p) => <CourseRow key={p.id} p={p} c={courseOf(p)} tag={TAG[p.assignType]} />)}
         </section>
-      ))}
+      )}
+
+      {certified.length > 0 && (
+        <section className="flex flex-col gap-2.5" aria-labelledby="cert-h">
+          <div className="flex flex-col gap-0.5">
+            <Text as="h2" id="cert-h" size="title" weight="bold">Certified</Text>
+            <Text size="caption" tone="subtle">You&apos;ll be reminded before a certificate runs out.</Text>
+          </div>
+          {certified.map((p) => <CourseRow key={p.id} p={p} c={courseOf(p)} />)}
+        </section>
+      )}
+
+      <section className="flex flex-col gap-2.5 border-t border-hair pt-6" aria-labelledby="lib-h">
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-9 shrink-0 place-items-center rounded-control bg-ink text-white"><LibraryIcon className="size-4.5" aria-hidden="true" /></span>
+          <div className="flex min-w-0 flex-col">
+            <Text as="h2" id="lib-h" size="title" weight="bold">Library</Text>
+            <Text size="caption" tone="subtle">Optional courses. Take any of them whenever you like.</Text>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
+          {([["all", `All · ${library.length}`], ["team", `For ${team} · ${library.filter((x) => !x.everyone).length}`], ["everyone", `For everyone · ${library.filter((x) => x.everyone).length}`]] as const).map(([k, label]) => (
+            <Chip key={k} size="md" selected={filter === k} onClick={() => setFilter(k)}>{label}</Chip>
+          ))}
+        </div>
+        {shown.length === 0 && <Text size="body" tone="subtle">Nothing here yet. Your training team adds courses over time.</Text>}
+        {shown.map(({ c, everyone, p }) => {
+          const mods = modulesOf(c);
+          const pr = p && pathProgress(p, c);
+          return (
+            <Link key={c.id} href={`/rep/course/${c.id}`} className="squircle flex items-center gap-3.5 rounded-panel border border-hair bg-card p-4 hover:bg-subtle">
+              {p && pr ? <Ring value={pr.pct} size={44} label={`${pr.pct}%`}><Text size="micro" weight="bold">{pr.pct}%</Text></Ring>
+                : <span className="grid size-11 shrink-0 place-items-center rounded-full bg-subtle text-ink-3"><BookOpen className="size-5" aria-hidden="true" /></span>}
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <Chip size="xs" tone={everyone ? "default" : "brand"}>{everyone ? "Everyone" : team}</Chip>
+                  {p && <Chip size="xs" tone="ok">In progress</Chip>}
+                  <Text size="caption" tone="subtle">{mods.reduce((a, m) => a + m.minutes, 0)} min · {mods.length} module{mods.length === 1 ? "" : "s"}</Text>
+                </span>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
+            </Link>
+          );
+        })}
+      </section>
     </div>
+  );
+}
+
+function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: string; tone: "brand" | "default" | "ok" | "warn" } }) {
+  const pr = pathProgress(p, c);
+  const cert = p.state === "certified";
+  return (
+    <Link href={`/rep/course/${c.id}`} className={cn("squircle flex items-center gap-3.5 rounded-panel border bg-card p-4 hover:bg-subtle", isOverdue(p) ? "border-danger-line" : "border-hair")}>
+      {cert ? <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok-bg text-ok"><Award className="size-5" aria-hidden="true" /></span>
+        : <Ring value={p.state === "not_started" ? 0 : pr.pct} size={44} label={`${pr.pct}%`}><Text size="micro" weight="bold">{p.state === "not_started" ? "0" : pr.pct}%</Text></Ring>}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {tag && <Chip size="xs" tone={tag.tone}>{tag.label}</Chip>}
+          <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"} weight={isOverdue(p) ? "semibold" : undefined}>
+            {cert ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : p.dueAt ? (isOverdue(p) ? `Overdue since ${fmtDate(p.dueAt)}` : `Due ${fmtDate(p.dueAt)}`) : "No due date"}
+          </Text>
+        </span>
+      </div>
+      <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
+    </Link>
   );
 }
 
@@ -269,7 +342,8 @@ function PrereqLock({ courses }: { courses: { id: string; title: string }[] }) {
 }
 
 /** RL-2: every module, open in any order, not for credit. What you open now is ticked off later. */
-function ExploreModules({ courseId }: { courseId: string }) {
+/** v1-hidden: explore before starting. Exported so it stays compiled while nothing renders it. */
+export function ExploreModules({ courseId }: { courseId: string }) {
   const s = useApp();
   const me = useMe();
   const c = s.courses.find((x) => x.id === courseId)!;
@@ -307,23 +381,33 @@ function CourseExplore({ courseId }: { courseId: string }) {
   if (!libraryCourses(s, me).some((x) => x.id === c.id)) return <div className="p-4"><EmptyState title="This course isn't in your Library" body="It's assigned only, or it's for another team." /></div>;
   const mods = modulesOf(c);
   const locked = unmetPrereqs(s, me.id, c);
-  const lv = c.versions.find((v) => v.state === "published");
+  // v1-hidden (version line): const lv = c.versions.find((v) => v.state === "published");
   return (
     <div className="flex flex-col gap-5 px-4 pt-4 pb-6">
-      <Link href="/rep/library" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />Library</Link>
+      <Link href="/rep/learn" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />My learning</Link>
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
-        <Text size="body" tone="subtle">v{lv?.version} · {mods.length} modules · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
+        <Text size="body" tone="subtle">Optional · {mods.length} module{mods.length === 1 ? "" : "s"} · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
         <Text size="body-lg" tone="muted" className="leading-relaxed">{c.objective}</Text>
       </div>
       {c.settings.screening && locked.length > 0 ? <PrereqLock courses={locked} /> : (
         <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
-          <Text size="title" weight="bold" tone="inverse">Want this on your record?</Text>
-          <Text size="body" tone="inverse" className="opacity-80">{c.settings.screening ? "Get certified: a short screening, then only the modules you need." : "Take it for credit and get a certificate."}</Text>
-          <Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Get certified</Button>
+          <Text size="title" weight="bold" tone="inverse">Take this course</Text>
+          <Text size="body" tone="inverse" className="opacity-80">{c.settings.screening ? "A short screening first, then only the modules you need. Finish it to get a certificate." : "Nobody assigned it, so there's no due date. Finish it to get a certificate."}</Text>
+          <Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Start the course</Button>
         </div>
       )}
-      {c.allowExplore && <ExploreModules courseId={c.id} />}
+      <section className="flex flex-col gap-2">
+        <Text as="h2" size="subhead" weight="bold">What&apos;s inside</Text>
+        {mods.map((m, i) => (
+          <div key={m.id} className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-subtle text-micro font-bold text-ink-3">{i + 1}</span>
+            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">{m.title}</Text><Text size="caption" tone="subtle">{m.summary}</Text></span>
+            <Text size="caption" tone="subtle" tabular className="shrink-0">{m.minutes} min</Text>
+          </div>
+        ))}
+      </section>
+      {/* v1-hidden: {c.allowExplore && <ExploreModules courseId={c.id} />} */}
     </div>
   );
 }

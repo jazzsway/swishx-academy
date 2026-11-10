@@ -50,6 +50,23 @@ function withoutMlr(v: CourseVersion): CourseVersion {
 
 const MAYA = "u-maya";
 
+/** A copy of existing modules with fresh ids, so the same lesson can live in a second course. */
+const clone = (mods: Module[], prefix: string): Module[] =>
+  mods.map((m, i) => ({ ...m, id: `${prefix}-m${i + 1}`, blocks: m.blocks.map((b, j) => ({ ...b, id: `${prefix}-m${i + 1}-b${j + 1}` })) }));
+const launch = (...ids: string[]) => LUMORA_LAUNCH_MODULES.filter((m) => ids.includes(m.id));
+
+/** Open courses reps can pick up themselves: nobody is assigned them. */
+function libraryCourse(id: string, title: string, objective: string, mods: Module[], scope: { productId?: string; divisionId?: string; everyone?: boolean }, publishedAt: string): Course {
+  return {
+    id, title, format: "short", type: "linear", objective, productId: scope.productId, divisionId: scope.divisionId,
+    audience: scope.everyone ? "Everyone" : "Immunology division", sourceIds: scope.productId ? ["src-lum-pi", "src-lum-obj"] : ["src-code"],
+    competencyIds: [...new Set(mods.map((m) => m.competency))], modules: mods, items: [], scenarioIds: [],
+    settings: defaultSettings("linear", { recertMonths: 24 }),
+    versions: [version(id, 1, mods, { state: "published", publishedAt, history: [{ at: publishedAt, by: "Maya Chen", action: "Published" }] })],
+    ownerId: MAYA, updatedAt: publishedAt, visibility: scope.everyone ? "everyone" : "audience", prerequisites: [], allowExplore: true,
+  };
+}
+
 export function seedCourses(): Course[] {
   return [
     {
@@ -144,6 +161,14 @@ export function seedCourses(): Course[] {
       ownerId: MAYA, updatedAt: "2026-11-04",
       visibility: "audience", prerequisites: ["c-compliance"], allowExplore: true,
     },
+    libraryCourse("c-lib-objections", "Handling the top Lumora objections", "Reps answer the five objections dermatologists raise most, from the approved objection handler.",
+      clone(launch("lm14", "lm12"), "lob"), { productId: "p-lumora" }, "2026-09-22"),
+    libraryCourse("c-lib-firstcall", "Opening a great first call", "Reps open on the right patient type and ask questions that earn a second visit.",
+      clone(launch("lm13"), "lfc"), { productId: "p-lumora" }, "2026-10-01"),
+    libraryCourse("c-lib-mi", "Medical information and adverse events: a refresher", "A five-minute refresher on routing off-label questions and reporting adverse events within 24 hours.",
+      clone(COMPLIANCE_MODULES.filter((m) => m.id !== "ce1"), "lmi"), { everyone: true }, "2026-06-10"),
+    libraryCourse("c-lib-np", "Working with nurse practitioners", "Who NPs see, what they ask about, and how to support NP-led follow-up visits.",
+      clone(NP_MODULES.slice(0, 1), "lnp"), { everyone: true }, "2026-07-15"),
   ];
 }
 
