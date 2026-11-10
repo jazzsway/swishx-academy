@@ -141,6 +141,8 @@ export interface Item {
   id: string;
   competency: string;
   pool: Pool;
+  /** The module this question tests. Without it, the first module that teaches its competency. */
+  moduleId?: string;
   difficulty: 1 | 2 | 3;
   question: string;
   options: string[];

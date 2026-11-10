@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { TabNav } from "@/components/patterns/tab-nav";
 import { VersionChip } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
+import { questionCount } from "./question-index";
 
 export function CourseFrame({ children }: { children: ReactNode }) {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +26,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
   const base = `/trainer/courses/${id}`;
   const tabs = [
     { id: "content", label: "Content", href: base },
-    { id: "questions", label: course.type === "personalised" ? "Assessment" : "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
+    { id: "questions", label: "Questions", href: `${base}/questions`, badge: questionCount(course) || undefined },
     { id: "settings", label: "Settings", href: `${base}/settings` },
     { id: "people", label: "People & progress", href: `${base}/people` },
     // v1-hidden: { id: "preview", label: "Preview as rep", href: `${base}/preview` },

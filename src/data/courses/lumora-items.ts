@@ -9,7 +9,7 @@ function q(
   return { id, competency, pool, difficulty, question, options, answer, rationale, cite: { sourceId, page } };
 }
 
-export const LUMORA_ITEMS: Item[] = [
+const ITEMS: Item[] = [
   /* ── Disease state ── */
   q("li-d1", "c-disease", "screening", 1, "Atopic dermatitis is best described as:", ["An acute infection of the skin", "A chronic, relapsing inflammatory skin disease", "An allergic reaction that resolves in weeks", "A fungal condition"], 1, "AD is chronic and relapsing, driven by type 2 inflammation and barrier disruption.", AD, 2),
   q("li-d2", "c-disease", "screening", 2, "Why might an HCP under-estimate a patient's disease at a visit?", ["Patients exaggerate symptoms", "Flares may have settled by the time the patient is seen", "Severity scores are not used in AD", "Itch is easy to see"], 1, "Patients are often seen between flares, so asking about the last month matters.", AD, 8),
@@ -82,3 +82,15 @@ export const LUMORA_ITEMS: Item[] = [
   q("li-p4", "c-compliance", "assessment", 2, "Off-label questions from HCPs go to:", ["Your manager", "Medical Information", "Marketing", "The Access Hub"], 1, "Medical Information handles unsolicited off-label questions.", CODE, 6),
   q("li-p5", "c-compliance", "practice", 1, "\"Safest biologic\" is:", ["Fine to say", "An unapproved superlative", "Required fair balance", "A label statement"], 1, "Avoid superlatives.", CODE, 5),
 ];
+
+/* Where a competency is taught in more than one module, the module each question tests. The rest go to the module that teaches their competency. */
+const HOME: Record<string, string> = {
+  "li-d1": "lm1", "li-d2": "lm2", "li-d3": "lm1", "li-d4": "lm2", "li-d5": "lm2",
+  "li-e1": "lm4", "li-e2": "lm4", "li-e3": "lm4", "li-e4": "lm5", "li-e5": "lm4", "li-e6": "lm5",
+  "li-g1": "lm6", "li-g2": "lm6", "li-g3": "lm6", "li-g4": "lm6", "li-g5": "lm6", "li-g6": "lm7",
+  "li-s1": "lm8", "li-s2": "lm8", "li-s3": "lm8", "li-s4": "lm8", "li-s5": "lm9", "li-s6": "lm8",
+  "li-a1": "lm11", "li-a2": "lm11", "li-a3": "lm11", "li-a4": "lm11", "li-a5": "lm12",
+  "li-p1": "lm9", "li-p2": "lm9", "li-p3": "lm9", "li-p4": "lm9", "li-p5": "lm9",
+};
+
+export const LUMORA_ITEMS: Item[] = ITEMS.map((i) => (HOME[i.id] ? { ...i, moduleId: HOME[i.id] } : i));
