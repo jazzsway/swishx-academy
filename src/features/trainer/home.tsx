@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, ArrowRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp, live, current } from "@/store/app-store";
-import { heatmap, lift, weakestDomains, daysFromToday, fmtDate, isOverdue } from "@/store/selectors";
+import { heatmap, lift, weakestDomains, fmtDate, isOverdue } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -40,11 +40,15 @@ export function TrainerHome() {
     const out: { tone: "danger" | "warn" | "faint"; title: string; sub: string; cta: string; href?: string; onClick?: () => void }[] = [];
     for (const course of s.courses) {
       const v = current(course);
+      /* v1: no MLR, so a course needs the trainer only when a draft is waiting to be published. */
+      if (v.state !== "published" && v.state !== "withdrawn" && course.modules.length) out.push({ tone: "warn", title: `Draft ready to publish · ${course.title} v${v.version}`, sub: live(course) ? `v${live(course)!.version} stays live until you publish` : "Not live yet", cta: "Publish", href: `/trainer/courses/${course.id}/review` });
+      /* v1-hidden: MLR states and approval expiry.
       if (v.state === "changes") out.push({ tone: "danger", title: `MLR changes requested · ${course.title} v${v.version}`, sub: `${v.comments.filter((m) => !m.resolved).length} open comments`, cta: "Fix", href: `/trainer/courses/${course.id}/review` });
       if (v.state === "approved") out.push({ tone: "warn", title: `Approved, ready to publish · ${course.title} v${v.version}`, sub: `Doc ${v.docNumber}`, cta: "Publish", href: `/trainer/courses/${course.id}/review` });
       if (v.state === "in_review" && v.submittedAt) out.push({ tone: "faint", title: `In MLR review for ${-daysFromToday(v.submittedAt)} days · ${course.title}`, sub: v.vaultId ? `Vault ${v.vaultId}` : "Submitted", cta: "Update", href: `/trainer/courses/${course.id}/review` });
       const lv = live(course);
       if (lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) out.push({ tone: "warn", title: `Approval expires in ${daysFromToday(lv.expiresAt)} days · ${course.title} v${lv.version}`, sub: `Doc ${lv.docNumber} · ${s.progress.filter((p) => p.courseId === course.id && p.state === "certified").length} reps certified on it`, cta: "Review", href: `/trainer/courses/${course.id}/review` });
+      */
     }
     /* v1-hidden: no manager sign-off in v1.
     const slow = s.progress.filter((p) => p.state === "awaiting_verify" && p.verify && -daysFromToday(p.verify.requestedAt) > 5);

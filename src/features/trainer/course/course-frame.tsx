@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Lock, PencilLine } from "lucide-react";
 import { useApp } from "@/store/app-store";
-import { daysFromToday, fmtDate } from "@/store/selectors";
+import { fmtDate } from "@/store/selectors";
 import { product } from "@/data/org";
 import { courseMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
@@ -28,16 +28,16 @@ export function CourseFrame({ children }: { children: ReactNode }) {
     { id: "questions", label: course.type === "personalised" ? "Assessment" : "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
     { id: "settings", label: "Settings", href: `${base}/settings` },
     { id: "preview", label: "Preview as rep", href: `${base}/preview` },
-    { id: "review", label: "Review & versions", href: `${base}/review` },
+    { id: "review", label: "Publish & versions", href: `${base}/review` },
   ];
   const active = tabs.find((t) => t.href !== base && pathname.startsWith(t.href))?.id ?? "content";
-  const expiringDays = lv?.expiresAt ? daysFromToday(lv.expiresAt) : undefined;
 
   const primary: Record<string, { label: string; go: () => void }> = {
-    draft: { label: "Run checks", go: () => router.push(`${base}/review`) },
-    ready: { label: "Mark as submitted", go: () => router.push(`${base}/review`) },
-    in_review: { label: "Record MLR decision", go: () => router.push(`${base}/review`) },
-    changes: { label: "Fix MLR comments", go: () => router.push(`${base}/review`) },
+    /* v1-hidden: MLR steps (Mark as submitted, Record MLR decision, Fix MLR comments). Every draft state publishes. */
+    draft: { label: "Publish", go: () => router.push(`${base}/review`) },
+    ready: { label: "Publish", go: () => router.push(`${base}/review`) },
+    in_review: { label: "Publish", go: () => router.push(`${base}/review`) },
+    changes: { label: "Publish", go: () => router.push(`${base}/review`) },
     approved: { label: "Publish", go: () => router.push(`${base}/review`) },
     published: { label: "Assign", go: () => router.push(`${base}/assign`) },
   };
@@ -56,9 +56,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap items-center gap-2 text-body text-ink-3">
             <span className="font-semibold text-ink">v{cur.version}</span>
             <VersionChip state={cur.state} />
-            {lv && lv.version !== cur.version && <span>· v{lv.version} live ({lv.docNumber})</span>}
-            {lv && lv.version === cur.version && <span>· {lv.docNumber}</span>}
-            {expiringDays !== undefined && expiringDays <= 30 && <span className="font-semibold text-warn">· expires in {expiringDays} days</span>}
+            {lv && lv.version !== cur.version && <span>· v{lv.version} live</span>}
             <span>· {product(course.productId)?.brand ?? "Company"}{course.scope?.indications.length ? ` (${course.scope.indications.join(" + ")})` : course.scope?.variants.length ? ` (${course.scope.variants.join(", ")})` : ""} · {course.format === "long" ? "Long" : "Short"} · {course.type === "personalised" ? "Personalised" : "Same for everyone"} · {courseMinutes(course)} min</span>
             <span>· updated {fmtDate(course.updatedAt)}</span>
           </div>
@@ -78,9 +76,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
         <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-subtle px-4 py-3">
           <Lock className="size-4 text-ink-3" aria-hidden="true" />
           <Text size="body" tone="muted" className="flex-1">
-            {cur.state === "in_review" ? `v${cur.version} is in MLR review, so it's frozen until the decision comes back.` :
-              cur.state === "approved" ? `v${cur.version} is approved and locked. Publish it, or edit to start v${cur.version + 1}.` :
-                `v${cur.version} is approved and locked. Editing creates v${cur.version + 1} as a draft; v${cur.version} stays live until v${cur.version + 1} is published.`}
+            {`v${cur.version} is live and locked. Editing creates v${cur.version + 1} as a draft; v${cur.version} stays live until you publish v${cur.version + 1}.`}
           </Text>
         </div>
       )}

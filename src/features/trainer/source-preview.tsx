@@ -31,24 +31,28 @@ export const FORMAT_ICON: Record<FileFormat, typeof FileText> = { pdf: FileText,
 /** What a tile says about a source: its kind, size and number. */
 export function sourceMeta(s: Source) {
   if (s.uploaded) return `${FORMAT_LABEL[s.uploaded.format]} · ${s.uploaded.fileName}`;
-  return `${s.type} · ${s.pages} pages${s.docNumber ? ` · ${s.docNumber}` : ""}`;
+  return `${s.type} · ${s.pages} pages`; // v1-hidden: MLR doc number
 }
 
+/** v1-hidden: no MLR in v1, so there is no approval status to show. Remove the early return to bring it back. */
 export function ApprovalChip({ s }: { s: Source }) {
+  if (!MLR) return null;
   return isApproved(s)
     ? <Chip size="xs" tone="ok" iconLeft={<ShieldCheck className="size-3" aria-hidden="true" />}>MLR approved</Chip>
     : <Chip size="xs" tone="warn" iconLeft={<ShieldAlert className="size-3" aria-hidden="true" />}>Needs MLR approval</Chip>;
 }
+
+const MLR: boolean = false;
 
 export function SourcePreview({ s, onClose }: { s: Source; onClose: () => void }) {
   return (
     <Modal open onClose={onClose} size="lg" title={s.title}
       description={[s.uploaded ? `Uploaded ${new Date(s.uploaded.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : s.type, product(s.productId)?.brand].filter(Boolean).join(" · ")}>
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
+        {MLR && <div className="flex flex-wrap items-center gap-2">
           <ApprovalChip s={s} />
           <Text size="caption" tone="subtle">{isApproved(s) ? `${s.docNumber} · SwishX can cite it as is.` : "SwishX can use it, but every sentence that cites it is flagged in checks, and the file goes to MLR with the course."}</Text>
-        </div>
+        </div>}
         {s.uploaded ? <UploadedFile s={s} /> : <ApprovedDocument s={s} />}
       </div>
     </Modal>
@@ -65,7 +69,7 @@ function UploadedFile({ s }: { s: Source }) {
     void fetch(f.url).then((r) => r.text()).then((t) => setRows(t.trim().split(/\r?\n/).slice(0, 13).map((l) => l.split(/,|\t/))));
   }, [f, format]);
 
-  if (!f) return <Empty text="The original file is kept for the MLR package. In this prototype, previews last only until the page reloads." />;
+  if (!f) return <Empty text="In this prototype, previews last only until the page reloads." />;
   if (format === "pdf") return <iframe src={f.url} title={s.title} className="h-[65vh] w-full rounded-control border border-hair-2 bg-white" />;
   if (format === "image") return <img src={f.url} alt={s.title} className="max-h-[65vh] w-full rounded-control border border-hair-2 object-contain" />;
   if (format === "video") return <video src={f.url} controls className="max-h-[65vh] w-full rounded-control bg-ink" />;
@@ -79,7 +83,7 @@ function UploadedFile({ s }: { s: Source }) {
       </div>
     );
   }
-  return <Empty text={`${FORMAT_LABEL[format]} files can't be previewed in the browser. SwishX reads the text from it, and MLR gets the original.`} href={f.url} />;
+  return <Empty text={`${FORMAT_LABEL[format]} files can't be previewed in the browser. SwishX reads the text from it.`} href={f.url} />;
 }
 
 function Empty({ text, href }: { text: string; href?: string }) {
@@ -117,7 +121,7 @@ function ApprovedDocument({ s }: { s: Source }) {
             {[92, 100, 84, 96, 70, 100, 88, 60].map((w, i) => <span key={i} className="h-2.5 rounded-full bg-black/[0.07]" style={{ width: `${w}%` }} />)}
           </div>
         )}
-        <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">{s.docNumber} · Approved for internal training use</div>
+        <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">{s.docNumber ? `${s.docNumber} · ` : ""}For internal training use</div>
       </div>
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>

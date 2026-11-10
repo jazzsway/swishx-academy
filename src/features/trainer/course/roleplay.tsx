@@ -20,7 +20,7 @@ export function RoleplaySetup() {
     <div id="roleplay" className="flex flex-col gap-4">
       <div className="flex flex-col gap-0.5">
         <Text as="h2" size="title" weight="bold">Roleplay doctor</Text>
-        <Text size="body" tone="subtle">The AI HCP reps talk to in screening, assessment and practice. Its persona, rubric and prohibited list go to MLR with the course.</Text>
+        <Text size="body" tone="subtle">The AI HCP reps talk to in screening, assessment and practice. Its persona, rubric and prohibited list come from this product's materials.</Text>
       </div>
       {scs.length === 0 && (
         <Card>
@@ -73,7 +73,7 @@ export function RoleplaySetup() {
                 })}
               </div>
               <div className="squircle rounded-panel border border-hair bg-subtle px-4 py-3">
-                <Text size="caption" weight="bold" tone="subtle">AI HCP behaviour note · included in the MLR package</Text>
+                <Text size="caption" weight="bold" tone="subtle">AI HCP behaviour note</Text>
                 <Text as="p" size="body" tone="muted" className="mt-1 leading-relaxed">{sc.behaviourNote}</Text>
               </div>
             </div>

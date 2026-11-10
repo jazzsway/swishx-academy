@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, ShieldAlert, Upload, Trash2, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, FileText, Upload, Trash2, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
-import { COMPETENCIES, DIVISIONS, SOURCES, competency, domainOf, isApproved, product } from "@/data/org";
-import { ApprovalChip, FORMAT_ICON, SourcePreview, formatOf, rememberFile, sourceMeta } from "./source-preview";
+import { COMPETENCIES, DIVISIONS, SOURCES, competency, domainOf, product } from "@/data/org";
+import { FORMAT_ICON, SourcePreview, formatOf, rememberFile, sourceMeta } from "./source-preview";
+import { USE_LABEL, defaultUse, placeMaterials, type MaterialUse } from "./materials";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { ProductPicker, type ProductScope } from "./product-picker";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
@@ -31,7 +33,7 @@ function durationHint(m: number) {
   return "A full program. Reps work through it over a few days, module by module.";
 }
 
-const STEPS = ["Goal", "Sources", "Competencies", "Outline", "Generate"];
+const STEPS = ["Goal", "Materials", "Competencies", "Outline", "Generate"];
 /* v1-hidden: Competencies is no longer its own step; it sits at the top of Outline. Step numbers stay the same inside. */
 const SHOWN = [0, 1, 3, 4];
 const prevStep = (n: number) => SHOWN[SHOWN.indexOf(n) - 1] ?? 0;
@@ -117,8 +119,14 @@ export function NewCourseWizard() {
 
   const prod = product(productId);
   const library = [...SOURCES, ...uploads].filter((s) => !s.productId || s.productId === productId);
-  const unapproved = library.filter((s) => sourceIds.includes(s.id) && !isApproved(s)).length;
-  const hasPI = !productId || sourceIds.includes(prod?.piSourceId ?? "");
+  /* Each picked piece is something SwishX learns from, something reps see as it is, or both. */
+  const [uses, setUses] = useState<Record<string, MaterialUse>>({});
+  const useOf = (s: Source) => uses[s.id] ?? defaultUse(s);
+  const picked = library.filter((s) => sourceIds.includes(s.id));
+  const learnIds = picked.filter((s) => useOf(s) !== "show").map((s) => s.id);
+  const showItems = picked.filter((s) => useOf(s) !== "learn");
+  const [yours, setYours] = useState<Record<string, string[]>>({});
+  const hasPI = !productId || learnIds.includes(prod?.piSourceId ?? "");
 
   useEffect(() => {
     const pr = product(productId);
@@ -144,7 +152,10 @@ export function NewCourseWizard() {
         : productId === "p-lumora" || !pr ? generatedAccessModules(prefix) : genericProductModules(prefix, pr, scope.indications, scope.variants);
       const launch = LUMORA_LAUNCH_MODULES.filter((m) => comps.includes(m.competency));
       const shaped = shapeOutline(mods, minutes, depthModules(prefix, pr, launch));
-      setOutline(shaped.modules);
+      /* Your own pieces go in after shaping, so trimming never drops them. */
+      const placed = placeMaterials(shaped.modules, showItems);
+      setOutline(placed.modules);
+      setYours(placed.yours);
       setShapeNote({ left: shaped.left, added: shaped.added });
       setOutlineLoading(false);
     }, 1600);
@@ -195,7 +206,7 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What should reps be able to do?</Text>
-            <Text tone="subtle" size="body-lg">Describe the outcome. SwishX builds the course from your approved sources.</Text>
+            <Text tone="subtle" size="body-lg">Describe the outcome. SwishX builds the course from your materials.</Text>
           </div>
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">What is this course about?</Text>
@@ -267,28 +278,37 @@ export function NewCourseWizard() {
       {step === 1 && (
         <Card>
           <div className="flex flex-col gap-1">
-            <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What should SwishX build from?</Text>
-            <Text tone="subtle" size="body-lg">Every sentence it writes will cite one of these, by page. It can&apos;t use anything else.</Text>
+            <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What do you already have?</Text>
+            <Text tone="subtle" size="body-lg">Add everything for this course in one place. For each piece, say whether SwishX should learn from it, show it to reps as it is, or both. SwishX writes whatever is still missing.</Text>
           </div>
-          {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">The Prescribing Information is required for any product course.</div>}
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="squircle flex flex-col gap-0.5 rounded-panel bg-subtle px-3.5 py-2.5"><Text size="body" weight="semibold">Learn from it</Text><Text size="caption" tone="subtle">SwishX writes lessons and questions from it, and cites it by page.</Text></div>
+            <div className="squircle flex flex-col gap-0.5 rounded-panel bg-subtle px-3.5 py-2.5"><Text size="body" weight="semibold">Show to reps</Text><Text size="caption" tone="subtle">Your video, deck or PDF goes into the course as it is, in the module it fits.</Text></div>
+          </div>
+          {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">SwishX needs to learn from the Prescribing Information for any product course.</div>}
+          <div className="flex flex-col gap-2.5">
             {library.map((s) => {
               const on = sourceIds.includes(s.id);
               const Icon = s.uploaded ? FORMAT_ICON[s.uploaded.format] : FileText;
+              const u = useOf(s);
               return (
-                <div key={s.id} className={cn("squircle flex items-start gap-3 rounded-panel border p-3.5 transition-colors", on ? "border-brand bg-tint" : "border-hair-2 bg-card")}>
+                <div key={s.id} className={cn("squircle flex flex-wrap items-center gap-3 rounded-panel border p-3.5 transition-colors", on ? "border-brand bg-tint" : "border-hair-2 bg-card")}>
                   <button type="button" role="checkbox" aria-checked={on} onClick={() => setSourceIds(on ? sourceIds.filter((x) => x !== s.id) : [...sourceIds, s.id])}
-                    className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                    className="flex min-w-0 flex-1 basis-[260px] items-center gap-3 text-left">
                     <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", on ? "bg-brand text-white" : "bg-subtle text-ink-3")}>
                       {on ? <Check className="size-4" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}
                     </span>
-                    <span className="flex min-w-0 flex-col gap-1">
+                    <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="text-body-lg font-semibold text-ink">{s.title}</span>
                       <span className="truncate text-caption text-ink-3">{sourceMeta(s)}</span>
-                      <span><ApprovalChip s={s} /></span>
                     </span>
                   </button>
-                  <div className="flex shrink-0 flex-col gap-1">
+                  {on && (
+                    <Segmented aria-label={`How to use ${s.title}`} className="shrink-0">
+                      {(Object.keys(USE_LABEL) as MaterialUse[]).map((k) => <SegmentedButton key={k} active={u === k} onClick={() => setUses({ ...uses, [s.id]: k })}>{USE_LABEL[k]}</SegmentedButton>)}
+                    </Segmented>
+                  )}
+                  <div className="flex shrink-0 gap-1">
                     <IconButton aria-label={`Preview ${s.title}`} onClick={() => setPreview(s)}><Eye className="size-4" /></IconButton>
                     {s.uploaded && <IconButton aria-label={`Remove ${s.title}`} tone="danger" onClick={() => { removeUpload(s.id); setSourceIds(sourceIds.filter((x) => x !== s.id)); }}><Trash2 className="size-4" /></IconButton>}
                   </div>
@@ -296,15 +316,9 @@ export function NewCourseWizard() {
               );
             })}
           </div>
-          {unapproved > 0 && (
-            <div className="squircle flex items-start gap-2.5 rounded-panel border border-warn-line bg-warn-bg px-4 py-3">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden="true" />
-              <Text size="body" tone="muted">{unapproved} selected source{unapproved > 1 ? "s aren't" : " isn't"} MLR-approved yet. SwishX can use {unapproved > 1 ? "them" : "it"}, but every sentence that cites {unapproved > 1 ? "them" : "it"} is flagged in checks, and the file goes to MLR with the course.</Text>
-            </div>
-          )}
           <label className="squircle flex cursor-pointer flex-col items-center justify-center gap-1 rounded-panel border border-dashed border-hair-3 px-4 py-5 text-center hover:bg-subtle">
-            <span className="flex items-center gap-2 text-body-lg font-semibold text-ink-2"><Upload className="size-4" aria-hidden="true" />Upload PDF, slides, documents, video, images or data</span>
-            <span className="text-caption text-ink-3">New files are marked “Needs MLR approval” until MLR approves them.</span>
+            <span className="flex items-center gap-2 text-body-lg font-semibold text-ink-2"><Upload className="size-4" aria-hidden="true" />Add your PDFs, decks, videos, images or documents</span>
+            <span className="text-caption text-ink-3">Videos and images start as “Show to reps”, documents as “Both”. Change any of them.</span>
             <input type="file" className="sr-only" multiple onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
               const added: Source[] = files.map((f, i) => {
@@ -382,7 +396,7 @@ export function NewCourseWizard() {
           {outlineLoading && (
             <div className="flex flex-col gap-2.5">
               {[0, 1, 2, 3].map((i) => <div key={i} className="shimmer h-[72px] rounded-panel border border-hair bg-subtle" />)}
-              <Text size="body" tone="subtle" className="dot-cycle">Reading {sourceIds.length} sources<span>.</span><span>.</span><span>.</span></Text>
+              <Text size="body" tone="subtle" className="dot-cycle">Reading {learnIds.length} documents and placing {showItems.length} of yours<span>.</span><span>.</span><span>.</span></Text>
             </div>
           )}
           {outline && (
@@ -395,6 +409,8 @@ export function NewCourseWizard() {
                       className="w-full rounded-chip bg-transparent text-body-lg font-semibold outline-none focus:bg-subtle" />
                     <Text size="caption" tone="subtle">{m.summary}</Text>
                     <div className="flex flex-wrap gap-1.5">
+                      {yours[m.id]?.map((t) => <Chip key={t} size="xs" tone="brand">Yours · {t}</Chip>)}
+                      {!yours[m.id] && <Chip size="xs" tone="ok">SwishX writes</Chip>}
                       <Chip size="xs">{competency(m.competency).name}</Chip>
                       <Chip size="xs">{m.minutes} min</Chip>
                       {m.required && <Chip size="xs" tone="warn">Required for everyone</Chip>}
@@ -416,7 +432,7 @@ export function NewCourseWizard() {
             return (
               <div className="flex flex-col gap-2">
                 <Text size="body" tone={fits ? "subtle" : "warn"} weight={fits ? undefined : "semibold"}>
-                  {outline.length} modules · {mins} min · from {sourceIds.length} sources · {fits ? `close to your ${fmtMinutes(minutes)}` : mins < minutes ? `short of your ${fmtMinutes(minutes)}. Add sources to give SwishX more to build from.` : `over your ${fmtMinutes(minutes)}; the required modules alone take this long`}
+                  {outline.length} modules · {mins} min · {showItems.length ? `${showItems.length} of your pieces placed, SwishX writes the rest` : "all written by SwishX"} · {fits ? `close to your ${fmtMinutes(minutes)}` : mins < minutes ? `short of your ${fmtMinutes(minutes)}. Add sources to give SwishX more to build from.` : showItems.length ? `over your ${fmtMinutes(minutes)} with your own pieces in it. Remove a module or pick a longer course.` : `over your ${fmtMinutes(minutes)}; the required modules alone take this long`}
                 </Text>
                 {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}.{/* v1-hidden: Add them to the Library if reps should still find them. */}</Text>}
                 {shapeNote.added.length > 0 && <Text size="caption" tone="subtle">Added for depth, from the same sources: {shapeNote.added.join(", ")}.</Text>}
@@ -442,7 +458,7 @@ export function NewCourseWizard() {
             ))}
             <li className={cn("squircle flex items-center gap-3 rounded-panel border p-3.5", genIndex >= outline.length ? "shimmer border-tint-line bg-tint" : "border-hair")}>
               <span className="grid size-7 place-items-center rounded-full bg-black/[0.06] text-micro font-bold text-ink-3">+</span>
-              <Text size="body-lg" weight="semibold" className="flex-1">Question bank, roleplay rubric, MLR notes</Text>
+              <Text size="body-lg" weight="semibold" className="flex-1">Question bank and roleplay rubric</Text>
             </li>
           </ol>
         </Card>
@@ -452,8 +468,8 @@ export function NewCourseWizard() {
         <div className="sticky bottom-4 z-10 flex justify-end">
           <div className="flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float">
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
-              {step === 0 && "Next: pick the sources AI may use"}
-              {step === 1 && `${sourceIds.length} sources selected · next: the outline`}
+              {step === 0 && "Next: add your materials"}
+              {step === 1 && `${learnIds.length} to learn from · ${showItems.length} to show reps`}
               {step === 2 && `${comps.length} competencies`}
               {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
             </Text>

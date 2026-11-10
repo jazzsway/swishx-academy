@@ -31,6 +31,9 @@ export interface Rollout {
   blocker: { text: string; tone: "danger" | "warn" | "faint" };
 }
 
+/** v1-hidden: approval expiry belongs to MLR, which v1 doesn't have. */
+const APPROVAL_EXPIRY: boolean = false;
+
 const ORDER: Record<RolloutStatus, number> = { behind: 0, at_risk: 1, on_track: 2, scheduled: 3 };
 
 function audienceOf(s: AppState, ps: Progress[]) {
@@ -52,7 +55,7 @@ function assess(s: AppState, ps: Progress[], courseIds: string[], dueAt: string 
   for (const id of courseIds) {
     const c = s.courses.find((x) => x.id === id);
     const lv = c && live(c);
-    if (c && lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) expiring = { days: daysFromToday(lv.expiresAt), fixes: current(c).state === "changes" };
+    if (APPROVAL_EXPIRY && c && lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) expiring = { days: daysFromToday(lv.expiresAt), fixes: current(c).state === "changes" };
   }
 
   let status: RolloutStatus = proj >= target ? "on_track" : proj >= target - 10 ? "at_risk" : "behind";

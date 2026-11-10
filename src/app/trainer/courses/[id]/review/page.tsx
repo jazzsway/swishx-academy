@@ -1,8 +1,9 @@
 "use client";
 
 import { Suspense } from "react";
-import { ReviewAndVersions } from "@/features/trainer/course/review";
+// v1-hidden: the MLR flow. import { ReviewAndVersions } from "@/features/trainer/course/review";
+import { PublishAndVersions } from "@/features/trainer/course/publish";
 
 export default function Page() {
-  return <Suspense><ReviewAndVersions /></Suspense>;
+  return <Suspense><PublishAndVersions /></Suspense>;
 }

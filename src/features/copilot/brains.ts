@@ -48,10 +48,13 @@ function trainerQueue(s: AppState): CoItem[] {
   const out: CoItem[] = [];
   for (const c of s.courses) {
     const v = current(c);
+    if (v.state !== "published" && v.state !== "withdrawn" && c.modules.length) out.push({ tone: "warn", title: `Publish ${c.title} v${v.version}`, sub: "Draft ready", href: `/trainer/courses/${c.id}/review` });
+    /* v1-hidden: MLR states and approval expiry.
     if (v.state === "changes") out.push({ tone: "danger", title: `Fix MLR comments · ${c.title}`, sub: plural(v.comments.filter((m) => !m.resolved).length, "open comment"), href: `/trainer/courses/${c.id}/review` });
     if (v.state === "approved") out.push({ tone: "warn", title: `Publish ${c.title} v${v.version}`, sub: `Approved · ${v.docNumber}`, href: `/trainer/courses/${c.id}/review` });
     const lv = live(c);
     if (lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) out.push({ tone: "warn", title: `Approval expires in ${daysFromToday(lv.expiresAt)} days · ${c.title}`, sub: lv.docNumber, href: `/trainer/courses/${c.id}/review` });
+    */
   }
   /* v1-hidden: no manager sign-off in v1, so nothing waits on a manager.
   const slow = s.progress.filter((p) => p.state === "awaiting_verify" && p.verify && -daysFromToday(p.verify.requestedAt) > 5);
@@ -82,15 +85,16 @@ function courseHealth(c: Course): CoReply {
   const orange = warnings.length;
   const thin = c.competencyIds.filter((id) => c.items.filter((i) => i.competency === id).length < 6);
   const next: Record<string, string> = {
-    draft: red ? "Fix the red findings, then mark it ready for MLR." : "Checks are clean. Mark it ready and build the MLR package.",
-    ready: "It's ready. Submit the package to MLR and record the date.",
-    in_review: "It's with MLR. Record the decision when it comes back.",
-    changes: "MLR asked for changes. Work through the open comments.",
-    approved: "Approved. Publish it and choose how certified reps transition.",
+    /* v1: no MLR; every unpublished state is a draft. */
+    draft: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
+    ready: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
+    in_review: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
+    changes: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
+    approved: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
     published: "Live. Assign it, or start a new version to change it.",
   };
   return {
-    text: `${c.title} v${v.version} is ${v.state.replace("_", " ")}. ${next[v.state] ?? ""}`,
+    text: `${c.title} v${v.version} is ${v.state === "published" ? "published" : "a draft"}. ${next[v.state] ?? ""}`,
     items: [
       { tone: red ? "danger" : "ok", title: red ? `${plural(red, "blocking finding")}` : "No blocking findings", sub: red ? "Uncited or off-indication sentences" : "Every sentence is cited" },
       ...(orange ? [{ tone: "warn" as Tone, title: `${plural(orange, "warning")}`, sub: [...new Set(warnings.map((w) => w.title))].slice(0, 2).join(" · ") }] : []),
@@ -124,7 +128,7 @@ export const trainerBrain = {
     return { title: `Good morning, ${ctx.me.first}`, text: q.length ? `${plural(q.length, "thing")} need${q.length === 1 ? "s" : ""} you today.` : "Nothing is waiting on you.", items: q.slice(0, 5) };
   },
   prompts(ctx: Ctx) {
-    if (pageCourse(ctx)) return ["Is this ready for MLR?", "Where is the question bank thin?", "How is the rollout going?"];
+    if (pageCourse(ctx)) return ["Is this ready to publish?", "Where is the question bank thin?", "How is the rollout going?"];
     return ["Who's overdue?", "Where are reps weakest?", "What's expiring soon?", "Build a course for Arthelis"];
   },
   answer(prompt: string, ctx: Ctx): CoReply {
@@ -141,7 +145,7 @@ export const trainerBrain = {
         actions: [{ label: brand ? `Start the ${brand.brand} course` : "Open the course builder", href: `/trainer/courses/new${brand ? `?product=${brand.id}` : ""}` }],
       };
     }
-    if (c && has(p, "mlr", "ready", "check", "issue", "finding")) return courseHealth(c);
+    if (c && has(p, "publish", "ready", "check", "issue", "finding")) return courseHealth(c);
     if (c && has(p, "question", "bank", "item")) {
       const rows = c.competencyIds.map((id) => ({ id, n: c.items.filter((i) => i.competency === id).length })).sort((a, b) => a.n - b.n);
       return {
@@ -176,19 +180,19 @@ export const trainerBrain = {
       };
     }
     if (has(p, "expir", "recert", "renew")) {
-      const exp = s.courses.map((x) => ({ x, lv: live(x) })).filter(({ lv }) => lv?.expiresAt && daysFromToday(lv.expiresAt) <= 60);
+      const exp = [] as { x: Course; lv: ReturnType<typeof live> }[]; // v1-hidden: approval expiry (no MLR in v1)
       const certs = s.progress.filter((x) => x.certExpiresAt && daysFromToday(x.certExpiresAt) <= 60 && daysFromToday(x.certExpiresAt) >= 0);
       return {
-        text: exp.length || certs.length ? `${plural(exp.length, "approval")} and ${plural(certs.length, "rep certification")} expire in the next 60 days.` : "Nothing expires in the next 60 days.",
-        items: exp.map(({ x, lv }) => ({ tone: daysFromToday(lv!.expiresAt!) <= 30 ? "danger" : "warn", title: x.title, sub: `${lv!.docNumber} expires ${fmtDate(lv!.expiresAt)}`, href: `/trainer/courses/${x.id}/review` })),
+        text: exp.length || certs.length ? `${plural(certs.length, "rep certification")} expire${certs.length === 1 ? "s" : ""} in the next 60 days.` : "Nothing expires in the next 60 days.",
+        items: certs.length ? certs.slice(0, 6).map((x) => ({ tone: "warn", title: courseOf(s, x.courseId)?.title ?? "", sub: `${userOf(s, x.userId)?.name} · expires ${fmtDate(x.certExpiresAt)}`, href: `/trainer/people/${x.userId}` })) : exp.map(({ x, lv }) => ({ tone: daysFromToday(lv!.expiresAt!) <= 30 ? "danger" : "warn", title: x.title, sub: `${lv!.docNumber} expires ${fmtDate(lv!.expiresAt)}`, href: `/trainer/courses/${x.id}/review` })),
         actions: [], // v1-hidden: certs.length ? [{ label: "Plan a recert campaign", href: "/trainer/campaigns" }] : []
       };
     }
-    if (has(p, "mlr", "review", "approv", "pipeline")) {
-      const rows = s.courses.map((x) => ({ x, v: current(x) })).filter(({ v }) => v.state !== "published");
+    if (has(p, "draft", "unpublished", "pipeline")) {
+      const rows = s.courses.map((x) => ({ x, v: current(x) })).filter(({ v }) => v.state !== "published" && v.state !== "withdrawn");
       return {
-        text: rows.length ? `${plural(rows.length, "course")} in the MLR pipeline.` : "Everything is published. Nothing is in the MLR pipeline.",
-        items: rows.map(({ x, v }) => ({ tone: v.state === "changes" ? "danger" : v.state === "approved" ? "warn" : "faint", title: `${x.title} v${v.version}`, sub: v.state.replace("_", " "), href: `/trainer/courses/${x.id}/review` })),
+        text: rows.length ? `${plural(rows.length, "draft")} not published yet.` : "Everything is published.",
+        items: rows.map(({ x, v }) => ({ tone: "faint", title: `${x.title} v${v.version}`, sub: live(x) ? `v${live(x)!.version} is live meanwhile` : "Not live yet", href: `/trainer/courses/${x.id}/review` })),
       };
     }
     if (has(p, "need", "today", "priorit", "todo", "to do")) {
@@ -201,7 +205,7 @@ export const trainerBrain = {
         { title: "Build a course for a product", sub: "“Build a course for Arthelis”" },
         { title: "Find who's behind and nudge them", sub: "“Who's overdue?”" },
         { title: "Spot skill gaps", sub: "“Where are reps weakest?”" },
-        { title: "Check a course before MLR", sub: "Open a course, then “Is this ready for MLR?”" },
+        { title: "Check a course before you publish", sub: "Open a course, then “Is this ready to publish?”" },
       ],
     };
   },

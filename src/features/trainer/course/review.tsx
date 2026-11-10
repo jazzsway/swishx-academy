@@ -288,7 +288,7 @@ export function ReviewAndVersions() {
   );
 }
 
-function FindingList({ findings, ack, setAck, base }: { findings: Finding[]; ack: string[]; setAck: (a: string[]) => void; base: string }) {
+export function FindingList({ findings, ack, setAck, base, hideAck }: { findings: Finding[]; ack: string[]; setAck: (a: string[]) => void; base: string; hideAck?: boolean }) {
   const order = { red: 0, orange: 1, green: 2 } as const;
   return (
     <ul className="flex flex-col gap-2">
@@ -301,7 +301,7 @@ function FindingList({ findings, ack, setAck, base }: { findings: Finding[]; ack
             <Text size="body" tone="muted">{f.detail}</Text>
           </div>
           {f.severity !== "green" && f.moduleId && <Link href={`${base}?module=${f.moduleId}`} className="shrink-0 text-body font-semibold text-brand-deep hover:underline">{f.fixable ? "Fix with AI" : "Open module"}</Link>}
-          {f.severity === "orange" && (
+          {f.severity === "orange" && !hideAck && (
             <label className="flex shrink-0 items-center gap-1.5 text-body font-semibold text-warn">
               <input type="checkbox" className="size-4 accent-[var(--color-warn)]" checked={ack.includes(f.id)} onChange={(e) => setAck(e.target.checked ? [...ack, f.id] : ack.filter((x) => x !== f.id))} />Acknowledge
             </label>
@@ -312,7 +312,7 @@ function FindingList({ findings, ack, setAck, base }: { findings: Finding[]; ack
   );
 }
 
-function CompareModal({ versions, pair, onClose }: { versions: CourseVersion[]; pair: [number, number]; onClose: () => void }) {
+export function CompareModal({ versions, pair, onClose }: { versions: CourseVersion[]; pair: [number, number]; onClose: () => void }) {
   const a = versions.find((v) => v.version === pair[0])!;
   const b = versions.find((v) => v.version === pair[1])!;
   const text = (ms: Module[]) => new Map(ms.flatMap((m) => m.blocks.flatMap((bl) => [...(bl.paragraphs ?? []), ...(bl.points ?? [])].map((p) => [p.text, m.title] as const))));
@@ -323,7 +323,7 @@ function CompareModal({ versions, pair, onClose }: { versions: CourseVersion[]; 
   const modsA = new Set(a.modules.map((m) => m.title));
   const modsB = new Set(b.modules.map((m) => m.title));
   return (
-    <Modal open onClose={onClose} title={`Compare v${a.version} → v${b.version}`} description="Block-level changes. This is the change summary printed in the MLR package." size="lg">
+    <Modal open onClose={onClose} title={`Compare v${a.version} → v${b.version}`} description="Block-level changes between the two versions." size="lg">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
           {[...modsB].filter((m) => !modsA.has(m)).map((m) => <Chip key={m} tone="ok" size="md">+ module · {m}</Chip>)}

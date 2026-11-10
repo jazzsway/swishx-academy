@@ -71,7 +71,7 @@ export function RepCourse() {
   if (!p) return <CourseExplore courseId={c.id} />;
   const locked = unmetPrereqs(s, me.id, c);
   const mods = modulesOf(c);
-  const ver = c.versions.find((v) => v.version === p.version);
+  // v1-hidden (doc number): const ver = c.versions.find((v) => v.version === p.version);
   const step = nextStepFor(p, c);
   const pr = pathProgress(p, c);
   const pm = pathModules(p, c);
@@ -88,7 +88,7 @@ export function RepCourse() {
       <Link href="/rep/learn" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />My learning</Link>
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
-        <Text size="body" tone="subtle">v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""} · {ASSIGN_LABEL[p.assignType]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
+        <Text size="body" tone="subtle">v{p.version} · {ASSIGN_LABEL[p.assignType]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
         {/* v1-hidden: campaigns aren't in v1, so `campaign` is always undefined. */}
         {campaign && p.state !== "certified" && (
           <span className="flex items-center gap-1.5 self-start rounded-chip bg-tint px-2.5 py-1 text-caption font-semibold text-brand-deep">
@@ -103,7 +103,7 @@ export function RepCourse() {
           <div className="squircle flex flex-col items-center gap-3 rounded-card border border-ok-line bg-ok-bg p-6 text-center">
             <div className="success-pop grid size-16 place-items-center rounded-full bg-ok text-white"><Award className="size-8" aria-hidden="true" /></div>
             <Text size="display" weight="extrabold">You&apos;re certified</Text>
-            <Text size="body-lg" tone="muted">{c.title} · v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""}</Text>
+            <Text size="body-lg" tone="muted">{c.title} · v{p.version}</Text>
             <Text size="body" tone="subtle">Certified {fmtDate(p.certifiedAt, true)} · valid to {fmtDate(p.certExpiresAt, true)}{p.verify?.by ? ` · verified by ${s.users.find((u) => u.id === p.verify!.by)?.name}` : ""}</Text>
             <Link href="/rep/me" className="text-body-lg font-semibold text-ok underline">View certificate</Link>
           </div>
@@ -313,7 +313,7 @@ function CourseExplore({ courseId }: { courseId: string }) {
       <Link href="/rep/library" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />Library</Link>
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
-        <Text size="body" tone="subtle">v{lv?.version} · {lv?.docNumber} · {mods.length} modules · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
+        <Text size="body" tone="subtle">v{lv?.version} · {mods.length} modules · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
         <Text size="body-lg" tone="muted" className="leading-relaxed">{c.objective}</Text>
       </div>
       {c.settings.screening && locked.length > 0 ? <PrereqLock courses={locked} /> : (

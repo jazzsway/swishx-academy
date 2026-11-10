@@ -27,7 +27,7 @@ export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentS
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 text-caption text-ink-3">
-        <span className="truncate font-semibold text-ink-2">{src?.title} · {src?.docNumber}</span>
+        <span className="truncate font-semibold text-ink-2">{src?.title}</span>
         <span className="flex shrink-0 items-center gap-1"><Lock className="size-3" aria-hidden="true" />View only</span>
       </div>
       <div className={cn("squircle relative mx-auto flex w-full flex-col gap-3 rounded-control border border-hair-2 bg-white p-5 shadow-soft", compact ? "max-w-[520px]" : "aspect-[8.5/11] max-w-[560px] sm:p-8")}>
@@ -45,7 +45,7 @@ export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentS
             ))}
           </>
         ) : <Text tone="subtle">Page {page}</Text>}
-        <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">{src?.docNumber} · For internal training use only</div>
+        <div className="mt-auto border-t border-hair pt-2 text-center font-mono text-micro text-ink-4">For internal training use only</div>
       </div>
       {callout && (
         <div className="squircle flex items-start gap-2.5 rounded-panel border border-tint-line bg-tint px-4 py-3">
@@ -90,7 +90,7 @@ export function VisualAidWalkthrough({ spec, onDone }: { spec: VisualAidSpec; on
             </div>
             <span className="grid size-16 shrink-0 place-items-center rounded-full bg-white/70 text-brand-deep"><Icon className="size-8" aria-hidden="true" /></span>
           </div>
-          <span className="font-mono text-micro text-ink-3">{source(spec.sourceId)?.docNumber}</span>
+          {/* v1-hidden: doc number. <span className="font-mono text-micro text-ink-3">{source(spec.sourceId)?.docNumber}</span> */}
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">

@@ -7,7 +7,7 @@ import { AudioPlayer, DocumentViewer, GraphicView, VisualAidWalkthrough } from "
 import { cn } from "@/lib/cn";
 import type { Block, Citation as Cite, Para } from "@/data/types";
 import { scenario } from "@/data/scenarios";
-import { isApproved, source } from "@/data/org";
+import { source } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Citation } from "@/components/patterns/academy";
 
@@ -158,7 +158,7 @@ export function SourceList({ sourceIds }: { sourceIds: string[] }) {
         return (
           <li key={id} className="flex gap-2 text-caption text-ink-3">
             <span className="font-bold text-brand-deep">[{i + 1}]</span>
-            <span>{s?.title ?? id}{s?.docNumber ? ` · ${s.docNumber}` : ""}{s && !isApproved(s) && <strong className="font-semibold text-warn"> · needs MLR approval</strong>}</span>
+            <span>{s?.title ?? id}{/* v1-hidden: doc number. {s?.docNumber ? ` · ${s.docNumber}` : ""} */}{/* v1-hidden: {s && !isApproved(s) && <strong className="font-semibold text-warn"> · needs MLR approval</strong>} */}</span>
           </li>
         );
       })}

@@ -86,7 +86,7 @@ export function CourseSettingsTab() {
         </Card>
 
         {personalised && <Card title="Prerequisites" eyebrow="What comes first">
-          <Text size="body" tone="subtle" className="-mt-2">Not content, so you can change it on an approved version.</Text>
+          <Text size="body" tone="subtle" className="-mt-2">Not content, so you can change it on a published version.</Text>
           <div className="-mt-1 flex flex-col">
             {/* v1-hidden: Library visibility and explore-before-starting (no Library in v1).
             <Row label="Library visibility" hint="Only the published, in-date version is ever shown.">
@@ -175,7 +175,7 @@ export function CourseSettingsTab() {
           )}
         </div>
       )}
-      {d && <Text size="caption" tone="subtle">Settings are part of the approved version and are locked with it.</Text>}
+      {d && <Text size="caption" tone="subtle">Settings are part of the published version and are locked with it.</Text>}
     </div>
   );
 }

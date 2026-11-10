@@ -7,6 +7,7 @@ export function useCourse(id: string) {
   if (!course) return null;
   const cur = current(course);
   const lv = live(course);
-  const editable = cur.state === "draft" || cur.state === "changes" || cur.state === "ready";
+  /* v1: no MLR, so anything not yet published is a draft you can edit. */
+  const editable = ["draft", "changes", "ready", "in_review", "approved"].includes(cur.state);
   return { course, cur, lv, editable };
 }

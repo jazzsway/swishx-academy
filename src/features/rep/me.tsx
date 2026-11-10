@@ -93,7 +93,7 @@ function CertificateModal({ p, onClose }: { p: Progress; onClose: () => void }) 
   const s = useApp();
   const me = useMe();
   const c = s.courses.find((x) => x.id === p.courseId)!;
-  const v = c.versions.find((x) => x.version === p.version);
+  // v1-hidden (doc number): const v = c.versions.find((x) => x.version === p.version);
   const verifier = s.users.find((u) => u.id === p.verify?.by);
   return (
     <Modal open onClose={onClose} title="Certificate" size="md" footer={<Button onClick={() => window.print()}><Printer className="size-4" aria-hidden="true" />Print / save PDF</Button>}>
@@ -103,7 +103,7 @@ function CertificateModal({ p, onClose }: { p: Progress; onClose: () => void }) 
         <Text size="hero" weight="extrabold" tracking="tight">{me.name}</Text>
         <Text size="body-lg" tone="muted">is certified on</Text>
         <Text size="display" weight="bold">{c.title}</Text>
-        <Text size="body" tone="subtle">Version {p.version}{v?.docNumber ? ` · ${v.docNumber}` : ""}</Text>
+        <Text size="body" tone="subtle">Version {p.version}</Text>
         <div className="mt-2 grid w-full grid-cols-2 gap-3 text-left text-body">
           <div className="flex flex-col"><span className="text-caption text-ink-3">Certified</span><strong>{fmtDate(p.certifiedAt, true)}</strong></div>
           <div className="flex flex-col"><span className="text-caption text-ink-3">Valid until</span><strong>{fmtDate(p.certExpiresAt, true)}</strong></div>

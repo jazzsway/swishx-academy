@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { BookOpen, ChevronLeft, ChevronRight, Eye, FileText, Film, LayoutGrid, Library, ListChecks, Plus, Search } from "lucide-react";
 import { useApp, current, live } from "@/store/app-store";
-import { counts, daysFromToday, fmtDate, pct } from "@/store/selectors";
+import { counts, daysFromToday, pct } from "@/store/selectors";
 import { competency, DIVISIONS, isApproved, product as productOf, SOURCES, source } from "@/data/org";
 import type { Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -177,7 +177,7 @@ export function ProductDetail() {
       )}
 
       {tab === "sources" && (
-        <Section title="Sources" sub="The MLR-approved documents SwishX may cite when it writes about this product, plus anything uploaded and still waiting for MLR. Claims come from these.">
+        <Section title="Sources" sub="The documents SwishX may cite when it writes about this product, including anything you've uploaded. Claims come from these.">
           {sources.length === 0 ? <EmptyState title="No sources yet" body="Upload the Prescribing Information when you create the first course." /> : (
             <div className="flex flex-col gap-2">
               {sources.map((x) => {
@@ -198,7 +198,7 @@ export function ProductDetail() {
       )}
 
       {tab === "claims" && (
-        <Section title="Claims" sub={`Every approved statement in ${p.brand}'s MLR-approved documents, and whether your courses teach and test it.`}>
+        <Section title="Claims" sub={`Every statement in ${p.brand}'s product documents, and whether your courses teach and test it.`}>
           {claims.length === 0 ? <EmptyState title="No approved claims on file" body="They come from the product's approved documents. Add them under Sources." /> : (
             <>
               <div className="squircle flex flex-wrap items-center gap-x-6 gap-y-2 rounded-panel border border-hair bg-card px-4 py-3 shadow-hair">
@@ -253,7 +253,7 @@ export function ProductDetail() {
                   <Link key={c.id} href={`/trainer/courses/${c.id}`} className="squircle flex flex-wrap items-center gap-4 rounded-panel border border-hair bg-card p-4 shadow-hair transition-all hover:shadow-soft">
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex flex-wrap items-center gap-2"><Text size="body-lg" weight="bold">{c.title}</Text><VersionChip state={current(c).state} expiring={!!lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30} /></span>
-                      <Text size="caption" tone="subtle">{c.type === "personalised" ? "Personalised" : "Same for everyone"} · v{current(c).version}{lv?.docNumber ? ` · ${lv.docNumber}` : ""}{lv?.expiresAt ? ` · approval to ${fmtDate(lv.expiresAt, true)}` : ""}</Text>
+                      <Text size="caption" tone="subtle">{c.type === "personalised" ? "Personalised" : "Same for everyone"} · v{current(c).version}{lv ? " · live" : ""}</Text>
                     </span>
                     <span className="flex w-[200px] shrink-0 flex-col gap-1">
                       {ck.total ? (

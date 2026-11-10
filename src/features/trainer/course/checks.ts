@@ -60,17 +60,17 @@ export function runChecks(course: Course): Finding[] {
       for (const w of OFF_INDICATION[course.productId ?? ""] ?? [])
         if (cap.text.toLowerCase().includes(w)) f.push({ id: `vind-${b.id}-${cap.at}`, severity: "red", title: "Video script outside the approved indication", detail: `${b.title}: "${cap.text}"`, moduleId: m.id, blockId: b.id });
     }
-    if (b.video!.origin === "ai") f.push({ id: `ai-${b.id}`, severity: "orange", title: "AI-generated video", detail: `“${b.title}” is new content. Reviewers approve the rendered file and its script in this package.`, moduleId: m.id, blockId: b.id });
+    if (b.video!.origin === "ai") f.push({ id: `ai-${b.id}`, severity: "orange", title: "AI-generated video", detail: `“${b.title}” is new content. Watch it once before you publish.`, moduleId: m.id, blockId: b.id });
   }
   const clips = vids.filter(({ b }) => b.video!.origin === "clip");
-  if (clips.length) f.push({ id: "clips", severity: "orange", title: `${clips.length} clips cut from approved videos`, detail: "Each clip is a new piece. The package lists every clip with its source video and timestamps.", moduleId: clips[0].m.id });
+  if (clips.length) f.push({ id: "clips", severity: "orange", title: `${clips.length} clips cut from approved videos`, detail: "Each clip is a new piece. Check the cut points before you publish.", moduleId: clips[0].m.id });
   const docs = course.modules.flatMap((m) => m.blocks.filter((b) => b.type === "document"));
   const audio = course.modules.flatMap((m) => m.blocks.filter((b) => b.type === "audio"));
   if (vids.length || docs.length || audio.length)
-    f.push({ id: "media-ok", severity: "green", title: "Media", detail: `${vids.length} video${vids.length === 1 ? "" : "s"} with transcripts · ${docs.length} PDF reading${docs.length === 1 ? "" : "s"} from approved sources · ${audio.length} audio (approved text read aloud)` });
+    f.push({ id: "media-ok", severity: "green", title: "Media", detail: `${vids.length} video${vids.length === 1 ? "" : "s"} with transcripts · ${docs.length} PDF reading${docs.length === 1 ? "" : "s"} · ${audio.length} audio` });
 
   const unapproved = course.sourceIds.map((id) => source(id)).filter((x) => x && !isApproved(x));
-  if (unapproved.length)
+  if (false && unapproved.length) // v1-hidden: MLR approval of sources
     f.push({ id: "src-unapproved", severity: "orange", title: `${unapproved.length} source${unapproved.length > 1 ? "s" : ""} not yet MLR-approved`, detail: `${unapproved.map((x) => x!.title).join(", ")}. Each goes to MLR with this course; sentences citing it get reviewed line by line.` });
 
   if (course.productId && !course.modules.some((m) => m.required && m.competency === "c-safety"))

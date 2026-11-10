@@ -50,14 +50,14 @@ export function Records() {
     return out.sort((a, b) => pinnedFirst(a.u, b.u));
   }, [s.progress, s.users, one, courseId, region, q, state, bucket]);
 
-  const doc = (p: Progress) => courseOf(p).versions.find((v) => v.version === p.version)?.docNumber ?? "—";
+  // v1-hidden: MLR doc number column. const doc = (p: Progress) => courseOf(p).versions.find((v) => v.version === p.version)?.docNumber ?? "—";
   const district = (u: User) => s.districts.find((d) => d.id === u.districtId)?.name ?? "";
 
   function exportCsv() {
-    const head = ["Rep", "Email", "District", "Course", "How assigned", "Version", "Doc number", "State", "Assigned", "Due", "Screening", "Attempts", "Final score", "Verified by", "Attested", "Certified", "Valid until"];
+    const head = ["Rep", "Email", "District", "Course", "How assigned", "Version", "State", "Assigned", "Due", "Screening", "Attempts", "Final score", "Verified by", "Attested", "Certified", "Valid until"];
     const lines = people.flatMap(({ u, ps }) => ps.map((p) => {
       const last = p.attempts.at(-1);
-      return [u.name, u.email, district(u), courseOf(p).title, ASSIGN_LABEL[p.assignType], `v${p.version}`, doc(p), STATE_LABEL[p.state], p.assignedAt, p.dueAt ?? "", p.screening?.overall ?? "", p.attempts.length, last?.overall ?? "", s.users.find((x) => x.id === p.verify?.by)?.name ?? "", p.attestedAt?.slice(0, 10) ?? "", p.certifiedAt ?? "", p.certExpiresAt ?? ""]
+      return [u.name, u.email, district(u), courseOf(p).title, ASSIGN_LABEL[p.assignType], `v${p.version}`, STATE_LABEL[p.state], p.assignedAt, p.dueAt ?? "", p.screening?.overall ?? "", p.attempts.length, last?.overall ?? "", s.users.find((x) => x.id === p.verify?.by)?.name ?? "", p.attestedAt?.slice(0, 10) ?? "", p.certifiedAt ?? "", p.certExpiresAt ?? ""]
         .map((x) => `"${String(x).replace(/"/g, '""')}"`).join(",");
     }));
     const a = document.createElement("a");
@@ -69,7 +69,7 @@ export function Records() {
   const rep = { key: "rep", header: "Person", cell: ({ u }: PersonRow) => <div className="flex items-center gap-2.5"><Avatar initials={u.initials} size={30} /><div className="flex flex-col"><span className="font-semibold text-ink">{u.name}</span><span className="text-caption text-ink-3">{district(u)}</span></div></div> };
   const columns = [
         rep,
-    { key: "ver", header: "Version", secondary: true, cell: ({ urgent: p }: PersonRow) => <span className="font-mono text-body">v{p.version} · {doc(p)}</span> },
+    { key: "ver", header: "Version", secondary: true, cell: ({ urgent: p }: PersonRow) => <span className="font-mono text-body">v{p.version}</span> },
     { key: "st", header: "Stage", cell: ({ urgent: p }: PersonRow) => <ProgressChip state={p.state} overdue={isOverdue(p)} label={STATE_LABEL[p.state]} /> },
     { key: "scr", header: "Screening", numeric: true, secondary: true, cell: ({ urgent: p }: PersonRow) => p.screening?.overall ?? "—" },
     { key: "fin", header: "Final", numeric: true, cell: ({ urgent: p }: PersonRow) => p.attempts.filter((a) => a.passed).at(-1)?.overall ?? "—" },
@@ -79,7 +79,7 @@ export function Records() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Training records" description="Everyone in the Academy and where they are. Open a person to see each course, its approved version and the full audit trail."
+      <PageHeading title="Training records" description="Everyone in the Academy and where they are. Open a person to see each course, its version and the full audit trail."
         actions={<Button variant="secondary" onClick={exportCsv}><Download className="size-4" aria-hidden="true" />Export CSV</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[260px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" /></div>

@@ -104,10 +104,13 @@ export const bandCellClass = (score: number | null) => {
 
 const VERSION_TONE: Record<VersionState, { label: string; tone: "default" | "brand" | "ok" | "warn" | "danger" }> = {
   draft: { label: "Draft", tone: "default" },
-  ready: { label: "Ready for review", tone: "brand" },
-  in_review: { label: "In MLR review", tone: "warn" },
-  changes: { label: "Changes requested", tone: "danger" },
-  approved: { label: "Approved", tone: "ok" },
+  /* v1-hidden: no MLR in v1, so every unpublished state reads as a draft.
+  ready: { label: "Ready for review", tone: "brand" }, in_review: { label: "In MLR review", tone: "warn" },
+  changes: { label: "Changes requested", tone: "danger" }, approved: { label: "Approved", tone: "ok" }, */
+  ready: { label: "Draft", tone: "default" },
+  in_review: { label: "Draft", tone: "default" },
+  changes: { label: "Draft", tone: "default" },
+  approved: { label: "Draft", tone: "default" },
   published: { label: "Published", tone: "ok" },
   expired: { label: "Expired", tone: "danger" },
   withdrawn: { label: "Withdrawn", tone: "danger" },
@@ -115,7 +118,8 @@ const VERSION_TONE: Record<VersionState, { label: string; tone: "default" | "bra
 };
 
 export function VersionChip({ state, expiring, size = "sm" }: { state: VersionState; expiring?: boolean; size?: "xs" | "sm" | "md" }) {
-  if (expiring && state === "published") return <Chip tone="warn" size={size}>Expiring soon</Chip>;
+  // v1-hidden: approval expiry. if (expiring && state === "published") return <Chip tone="warn" size={size}>Expiring soon</Chip>;
+  void expiring;
   const v = VERSION_TONE[state];
   return <Chip tone={v.tone} size={size}>{v.label}</Chip>;
 }

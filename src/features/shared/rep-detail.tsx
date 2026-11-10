@@ -169,7 +169,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
           <div className="flex min-w-0 flex-col gap-5">
             <Card eyebrow={course.title} title="Where they are" actions={<ProgressChip state={p.state} overdue={isOverdue(p)} label={STATE_LABEL[p.state]} size="md" />}>
               <KeyValue items={[
-                { k: "Version", v: `v${p.version} · ${course.versions.find((v) => v.version === p.version)?.docNumber ?? "draft"}` },
+                { k: "Version", v: `v${p.version}` },
                 { k: "Assigned", v: `${fmtDate(p.assignedAt, true)} · ${ASSIGN_LABEL[p.assignType]}` },
                 { k: "Due", v: <span className={isOverdue(p) ? "text-danger" : undefined}>{fmtDate(p.dueAt, true)}</span> },
                 { k: "Time spent", v: `${p.minutesSpent} min` },

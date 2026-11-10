@@ -192,12 +192,12 @@ export function Attestation() {
   const [name, setName] = useState("");
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
   const ok = name.trim().toLowerCase() === me.name.toLowerCase();
-  const ver = c.versions.find((v) => v.version === p.version);
+  // v1-hidden (doc number): const ver = c.versions.find((v) => v.version === p.version);
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
       <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
       <Text as="h1" size="hero" weight="extrabold" tracking="tight">Attestation</Text>
-      <Text size="body" tone="subtle">{c.title} · v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""}</Text>
+      <Text size="body" tone="subtle">{c.title} · v{p.version}</Text>
       <div className="squircle rounded-panel border border-hair bg-card p-5"><Text as="p" size="subhead" className="leading-relaxed">{c.settings.attestation}</Text></div>
       <Field label={`Type your full name (${me.name}) to sign`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       <Text size="caption" tone="subtle">Your signature and the time are stored in your training record.</Text>

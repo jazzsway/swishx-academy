@@ -16,7 +16,7 @@ import { audioBlock, documentBlock, videoFromModule, visualAidBlock } from "./me
 
 type Kind = "upload" | "ai" | "document" | "visualaid";
 
-/** CC-10: add media to a module. Everything added goes into the MLR package with the rest of the version. */
+/** CC-10: add media to a module. It goes live with the rest of the version when you publish. */
 export function AddMediaRow({ course, module, onAdd }: { course: Course; module: Module; onAdd: (b: Block, note: string) => void }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const docSources = course.sourceIds.filter((id) => DOC_PAGES[id]);
@@ -77,7 +77,7 @@ function UploadVideo({ module, onClose, onAdd }: { module: Module; onClose: () =
   const steps = ["Upload", "Transcribe", "Split into chapters", "Draft captions"];
   const { at, start } = useSteps(steps.length, () => { onAdd(videoFromModule(module, "upload", file), "Video added · check the drafted transcript"); onClose(); });
   return (
-    <Modal open onClose={onClose} title="Upload a video" description="MP4 or MOV. SwishX transcribes it, splits it into chapters and drafts captions. The video itself must already be approved, or it goes into this course's MLR package."
+    <Modal open onClose={onClose} title="Upload a video" description="MP4 or MOV. SwishX transcribes it, splits it into chapters and drafts captions."
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!file || at >= 0} onClick={start}>Upload &amp; process</Button></>}>
       <div className="flex flex-col gap-3">
         <label className="squircle flex cursor-pointer items-center gap-3 rounded-panel border border-dashed border-hair-3 px-4 py-5 hover:bg-subtle">
@@ -94,12 +94,12 @@ function UploadVideo({ module, onClose, onAdd }: { module: Module; onClose: () =
 
 function AiVideo({ module, onClose, onAdd }: { module: Module; onClose: () => void; onAdd: (b: Block, note: string) => void }) {
   const steps = ["Write the script from cited sentences", "Storyboard scenes", "Render with voiceover", "Add captions & chapters"];
-  const { at, start } = useSteps(steps.length, () => { onAdd(videoFromModule(module, "ai"), "AI video added · goes to MLR as new content"); onClose(); });
+  const { at, start } = useSteps(steps.length, () => { onAdd(videoFromModule(module, "ai"), "AI video added · watch it before you publish"); onClose(); });
   return (
     <Modal open onClose={onClose} title="Generate a short video" description={`A 1–3 minute explainer for “${module.title}”, made with the SwishX video engine. The script uses only this module's cited sentences.`}
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={at >= 0} onClick={start}><AgentIcon className="size-4" aria-hidden="true" />Generate</Button></>}>
       <div className="flex flex-col gap-3">
-        <div className="squircle rounded-panel border border-warn-line bg-warn-bg px-4 py-3"><Text size="body" tone="warn" weight="semibold">AI-generated video is new content. It's flagged in checks and goes to MLR as part of this version.</Text></div>
+        <div className="squircle rounded-panel border border-hair bg-subtle px-4 py-3"><Text size="body" tone="muted">AI-generated video is new content. It shows up in checks so you watch it once before you publish.</Text></div>
         {at >= 0 && <Steps steps={steps} at={at} />}
       </div>
     </Modal>

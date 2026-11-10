@@ -36,12 +36,12 @@ export function AssignCourse() {
   const already = new Set(progress.filter((p) => p.courseId === course.id).map((p) => p.userId));
   const fresh = matched.filter((u) => !already.has(u.id));
 
-  if (!lv) return <Card><Text tone="subtle">Only a published version can be assigned. Finish MLR review first.</Text></Card>;
+  if (!lv) return <Card><Text tone="subtle">Only a published version can be assigned. Publish it first from Publish & versions.</Text></Card>;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex min-w-0 flex-col gap-5">
-        <Card title="Who" eyebrow={`Assign v${lv.version} · ${lv.docNumber}`}>
+        <Card title="Who" eyebrow={`Assign v${lv.version}`}>
           <AudienceBuilder rules={rules} onChange={setRules} />
         </Card>
         <Card title="How">

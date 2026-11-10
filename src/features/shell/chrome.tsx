@@ -11,7 +11,7 @@ import { Avatar } from "@/components/patterns/academy";
 import { Portal } from "@/components/ui/portal";
 
 export const PERSONAS = [
-  { userId: "u-maya", role: "Trainer", href: "/trainer", blurb: "Builds courses, runs MLR, proves progress" },
+  { userId: "u-maya", role: "Trainer", href: "/trainer", blurb: "Builds and publishes courses, proves progress" },
   // v1-hidden: managers aren't in v1, only trainers and reps.
   // { userId: "u-david", role: "Manager", href: "/manager", blurb: "Verifies reps, coaches the Northeast team" },
   { userId: "u-priya", role: "Rep", href: "/rep", blurb: "Learns, gets screened, practises privately" },

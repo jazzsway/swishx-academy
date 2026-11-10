@@ -65,7 +65,7 @@ export function AdminOrganisation() {
       </Card>
       <FieldStructure onSent={() => showToast("Sent to your SwishX team")} />
       <Card title="Integrations" eyebrow="Later phase">
-        {[["Single sign-on (SAML / OIDC)", "Okta, Microsoft Entra ID"], ["User provisioning (SCIM)", "Automatic joiners, movers and leavers"], ["Veeva Vault PromoMats", "Submit for MLR and sync approvals automatically"], ["LMS completion export (xAPI)", "Cornerstone, SuccessFactors, Workday Learning"]].map(([t, d]) => (
+        {[["Single sign-on (SAML / OIDC)", "Okta, Microsoft Entra ID"], ["User provisioning (SCIM)", "Automatic joiners, movers and leavers"]/* v1-hidden: , ["Veeva Vault PromoMats", "Submit for MLR and sync approvals automatically"] */, ["LMS completion export (xAPI)", "Cornerstone, SuccessFactors, Workday Learning"]].map(([t, d]) => (
           <SettingRow key={t} label={t} hint={d}><Chip size="md">Coming later</Chip></SettingRow>
         ))}
       </Card>

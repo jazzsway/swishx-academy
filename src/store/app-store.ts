@@ -312,7 +312,7 @@ export const useApp = create<AppState>()(
             ...c,
             versions: c.versions.map((v) =>
               v.version === cur.version
-                ? hist({ ...v, state: "published", publishedAt: dayStr(nowIso()), transition }, "Published", transition === "recertify" ? "Everyone recertifies" : transition === "minor" ? "Minor update · progress carries over" : "Restart")
+                ? hist({ ...v, state: "published", modules: v.state === "published" ? v.modules : c.modules, publishedAt: dayStr(nowIso()), transition }, "Published", transition === "recertify" ? "Everyone recertifies" : transition === "minor" ? "Minor update · progress carries over" : "Restart")
                 : v.state === "published" ? hist({ ...v, state: "superseded" }, `Superseded by v${cur.version}`) : v,
             ),
           })),
@@ -568,7 +568,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 11,
+      version: 12,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

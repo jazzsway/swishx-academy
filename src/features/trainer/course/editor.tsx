@@ -131,7 +131,7 @@ export function CourseEditor() {
                         const clips = clipsFrom(b);
                         const i = mod.blocks.findIndex((x) => x.id === b.id);
                         patchModule(mod.id, { blocks: [...mod.blocks.slice(0, i + 1), ...clips, ...mod.blocks.slice(i + 1)], minutes: mod.minutes + clips.reduce((a, c) => a + c.minutes, 0) });
-                        showToast(`Cut into ${clips.length} clips · each goes to MLR`);
+                        showToast(`Cut into ${clips.length} clips`);
                       }}><Scissors className="size-4" aria-hidden="true" />Split into clips</Button>
                     )}
                     {editable && !mod.required && mod.blocks.length > 1 && (

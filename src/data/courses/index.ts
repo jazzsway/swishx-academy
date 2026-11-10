@@ -34,7 +34,18 @@ export function defaultSettings(type: Course["type"], over: Partial<CourseSettin
 const vid = (courseId: string, v: number) => `${courseId.replace("c-", "").toUpperCase()}-v${v}-${(v * 7919).toString(36)}`;
 
 function version(courseId: string, v: number, modules: Module[], over: Partial<CourseVersion>): CourseVersion {
-  return { version: v, versionId: vid(courseId, v), state: "draft", comments: [], acknowledged: [], history: [], modules, ...over };
+  return withoutMlr({ version: v, versionId: vid(courseId, v), state: "draft", comments: [], acknowledged: [], history: [], modules, ...over });
+}
+
+/* v1-hidden: no MLR in v1. Unpublished versions are drafts, and the MLR steps drop out of their history.
+   Delete this wrapper to bring the MLR demo data back. */
+const MLR_STEP = /MLR|Submitted|Marked as submitted|Recorded approval|Changes requested|Resubmitted/;
+function withoutMlr(v: CourseVersion): CourseVersion {
+  const live = v.state === "published" || v.state === "superseded" || v.state === "withdrawn" || v.state === "expired";
+  return {
+    ...v, state: live ? v.state : "draft", comments: [],
+    history: v.history.filter((h) => !MLR_STEP.test(h.action)).map((h) => ({ ...h, action: h.action.replace(/ · .*campaign$/, "") })),
+  };
 }
 
 const MAYA = "u-maya";
