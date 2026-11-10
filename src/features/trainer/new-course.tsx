@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, Upload, Trash2, ChevronUp, ChevronDown, Wand2, Lock, Plus, Info, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, FileText, Upload, Trash2, ChevronUp, ChevronDown, Wand2, Lock, Plus, Info, MoreVertical, Play } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { COMPETENCIES, DIVISIONS, SOURCES, competency, domainOf, product } from "@/data/org";
-import { FORMAT_ICON, FORMAT_LABEL, SourcePreview, formatOf, rememberFile } from "./source-preview";
-import { defaultPlace, howRepsGetIt, placeMaterials, type Place } from "./materials";
+import { FORMAT_ICON, FORMAT_LABEL, SourcePreview, fileUrl, formatOf, rememberFile } from "./source-preview";
+import { PLACE_OPTIONS, defaultPlace, howRepsGetIt, placeMaterials, type Place } from "./materials";
 import { ProductPicker, type ProductScope } from "./product-picker";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
@@ -21,6 +21,7 @@ import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Card } from "@/components/patterns/academy";
+import { Portal } from "@/components/ui/portal";
 
 const DURATION_PRESETS = [10, 15, 20, 30, 45, 60, 90];
 
@@ -124,8 +125,8 @@ export function NewCourseWizard() {
   const placeOf = (s: Source) => places[s.id] ?? defaultPlace(s);
   const picked = library.filter((s) => sourceIds.includes(s.id));
   const learnIds = picked.map((s) => s.id);
-  const showItems = picked.filter((s) => placeOf(s) === "course");
-  const background = picked.filter((s) => placeOf(s) === "background");
+  const showItems = picked.filter((s) => placeOf(s) !== "background");
+  const background = picked.filter((s) => placeOf(s) !== "course");
   const suggested = library.filter((s) => !sourceIds.includes(s.id) && !s.uploaded);
   const [yours, setYours] = useState<Record<string, string[]>>({});
   const hasPI = !productId || learnIds.includes(prod?.piSourceId ?? "");
@@ -313,7 +314,7 @@ export function NewCourseWizard() {
               <Text size="body" tone="subtle">Ready-made materials reps see as they are. SwishX also analyses them to write questions and assessments.</Text>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
-              {showItems.map((s) => <MaterialTile key={s.id} s={s} sub={howRepsGetIt(s)} move="Use as source only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
+              {showItems.map((s) => <MaterialTile key={`c-${s.id}`} s={s} sub={howRepsGetIt(s)} place={placeOf(s)} onPlace={(p) => setPlaces({ ...places, [s.id]: p })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
               <Dropzone label="Add files reps should see" kinds="Video, audio, PDF, slides or images" onFiles={(files) => addFiles(files, "course")} />
             </div>
           </section>
@@ -327,8 +328,8 @@ export function NewCourseWizard() {
             <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
               {background.map((s) => {
                 const pi = s.id === prod?.piSourceId;
-                return <MaterialTile key={s.id} s={s} sub={pi ? "Always included" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : "PDF"}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
-                  move={pi ? undefined : "Put in the course"} onMove={() => setPlaces({ ...places, [s.id]: "course" })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
+                return <MaterialTile key={`s-${s.id}`} s={s} sub={pi ? "Always included for a product course" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : s.type}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
+                  place={placeOf(s)} onPlace={(p) => setPlaces({ ...places, [s.id]: p })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
               })}
               <Dropzone label="Add your own source material" kinds="PDF, documents or data" onFiles={(files) => addFiles(files, "background")} />
             </div>
@@ -504,31 +505,67 @@ export function NewCourseWizard() {
 }
 
 
-const FORMAT_TINT: Record<string, string> = {
-  video: "bg-ink text-white", audio: "bg-ok-bg text-ok", image: "bg-info-bg text-info", slides: "bg-tint text-brand-deep", visualaid: "bg-tint text-brand-deep",
+const THUMB_TINT: Record<string, string> = {
+  video: "bg-ink text-white", audio: "bg-ok-bg text-ok", image: "bg-info-bg text-info", slides: "bg-tint text-brand-deep", visualaid: "bg-tint text-brand-deep", pdf: "bg-subtle text-ink-3", doc: "bg-subtle text-ink-3", data: "bg-subtle text-ink-3",
 };
 
-/** One file in the Materials step: what it is, how reps get it, and one move to the other section. */
-function MaterialTile({ s, sub, move, onMove, onPreview, onRemove, locked }: {
-  s: Source; sub: string; move?: string; onMove: () => void; onPreview: () => void; onRemove?: () => void; locked?: boolean;
+/**
+ * One file in the Materials step, shaped like a file card in Drive or Notion: a preview on top
+ * (the real image or video frame when there is one), the name and how reps get it below, and
+ * everything else (where it goes, preview, remove) in the ⋯ menu.
+ */
+function MaterialTile({ s, sub, place, onPlace, onPreview, onRemove, locked }: {
+  s: Source; sub: string; place: Place; onPlace: (p: Place) => void; onPreview: () => void; onRemove?: () => void; locked?: boolean;
 }) {
-  const kind = s.uploaded?.format ?? (s.type === "Visual aid" ? "visualaid" : "pdf");
-  const Icon = locked ? Lock : s.uploaded ? FORMAT_ICON[s.uploaded.format] : s.type === "Visual aid" ? FORMAT_ICON.slides : FileText;
+  /* The menu opens in a portal at the button's position, so the tile's rounded clipping can't cut it off. */
+  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const fmt = s.uploaded?.format;
+  const kind = fmt ?? (s.type === "Visual aid" ? "visualaid" : "pdf");
+  const Icon = s.uploaded ? FORMAT_ICON[s.uploaded.format] : s.type === "Visual aid" ? FORMAT_ICON.slides : FileText;
+  const url = s.uploaded ? fileUrl(s.id) : undefined;
+  const typeLabel = fmt ? FORMAT_LABEL[fmt] : s.type === "Visual aid" ? "Slides" : "PDF";
   return (
-    <div className="squircle flex min-h-[112px] flex-col gap-2 rounded-panel border border-hair-2 bg-card p-3">
-      <div className="flex items-start gap-2.5">
-        <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", locked ? "bg-subtle text-ink-3" : FORMAT_TINT[kind] ?? "bg-subtle text-ink-2")}><Icon className="size-4" aria-hidden="true" /></span>
-        <span className="flex min-w-0 flex-1 flex-col">
+    <div className="squircle group relative flex flex-col overflow-hidden rounded-panel border border-hair-2 bg-card transition-shadow hover:shadow-soft">
+      <button type="button" onClick={onPreview} aria-label={`Preview ${s.title}`} className={cn("relative flex h-24 items-center justify-center overflow-hidden", THUMB_TINT[kind] ?? "bg-subtle text-ink-3")}>
+        {url && fmt === "image" ? <img src={url} alt="" className="size-full object-cover" />
+          : url && fmt === "video" ? <video src={url} muted preload="metadata" className="size-full object-cover" />
+          : <Icon className="size-8 opacity-80" aria-hidden="true" />}
+        <span className="absolute left-2 top-2 rounded-glyph bg-white/90 px-1.5 py-0.5 text-micro font-bold text-ink-2 shadow-hair">{typeLabel}{s.pages ? ` · ${s.pages}p` : ""}</span>
+        {fmt === "video" && <span className="absolute grid size-9 place-items-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px" aria-hidden="true" /></span>}
+      </button>
+      <div className="flex items-start gap-2 p-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="line-clamp-2 text-body font-semibold leading-snug text-ink" title={s.title}>{s.title}</span>
           <span className="text-caption text-ink-3">{sub}</span>
+          {place === "both" && <span className="pt-1"><Chip size="xs" tone="brand">In the course and source</Chip></span>}
+          {locked && <span className="flex items-center gap-1 pt-1 text-caption text-ink-3"><Lock className="size-3" aria-hidden="true" />Required</span>}
         </span>
-      </div>
-      <div className="mt-auto flex items-center gap-1">
-        {move && <button type="button" onClick={onMove} className="-ml-1 rounded-control px-1.5 py-1 text-caption font-semibold text-ink-3 hover:bg-subtle hover:text-ink">{move}</button>}
-        <span className="ml-auto flex">
-          <IconButton aria-label={`Preview ${s.title}`} onClick={onPreview}><Eye className="size-4" /></IconButton>
-          {onRemove && <IconButton aria-label={`Remove ${s.title}`} onClick={onRemove}><X className="size-4" /></IconButton>}
-        </span>
+        <div className="relative -mr-1 shrink-0">
+          <IconButton aria-label={`Options for ${s.title}`} aria-haspopup="menu" aria-expanded={!!menu}
+            onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setMenu(menu ? null : { top: r.bottom + 4, right: window.innerWidth - r.right }); }}><MoreVertical className="size-4" /></IconButton>
+          {menu && (
+            <Portal>
+              <div className="fixed inset-0 z-[60]" onClick={() => setMenu(null)} aria-hidden="true" />
+              <div role="menu" style={{ top: menu.top, right: menu.right }} className="select-pop fixed z-[61] w-[260px] rounded-panel border border-hair bg-card p-1.5 shadow-float">
+                {!locked && (
+                  <>
+                    <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="block px-2.5 pb-1 pt-1">Use it as</Text>
+                    {PLACE_OPTIONS.map((o) => (
+                      <button key={o.id} type="button" role="menuitemradio" aria-checked={place === o.id} onClick={() => { onPlace(o.id); setMenu(null); }}
+                        className={cn("flex w-full items-start gap-2.5 rounded-control px-2.5 py-2 text-left hover:bg-subtle", place === o.id && "bg-tint")}>
+                        <Check className={cn("mt-0.5 size-4 shrink-0", place === o.id ? "text-brand-deep" : "invisible")} aria-hidden="true" />
+                        <span className="flex flex-col"><span className="text-body font-semibold text-ink">{o.label}</span><span className="text-caption text-ink-3">{o.hint}</span></span>
+                      </button>
+                    ))}
+                    <div className="my-1 border-t border-hair" />
+                  </>
+                )}
+                <button type="button" role="menuitem" onClick={() => { onPreview(); setMenu(null); }} className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-body font-semibold text-ink-2 hover:bg-subtle"><Eye className="size-4" aria-hidden="true" />Preview</button>
+                {onRemove && <button type="button" role="menuitem" onClick={() => { onRemove(); setMenu(null); }} className="flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-body font-semibold text-danger hover:bg-danger-bg"><Trash2 className="size-4" aria-hidden="true" />Remove</button>}
+              </div>
+            </Portal>
+          )}
+        </div>
       </div>
     </div>
   );

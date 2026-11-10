@@ -13,6 +13,8 @@ import { Modal } from "@/components/ui/modal";
 /* Uploaded files stay in this browser tab only (object URLs); the store keeps their metadata. */
 const FILES = new Map<string, { url: string; mime: string }>();
 export const rememberFile = (id: string, file: File) => FILES.set(id, { url: URL.createObjectURL(file), mime: file.type });
+/** The local preview of an uploaded file, until the page reloads. */
+export const fileUrl = (id: string) => FILES.get(id)?.url;
 
 export function formatOf(name: string): FileFormat {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";

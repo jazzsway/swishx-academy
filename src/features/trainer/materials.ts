@@ -2,10 +2,17 @@ import type { Block, Module, Source } from "@/data/types";
 import { audioBlock, documentBlock, videoFromModule, visualAidBlock } from "./course/media-builders";
 
 /**
- * Where a piece the trainer brings goes. "course": reps watch, read or listen to it,
- * and SwishX reads it too. "background": SwishX writes from it; reps never see it.
+ * Where a piece the trainer brings goes. "course": reps watch, read or listen to it, and SwishX
+ * analyses it for questions. "background": source material SwishX builds new content from; reps
+ * never see it. "both": reps see it, and SwishX also builds new content from it.
  */
-export type Place = "course" | "background";
+export type Place = "course" | "background" | "both";
+
+export const PLACE_OPTIONS: { id: Place; label: string; hint: string }[] = [
+  { id: "course", label: "In the course", hint: "Reps see it as it is" },
+  { id: "background", label: "Source material only", hint: "SwishX builds from it; reps don't see it" },
+  { id: "both", label: "Both", hint: "Reps see it, and SwishX builds from it too" },
+];
 
 /** Your own uploads go in the course; product-library documents start as background, except the visual aid. */
 export function defaultPlace(s: Source): Place {
