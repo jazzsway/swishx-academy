@@ -192,3 +192,6 @@ export function daysBetween(a: string | Date, b: string | Date) {
 }
 
 export const daysFromToday = (iso: string) => daysBetween(TODAY, iso);
+
+/** Assigned with a start date that hasn't come yet: listed, but not startable. */
+export const opensLater = (p: Progress) => !!p.startsAt && daysFromToday(p.startsAt) > 0;

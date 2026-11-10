@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp, live, current } from "@/store/app-store";
-import { useMe, daysFromToday } from "@/store/selectors";
+import { useMe, daysFromToday, opensLater } from "@/store/selectors";
 import type { Course, Module, Progress } from "@/data/types";
 import { competency } from "@/data/org";
 import { pathMinutes } from "@/lib/learning";
@@ -90,11 +90,11 @@ export function useRep() {
   for (const p of active) if (isLocked(p)) for (const pre of unmetPrereqs(s, me.id, courseOf(p))) if (!lockedBy.has(pre.id)) lockedBy.set(pre.id, courseOf(p).title);
   const ordered = [...active].sort((a, b) => Number(lockedBy.has(b.courseId)) - Number(lockedBy.has(a.courseId)));
   const next = ordered.map((p) => {
-    if (isLocked(p)) return null;
+    if (isLocked(p) || opensLater(p)) return null;
     const st = nextStepFor(p, courseOf(p));
     if (st && lockedBy.has(p.courseId)) st.eyebrow = `Foundations · unlocks ${lockedBy.get(p.courseId)} screening`;
     return st;
   }).find(Boolean) ?? null;
-  const dueSoon = active.filter((p) => p.dueAt && daysFromToday(p.dueAt) <= 21);
+  const dueSoon = active.filter((p) => p.dueAt && daysFromToday(p.dueAt) <= 21 && !opensLater(p));
   return { me, s, mine, active, next, dueSoon, courseOf };
 }

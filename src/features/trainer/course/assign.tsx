@@ -11,9 +11,10 @@ import { Field } from "@/components/ui/field";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card, Avatar } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
-import { AudienceBuilder, EMPTY_RULES } from "../audience";
+import { AudienceBuilder, EMPTY_RULES, targetRules } from "../audience";
 import { useCourse } from "./use-course";
 
+const today = TODAY.toISOString().slice(0, 10);
 const in30 = new Date(TODAY.getTime() + 30 * 86400000).toISOString().slice(0, 10);
 
 export function AssignCourse() {
@@ -28,9 +29,11 @@ export function AssignCourse() {
   const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, roles: ["rep"], /* v1: reps only */ divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
   const [type, setType] = useState<Progress["assignType"]>("required");
   const [due, setDue] = useState(in30);
+  const [start, setStart] = useState(today);
+  const badDates = type !== "recommended" && !!due && due < start;
   const [campaignId] = useState<string>(""); // v1-hidden: setCampaignId, used by the campaign picker
 
-  const matched = useMemo(() => audienceMatches(users, rules), [users, rules]);
+  const matched = useMemo(() => audienceMatches(users, targetRules(rules)), [users, rules]);
   if (!data) return null;
   const { course, lv } = data;
   const already = new Set(progress.filter((p) => p.courseId === course.id).map((p) => p.userId));
@@ -46,8 +49,8 @@ export function AssignCourse() {
         </Card>
         <Card title="How">
           <Segmented aria-label="Assignment type">
-            <SegmentedButton active={type === "default"} onClick={() => setType("default")}>Default</SegmentedButton>
             <SegmentedButton active={type === "required"} onClick={() => setType("required")}>Required</SegmentedButton>
+            <SegmentedButton active={type === "default"} onClick={() => setType("default")}>Onboarding</SegmentedButton>
             <SegmentedButton active={type === "recommended"} onClick={() => setType("recommended")}>Recommended</SegmentedButton>
           </Segmented>
           <Text size="body" tone="muted">
@@ -55,7 +58,12 @@ export function AssignCourse() {
             {type === "required" && "Assigned with a due date. Reps get reminders at 7, 3 and 1 day before it's due."}
             {type === "recommended" && "Optional. No due date, no reminders."}
           </Text>
-          {type !== "recommended" && <div className="max-w-[220px]"><Field label={type === "default" ? "Due (for current matches)" : "Due date"} type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
+          <div className="grid max-w-[460px] gap-3 sm:grid-cols-2">
+            <Field label="Starts" type="date" value={start} min={today} onChange={(e) => setStart(e.target.value || today)}
+              hint={start > today ? "Reps see it now but can't start until then." : "Reps can start right away."} />
+            {type !== "recommended" && <Field label={type === "default" ? "Due (for current matches)" : "Due"} type="date" value={due} min={start} onChange={(e) => setDue(e.target.value)}
+              error={badDates ? "Pick a due date after the start date." : undefined} />}
+          </div>
           {/* v1-hidden: campaigns.
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Track as part of a campaign (optional)</Text>
@@ -76,8 +84,9 @@ export function AssignCourse() {
             ))}
             {fresh.length > 8 && <Text size="caption" tone="subtle">and {fresh.length - 8} more</Text>}
           </ul>
-          <Button size="lg" fullWidth disabled={!fresh.length} onClick={() => {
-            const n = assign(course.id, rules, type, type === "recommended" ? undefined : due, campaignId || undefined);
+          {start > today && <Text size="body" weight="semibold" className="text-brand-deep">Opens {new Date(start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{type !== "recommended" && due ? ` · due ${new Date(due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}</Text>}
+          <Button size="lg" fullWidth disabled={!fresh.length || badDates} onClick={() => {
+            const n = assign(course.id, targetRules(rules), type, type === "recommended" ? undefined : due, campaignId || undefined, start);
             showToast(`Assigned to ${n} ${n === 1 ? "person" : "people"}`);
             window.setTimeout(() => router.push(campaignId ? `/trainer/campaigns/${campaignId}` : "/trainer/records"), 900);
           }}>Assign to {fresh.length}</Button>

@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, Library as LibraryIcon } from "lucide-react";
+import { ArrowLeft, Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
-import { useMe, fmtDate, daysFromToday, isOverdue, ASSIGN_LABEL } from "@/store/selectors";
+import { useMe, fmtDate, daysFromToday, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
 import { competency, DIVISIONS } from "@/data/org";
 import type { Course, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -121,6 +121,7 @@ function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: strin
         <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
         <span className="flex flex-wrap items-center gap-1.5">
           {tag && <Chip size="xs" tone={tag.tone}>{tag.label}</Chip>}
+          {opensLater(p) && <Chip size="xs" iconLeft={<CalendarClock className="size-3" aria-hidden="true" />}>Opens {fmtDate(p.startsAt)}</Chip>}
           <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"} weight={isOverdue(p) ? "semibold" : undefined}>
             {cert ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : p.dueAt ? (isOverdue(p) ? `Overdue since ${fmtDate(p.dueAt)}` : `Due ${fmtDate(p.dueAt)}`) : "No due date"}
           </Text>
@@ -143,6 +144,7 @@ export function RepCourse() {
   if (!c) return <div className="p-4"><EmptyState title="Course not found" /></div>;
   if (!p) return <CourseExplore courseId={c.id} />;
   const locked = unmetPrereqs(s, me.id, c);
+  const scheduled = opensLater(p);
   const mods = modulesOf(c);
   // v1-hidden (doc number): const ver = c.versions.find((v) => v.version === p.version);
   const step = nextStepFor(p, c);
@@ -209,8 +211,17 @@ export function RepCourse() {
         </div>
       )}
 
-      {p.state === "not_started" && c.settings.screening && locked.length > 0 && <PrereqLock courses={locked} />}
-      {p.state === "not_started" && c.settings.screening && locked.length === 0 && (
+      {scheduled && (
+        <div className="squircle flex items-start gap-3 rounded-card border border-hair bg-card p-5">
+          <CalendarClock className="mt-0.5 size-5 shrink-0 text-brand-deep" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <Text size="subhead" weight="bold">Opens {fmtDate(p.startsAt, true)}</Text>
+            <Text size="body" tone="muted">Your training team scheduled this course. You can start it on that day{p.dueAt ? `, and it's due ${fmtDate(p.dueAt, true)}` : ""}.</Text>
+          </div>
+        </div>
+      )}
+      {!scheduled && p.state === "not_started" && c.settings.screening && locked.length > 0 && <PrereqLock courses={locked} />}
+      {!scheduled && p.state === "not_started" && c.settings.screening && locked.length === 0 && (
         <div className="squircle flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
           <Text size="display" weight="extrabold" tone="inverse">Get certified</Text>
           <Text size="body-lg" tone="inverse" className="opacity-80">Start with a ~10-minute quiz and a 5-minute call with an AI doctor. It isn't graded. It finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.</Text>
@@ -230,7 +241,7 @@ export function RepCourse() {
           <div className="flex min-w-0 flex-1 flex-col"><Text size="caption" tone="inverse" className="opacity-75">Up next</Text><Text size="title" weight="bold" tone="inverse">{step.title}</Text><Text size="caption" tone="inverse" className="opacity-80">{step.why}</Text></div>
         </Link>
       )}
-      {p.state === "not_started" && !c.settings.screening && step && (
+      {!scheduled && p.state === "not_started" && !c.settings.screening && step && (
         <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button>
       )}
 

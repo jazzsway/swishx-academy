@@ -345,6 +345,8 @@ export interface Progress {
   version: number;
   state: ProgressState;
   assignedAt: string;
+  /** Assigned now, but the rep can't start until this day. */
+  startsAt?: string;
   dueAt?: string;
   assignType: "default" | "required" | "recommended" | "self";
   campaignId?: string;

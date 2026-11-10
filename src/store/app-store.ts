@@ -83,7 +83,7 @@ export interface AppState extends Seeded {
   recordApproval: (courseId: string, d: { docNumber: string; approvedAt: string; expiresAt: string }) => void;
   publish: (courseId: string, transition: "minor" | "recertify" | "restart") => void;
   withdraw: (courseId: string, reason: string) => void;
-  assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string) => number;
+  assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string, startsAt?: string) => number;
   /** Creates the campaign as scheduled; startCampaign assigns it. */
   createCampaign: (c: Omit<Campaign, "id" | "status" | "ownerId">) => string;
   /** Assigns the courses to everyone matching, and pulls in people who already had them. */
@@ -331,7 +331,7 @@ export const useApp = create<AppState>()(
       withdraw: (courseId, reason) =>
         set((s) => mapCourse(s, courseId, (c) => ({ ...c, versions: c.versions.map((v) => (v.state === "published" ? hist({ ...v, state: "withdrawn" }, "Withdrawn", reason) : v)) }))),
 
-      assign: (courseId, rules, type, dueAt, campaignId) => {
+      assign: (courseId, rules, type, dueAt, campaignId, startsAt) => {
         const s = get();
         const course = s.courses.find((c) => c.id === courseId)!;
         const v = live(course)?.version ?? current(course).version;
@@ -340,12 +340,12 @@ export const useApp = create<AppState>()(
         const at = dayStr(nowIso());
         const created: Progress[] = targets.map((u) => ({
           id: `p-${u.id}-${courseId}-${uid("a").slice(-4)}`, userId: u.id, courseId, version: v, state: "not_started",
-          assignedAt: at, dueAt, assignType: type, campaignId, completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
+          assignedAt: at, startsAt: startsAt && startsAt > at ? startsAt : undefined, dueAt, assignType: type, campaignId, completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
         }));
         const notes: Notification[] = targets.slice(0, 400).map((u) => ({
           id: uid("n"), userId: u.id, at: nowIso(), read: false,
           title: type === "recommended" ? "Recommended course" : "New course assigned",
-          body: `${course.title}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${campaignId ? ` · ${s.campaigns.find((x) => x.id === campaignId)?.name ?? ""}` : ""}`,
+          body: `${course.title}${startsAt && startsAt > at ? ` · starts ${new Date(startsAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${campaignId ? ` · ${s.campaigns.find((x) => x.id === campaignId)?.name ?? ""}` : ""}`,
           href: `/rep/course/${courseId}`,
         }));
         set((st) => ({ progress: [...st.progress, ...created], notifications: [...notes, ...st.notifications] }));
@@ -568,7 +568,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 13,
+      version: 14,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
