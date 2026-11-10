@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Award, Flame, Printer, ChevronRight, LogOut, Mail, MapPin, Mic, Camera, Trash2, ArrowLeft, UserRound, Bell } from "lucide-react"; // v1-hidden: Lock (badges)
+import { Award, Flame, Printer, ChevronRight, LogOut, Mail, MapPin, Mic, Camera, Trash2, UserRound, Bell } from "lucide-react"; // v1-hidden: Lock (badges)
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, xpFor, fmtDate, LEVELS } from "@/store/selectors"; // v1-hidden: badgesFor
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Ring, Avatar } from "@/components/patterns/academy";
 import { Field } from "@/components/ui/field";
+import { BottomActions } from "@/features/shell/bottom-actions";
 import { BrandMark } from "@/features/shell/brand";
 
 export function RepMe() {
@@ -199,11 +200,8 @@ export function RepProfile() {
   }
 
   return (
-    <div className="flex flex-col gap-5 px-4 pt-4 pb-6">
-      <div className="flex items-center gap-3">
-        <Link href="/rep/me" aria-label="Back" className="grid size-10 place-items-center rounded-full bg-card shadow-hair hover:bg-subtle"><ArrowLeft className="size-5" /></Link>
-        <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Profile</Text>
-      </div>
+    <div className="flex flex-1 flex-col gap-5 px-4 pt-4">
+      <Text as="h1" size="hero" weight="extrabold" tracking="tight">Edit profile</Text>
 
       <div className="flex flex-col items-center gap-3">
         <div className="relative">
@@ -227,10 +225,10 @@ export function RepProfile() {
         <Field label="Position" value={title} onChange={(e) => setTitle(e.target.value)} hint="Shown to your trainer and on your certificates." autoComplete="organization-title" />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Button size="lg" fullWidth disabled={!ok || !dirty || saved} onClick={save}>{saved ? "Saved" : "Save changes"}</Button>
-        <Button size="lg" fullWidth variant="ghost" onClick={() => router.push("/rep/me")}>Cancel</Button>
-      </div>
+      <BottomActions className="flex-row">
+        <Button size="lg" variant="secondary" onClick={() => router.push("/rep/me")}>Cancel</Button>
+        <Button size="lg" className="flex-1" disabled={!ok || !dirty || saved} onClick={save}>{saved ? "Saved" : "Save changes"}</Button>
+      </BottomActions>
     </div>
   );
 }

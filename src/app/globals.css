@@ -781,3 +781,15 @@ mark.cite-missing { background: transparent; color: inherit; text-decoration: un
 .copilot-in {
   animation: drawer-in 220ms var(--ease-entrance);
 }
+
+/* The rep's agent rises from the bottom as a sheet. */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sheet-up {
+  animation: sheet-up 320ms var(--ease-entrance) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-up { animation: none; }
+}

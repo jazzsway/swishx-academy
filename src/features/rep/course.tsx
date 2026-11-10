@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
 import { competency, DIVISIONS, product } from "@/data/org";
 import type { Course, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
+import { BottomActions } from "@/features/shell/bottom-actions";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Ring, EmptyState } from "@/components/patterns/academy";
@@ -163,8 +164,7 @@ export function RepCourse() {
   const campaign = undefined as { name: string } | undefined; // v1-hidden: s.campaigns.find((x) => x.id === p.campaignId && x.status === "active")
 
   return (
-    <div className="flex flex-col gap-5 px-4 pt-4">
-      <Link href="/rep/learn" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />My learning</Link>
+    <div className="flex flex-1 flex-col gap-5 px-4 pt-4">
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
         <Text size="body" tone="subtle">v{p.version} · {ASSIGN_LABEL[p.assignType]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
@@ -184,7 +184,6 @@ export function RepCourse() {
             <Text size="display" weight="extrabold">You&apos;re certified</Text>
             <Text size="body-lg" tone="muted">{c.title} · v{p.version}</Text>
             <Text size="body" tone="subtle">Certified {fmtDate(p.certifiedAt, true)} · valid to {fmtDate(p.certExpiresAt, true)}{p.verify?.by ? ` · verified by ${s.users.find((u) => u.id === p.verify!.by)?.name}` : ""}</Text>
-            <Link href="/rep/me" className="text-body-lg font-semibold text-ok underline">View certificate</Link>
           </div>
         </div>
       )}
@@ -234,8 +233,7 @@ export function RepCourse() {
             <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} modules</span>
             <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.filter((m) => m.required).length} required for everyone</span>
           </div>
-          <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(`/rep/course/${c.id}/screening`); }}>Start with screening</Button>
-          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="text-body font-semibold text-white/70 underline">Take the full course instead</button>
+          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="self-start text-body font-semibold text-white/70 underline">Take the full course instead</button>
         </div>
       )}
 
@@ -244,9 +242,6 @@ export function RepCourse() {
           <PlayCircle className="size-8 shrink-0" aria-hidden="true" />
           <div className="flex min-w-0 flex-1 flex-col"><Text size="caption" tone="inverse" className="opacity-75">Up next</Text><Text size="title" weight="bold" tone="inverse">{step.title}</Text><Text size="caption" tone="inverse" className="opacity-80">{step.why}</Text></div>
         </Link>
-      )}
-      {!scheduled && p.state === "not_started" && !c.settings.screening && step && (
-        <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button>
       )}
 
       {/* v1-hidden: {p.state === "not_started" && c.allowExplore && <ExploreModules courseId={c.id} />} */}
@@ -327,6 +322,16 @@ export function RepCourse() {
         </section>
       )}
       {p.dueAt && p.state !== "certified" && <Text size="caption" tone="subtle" className="text-center">{daysFromToday(p.dueAt) >= 0 ? `${daysFromToday(p.dueAt)} days until your due date` : "Past your due date. Your manager has been notified."}</Text>}
+      {/* The one thing to do next, pinned where the tab bar would be. */}
+      {!scheduled && !(p.state === "not_started" && c.settings.screening && locked.length > 0) && (
+        p.state === "not_started" && c.settings.screening
+          ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(`/rep/course/${c.id}/screening`); }}>Start with screening</Button></BottomActions>
+          : p.state === "not_started" && step
+            ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button></BottomActions>
+            : p.state === "certified"
+              ? <BottomActions><Button size="lg" fullWidth variant="secondary" onClick={() => router.push("/rep/me")}><Award className="size-4" aria-hidden="true" />View certificate</Button></BottomActions>
+              : step && <BottomActions><Button size="lg" fullWidth onClick={() => router.push(step.href)}><span className="truncate">{step.cta === "Continue" ? `Continue: ${step.title}` : step.cta}</span></Button></BottomActions>
+      )}
     </div>
   );
 }
@@ -398,8 +403,7 @@ function CourseExplore({ courseId }: { courseId: string }) {
   const locked = unmetPrereqs(s, me.id, c);
   // v1-hidden (version line): const lv = c.versions.find((v) => v.state === "published");
   return (
-    <div className="flex flex-col gap-5 px-4 pt-4 pb-6">
-      <Link href="/rep/learn" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3"><ArrowLeft className="size-4" aria-hidden="true" />My learning</Link>
+    <div className="flex flex-1 flex-col gap-5 px-4 pt-4">
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
         <Text size="body" tone="subtle">Optional · {mods.length} module{mods.length === 1 ? "" : "s"} · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
@@ -409,7 +413,6 @@ function CourseExplore({ courseId }: { courseId: string }) {
         <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
           <Text size="title" weight="bold" tone="inverse">Take this course</Text>
           <Text size="body" tone="inverse" className="opacity-80">{c.settings.screening ? "A short screening first, then only the modules you need. Finish it to get a certificate." : "Nobody assigned it, so there's no due date. Finish it to get a certificate."}</Text>
-          <Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Start the course</Button>
         </div>
       )}
       <section className="flex flex-col gap-2">
@@ -423,6 +426,9 @@ function CourseExplore({ courseId }: { courseId: string }) {
         ))}
       </section>
       {/* v1-hidden: {c.allowExplore && <ExploreModules courseId={c.id} />} */}
+      {!(c.settings.screening && locked.length > 0) && (
+        <BottomActions><Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Start the course</Button></BottomActions>
+      )}
     </div>
   );
 }

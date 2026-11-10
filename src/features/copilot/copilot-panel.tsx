@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Maximize2, Minimize2, X } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -151,23 +151,78 @@ export function CopilotPanel({ role, variant }: { role: Role; variant: "desk" | 
     return () => document.removeEventListener("keydown", k);
   });
 
+  const header = (
+    <header className="flex h-(--screen-header-h) min-h-14 shrink-0 items-center gap-2.5 border-b border-hair px-4">
+      <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
+      <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]}</Text></div>
+      <IconButton aria-label="Close SwishX AI Agent" onClick={close}><X className="size-4" /></IconButton>
+    </header>
+  );
+  const body = (
+    <>
+      <div ref={setSlot} className={cn("min-h-0 flex-1 flex-col", overridden ? "flex" : "hidden")} />
+      {!overridden && <RoleCopilot role={role} onGo={onGo} />}
+    </>
+  );
+
+  if (variant === "phone") return <AgentSheet open={open} onClose={close} role={role}>{body}</AgentSheet>;
+  return (
+    <aside aria-label="SwishX AI Agent" aria-hidden={!open}
+      className={cn("flex-col bg-card fixed inset-y-0 right-0 z-50 w-[min(400px,100vw)] border-l border-hair shadow-modal min-[1600px]:sticky min-[1600px]:top-0 min-[1600px]:z-20 min-[1600px]:h-dvh min-[1600px]:w-[380px] min-[1600px]:shrink-0 min-[1600px]:shadow-none",
+        open ? "copilot-in flex" : "hidden")}>
+      {header}
+      {body}
+    </aside>
+  );
+}
+
+/**
+ * On the phone the agent is a sheet over the screen you're on: it rises to half height,
+ * drag the handle up for full screen, down to shrink or close. The page underneath stays put.
+ */
+function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose: () => void; role: Role; children: ReactNode }) {
+  const [full, setFull] = useState(false);
+  const [drag, setDrag] = useState(0);
+  const start = useRef<number | null>(null);
+  useEffect(() => { if (!open) { setFull(false); setDrag(0); } }, [open]);
+
+  /* The distance lives in a ref too: a release can arrive before React re-renders with the last move. */
+  const dy = useRef(0);
+  function down(e: React.PointerEvent) { start.current = e.clientY; dy.current = 0; (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); }
+  function move(e: React.PointerEvent) { if (start.current === null) return; dy.current = e.clientY - start.current; setDrag(dy.current); }
+  function up(e: React.PointerEvent) {
+    if (start.current === null) return;
+    const d = e.clientY - start.current || dy.current;
+    start.current = null;
+    if (d < -60) setFull(true);
+    else if (d > 90) { if (full) setFull(false); else onClose(); }
+    setDrag(0);
+  }
+
+  if (!open) return null;
   return (
     <>
-      {/* On the phone the panel is modal; on a desk it floats beside your work so you can use both. */}
-      {open && variant === "phone" && <div aria-hidden="true" onClick={close} className="fixed inset-0 z-40 bg-ink/30 sm:absolute" />}
-      <aside aria-label="SwishX AI Agent" aria-hidden={!open}
-        className={cn("flex-col bg-card",
-          open ? "copilot-in flex" : "hidden",
-          variant === "desk"
-            ? "fixed inset-y-0 right-0 z-50 w-[min(400px,100vw)] border-l border-hair shadow-modal min-[1600px]:sticky min-[1600px]:top-0 min-[1600px]:z-20 min-[1600px]:h-dvh min-[1600px]:w-[380px] min-[1600px]:shrink-0 min-[1600px]:shadow-none"
-            : "fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] shadow-modal sm:absolute sm:w-[92%]")}>
-        <header className="flex h-(--screen-header-h) min-h-14 shrink-0 items-center gap-2.5 border-b border-hair px-4">
-          <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
-          <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]}</Text></div>
-          <IconButton aria-label="Close SwishX AI Agent" onClick={close}><X className="size-4" /></IconButton>
-        </header>
-        <div ref={setSlot} className={cn("min-h-0 flex-1 flex-col", overridden ? "flex" : "hidden")} />
-        {!overridden && <RoleCopilot role={role} onGo={onGo} />}
+      <div aria-hidden="true" onClick={onClose} className="modal-backdrop fixed inset-0 z-40 bg-ink/35 sm:absolute" />
+      <aside aria-label="SwishX AI Agent" role="dialog" aria-modal="true"
+        style={{
+          /* Dragging up grows the sheet; dragging down slides it away. */
+          height: `calc(${full ? "100% - 12px" : "62%"} + ${drag < 0 ? -drag : 0}px)`, maxHeight: "calc(100% - 12px)",
+          transform: drag > 0 ? `translateY(${drag}px)` : undefined,
+          transition: drag ? "none" : "height 280ms var(--ease-entrance), transform 200ms ease-out",
+        }}
+        className="sheet-up fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-[28px] bg-card shadow-modal sm:absolute">
+        {/* The handle: drag it, or tap to switch between half and full. */}
+        <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+          className="flex shrink-0 cursor-grab touch-none select-none flex-col gap-2 border-b border-hair px-4 pb-3 pt-2 active:cursor-grabbing">
+          <button type="button" onClick={() => setFull(!full)} aria-label={full ? "Shrink to half screen" : "Expand to full screen"} className="mx-auto block h-1.5 w-11 rounded-full bg-black/15 hover:bg-black/25" />
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
+            <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]} · drag up for full screen</Text></div>
+            <IconButton aria-label={full ? "Shrink" : "Expand"} onClick={() => setFull(!full)}>{full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</IconButton>
+            <IconButton aria-label="Close SwishX AI Agent" onClick={onClose}><ChevronDown className="size-4.5" /></IconButton>
+          </div>
+        </div>
+        {children}
       </aside>
     </>
   );

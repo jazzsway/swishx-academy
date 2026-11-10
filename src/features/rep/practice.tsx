@@ -242,7 +242,6 @@ export function PracticeSessionView() {
   if (!x?.result) return <div className="p-4"><EmptyState title="Session not found" body="It may have been deleted." /></div>;
   return (
     <div className="flex flex-col gap-5 px-4 pt-5">
-      <Link href="/rep/practice" className="self-start text-body font-semibold text-ink-3">← Practice</Link>
       <div className="flex flex-col gap-1">
         <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days</span>
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{x.title}</Text>
