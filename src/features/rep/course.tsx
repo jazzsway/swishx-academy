@@ -7,7 +7,7 @@ import { ArrowLeft, Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourgla
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
-import { competency, DIVISIONS } from "@/data/org";
+import { competency, DIVISIONS, product } from "@/data/org";
 import type { Course, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const TAG: Record<Progress["assignType"], { label: string; tone: "brand" | "defa
 export function RepLearn() {
   const me = useMe();
   const s = useApp();
-  const [filter, setFilter] = useState<"all" | "team" | "everyone">("all");
+  const [topic, setTopic] = useState("all");
   const mine = s.progress.filter((p) => p.userId === me.id);
   const courseOf = (p: Progress) => s.courses.find((x) => x.id === p.courseId)!;
   const due = (p: Progress) => (isOverdue(p) ? "0" : p.dueAt ?? "9999");
@@ -40,8 +40,11 @@ export function RepLearn() {
   /* The Library: open courses for your team or everyone, minus anything already on your list. */
   const team = DIVISIONS.find((d) => d.id === me.divisionId)?.name ?? "your team";
   const onList = new Set(mine.filter((p) => p.assignType !== "self").map((p) => p.courseId));
-  const library = libraryCourses(s, me).filter((c) => !onList.has(c.id)).map((c) => ({ c, everyone: c.visibility === "everyone", p: mine.find((p) => p.courseId === c.id) }));
-  const shown = library.filter((x) => filter === "all" || (filter === "everyone") === x.everyone);
+  /* Filter by what a course is about (a product, or company-wide topics), not by who can see it: everything listed is already for this rep. */
+  const library = libraryCourses(s, me).filter((c) => !onList.has(c.id))
+    .map((c) => ({ c, everyone: c.visibility === "everyone", topic: product(c.productId)?.brand ?? "Company", p: mine.find((p) => p.courseId === c.id) }));
+  const topics = [...new Set(library.map((x) => x.topic))].sort((a, b) => Number(a === "Company") - Number(b === "Company") || a.localeCompare(b));
+  const shown = library.filter((x) => topic === "all" || x.topic === topic);
 
   return (
     <div className="flex flex-col gap-7 px-4 pb-6 pt-5">
@@ -77,16 +80,17 @@ export function RepLearn() {
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-ink text-white"><LibraryIcon className="size-4.5" aria-hidden="true" /></span>
           <div className="flex min-w-0 flex-col">
             <Text as="h2" id="lib-h" size="title" weight="bold">Library</Text>
-            <Text size="caption" tone="subtle">Optional courses. Take any of them whenever you like.</Text>
+            <Text size="caption" tone="subtle">Optional courses open to you. Take any of them whenever you like.</Text>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
-          {([["all", `All · ${library.length}`], ["team", `For ${team} · ${library.filter((x) => !x.everyone).length}`], ["everyone", `For everyone · ${library.filter((x) => x.everyone).length}`]] as const).map(([k, label]) => (
-            <Chip key={k} size="md" selected={filter === k} onClick={() => setFilter(k)}>{label}</Chip>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by topic">
+          <Chip size="md" selected={topic === "all"} onClick={() => setTopic("all")}>All · {library.length}</Chip>
+          {topics.length > 1 && topics.map((k) => (
+            <Chip key={k} size="md" selected={topic === k} onClick={() => setTopic(k)}>{k} · {library.filter((x) => x.topic === k).length}</Chip>
           ))}
         </div>
         {shown.length === 0 && <Text size="body" tone="subtle">Nothing here yet. Your training team adds courses over time.</Text>}
-        {shown.map(({ c, everyone, p }) => {
+        {shown.map(({ c, everyone, topic: about, p }) => {
           const mods = modulesOf(c);
           const pr = p && pathProgress(p, c);
           return (
@@ -96,9 +100,9 @@ export function RepLearn() {
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <Chip size="xs" tone={everyone ? "default" : "brand"}>{everyone ? "Everyone" : team}</Chip>
+                  <Chip size="xs" tone={about === "Company" ? "default" : "brand"}>{about}</Chip>
                   {p && <Chip size="xs" tone="ok">In progress</Chip>}
-                  <Text size="caption" tone="subtle">{mods.reduce((a, m) => a + m.minutes, 0)} min · {mods.length} module{mods.length === 1 ? "" : "s"}</Text>
+                  <Text size="caption" tone="subtle">{mods.reduce((a, m) => a + m.minutes, 0)} min · {mods.length} module{mods.length === 1 ? "" : "s"} · {everyone ? "for everyone" : `for ${team}`}</Text>
                 </span>
               </div>
               <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
