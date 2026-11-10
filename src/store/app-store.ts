@@ -239,7 +239,7 @@ export const useApp = create<AppState>()(
             ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
             screening: c.type === "personalised",
             screeningCall: false,
-            verify: c.type === "personalised" ? "manager" : "auto",
+            verify: "auto", // v1-hidden: was c.type === "personalised" ? "manager" : "auto" 
             completion: c.type === "personalised"
               ? { path: true, assessment: true, verify: true, attestation: true, checks: 0 }
               : { path: true, assessment: false, verify: false, attestation: true, checks: 80 },
@@ -568,7 +568,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 10,
+      version: 11,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

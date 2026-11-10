@@ -61,7 +61,7 @@ export function ProductDetail() {
 
   const courses = s.courses.filter((c) => c.productId === id);
   const sources = [...SOURCES, ...s.uploads].filter((x) => x.productId === id);
-  const materials = s.materials.filter((m) => m.productId === id);
+  const materials = [] as typeof s.materials; // v1-hidden: Library items, s.materials.filter((m) => m.productId === id)
 
   /* Claims: the product's own approved documents, and whether courses teach and test them. */
   const claims = useMemo(() => productClaims(courses, sources.filter(isApproved)), [courses, sources]);
@@ -274,8 +274,8 @@ export function ProductDetail() {
       )}
 
       {tab === "media" && (
-        <Section title="Media & materials" sub="Videos, readings, visual aids and Library items about this product. Everything here comes from approved content.">
-          {media.length + materials.length === 0 ? <EmptyState title="Nothing yet" body="Media you add to courses and Library items for this product show up here." /> : (
+        <Section title="Media & materials" sub="Videos and other media used in courses about this product. Everything here comes from approved content.">
+          {media.length + materials.length === 0 ? <EmptyState title="Nothing yet" body="Media you add to courses for this product shows up here." /> : (
             <div className="grid gap-3 sm:grid-cols-2">
               {materials.map((m) => (
                 <Link key={m.id} href="/trainer/library" className="squircle flex items-start gap-3 rounded-panel border border-hair bg-card p-4 shadow-hair hover:shadow-soft">

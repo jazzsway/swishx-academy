@@ -77,7 +77,8 @@ export function rollouts(s: AppState): Rollout[] {
   const out: Rollout[] = [];
   const inCampaign = new Set<string>();
 
-  for (const cmp of s.campaigns) {
+  /* v1-hidden: campaigns aren't in v1, so every rollout is a required course. */
+  for (const cmp of [] as AppState["campaigns"]) {
     if (cmp.status === "active") cmp.courseIds.forEach((id) => inCampaign.add(id));
     const ps = s.progress.filter((p) => p.campaignId === cmp.id);
     const base = { id: cmp.id, name: cmp.name, kind: `${cmp.type === "launch" ? "Launch" : cmp.type === "label_update" ? "Label update" : cmp.type === "onboarding" ? "Onboarding" : "Annual"} campaign`, href: `/trainer/campaigns/${cmp.id}`, dueAt: cmp.dueAt, startAt: cmp.startAt, target: cmp.target };

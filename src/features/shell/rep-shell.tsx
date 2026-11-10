@@ -3,7 +3,7 @@
 import { Suspense, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, Library, Mic, UserRound, Sparkles } from "lucide-react";
+import { Home, BookOpen, Mic, UserRound, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -15,7 +15,7 @@ import { useCopilot } from "@/features/copilot/copilot-store";
 const TABS = [
   { label: "Home", href: "/rep", icon: Home, exact: true },
   { label: "My learning", href: "/rep/learn", icon: BookOpen },
-  { label: "Library", href: "/rep/library", icon: Library },
+  // v1-hidden: { label: "Library", href: "/rep/library", icon: Library },
   { label: "Practice", href: "/rep/practice", icon: Mic },
   { label: "Me", href: "/rep/me", icon: UserRound },
 ];

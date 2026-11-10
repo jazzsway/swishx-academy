@@ -1,19 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Plus, ArrowRight, FileDown, ChevronRight } from "lucide-react";
+import { Plus, ArrowRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp, live, current } from "@/store/app-store";
-import { heatmap, lift, minutesSaved, timeToCertified, firstTry, weakestDomains, daysFromToday, fmtDate, isOverdue } from "@/store/selectors";
-import { DOMAINS, TODAY } from "@/data/org";
-import { PRACTICE_AGGREGATE } from "@/data/seed";
+import { heatmap, lift, weakestDomains, daysFromToday, fmtDate, isOverdue } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
-import { Card, Dot, bandCellClass } from "@/components/patterns/academy";
+import { Card, Dot } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { rollouts, STATUS_LABEL, type Rollout } from "./rollouts";
 
@@ -27,19 +24,16 @@ export function TrainerHome() {
   const router = useRouter();
   const s = useApp();
   const { message, open, showToast } = useToast();
-  const [hmSource, setHmSource] = useState<"assessment" | "screening">("assessment");
 
   const list = useMemo(() => rollouts(s), [s]);
   const running = list.filter((r) => r.status !== "scheduled");
   const risky = running.filter((r) => r.status !== "on_track");
 
-  /* Proof and gaps cover every personalised course, not one campaign. */
+  /* Proof covers every personalised course. The full picture is in Analytics. */
   const personalised = s.courses.filter((c) => c.type === "personalised");
   const pps = s.progress.filter((p) => personalised.some((c) => c.id === p.courseId));
   const lf = lift(pps);
-  const saved = Math.round(personalised.reduce((a, c) => a + minutesSaved(pps.filter((p) => p.courseId === c.id), c), 0) / 60);
-  const rows = heatmap(s, pps, hmSource);
-  const weakest = weakestDomains(rows)[0];
+  const weakest = weakestDomains(heatmap(s, pps, "assessment"))[0];
 
   /* One queue of things waiting on the trainer. */
   const actions = useMemo(() => {
@@ -52,19 +46,21 @@ export function TrainerHome() {
       const lv = live(course);
       if (lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) out.push({ tone: "warn", title: `Approval expires in ${daysFromToday(lv.expiresAt)} days · ${course.title} v${lv.version}`, sub: `Doc ${lv.docNumber} · ${s.progress.filter((p) => p.courseId === course.id && p.state === "certified").length} reps certified on it`, cta: "Review", href: `/trainer/courses/${course.id}/review` });
     }
+    /* v1-hidden: no manager sign-off in v1.
     const slow = s.progress.filter((p) => p.state === "awaiting_verify" && p.verify && -daysFromToday(p.verify.requestedAt) > 5);
     if (slow.length) out.push({ tone: "warn", title: `${slow.length} verifications waiting over 5 days`, sub: "Managers haven't acted. You can verify on their behalf.", cta: "Verify", href: "/trainer/verify" });
+    */
     const overdue = s.progress.filter(isOverdue);
     if (overdue.length) out.push({ tone: "warn", title: `${overdue.length} reps overdue across ${new Set(overdue.map((p) => p.courseId)).size} courses`, sub: `${overdue.filter((p) => p.state === "not_started").length} haven't started`, cta: "Nudge all",
       onClick: () => { let n = 0; for (const p of overdue) if (s.nudge(p.id, "u-maya")) n++; showToast(n ? `Nudged ${n} reps` : "Already nudged in the last 48 hours"); } });
     const maxed = s.progress.filter((p) => p.attempts.filter((a) => !a.passed).length >= 3);
-    if (maxed.length) out.push({ tone: "danger", title: `${maxed.length} reps used every attempt`, sub: "Escalated to their managers", cta: "View", href: "/trainer/records" });
+    if (maxed.length) out.push({ tone: "danger", title: `${maxed.length} reps used every attempt`, sub: "No attempts left. Decide what happens next", cta: "View", href: "/trainer/records" });
     return out;
   }, [s, showToast]);
 
   const headline = risky.length
-    ? `${running.length} rollouts running. ${risky.slice(0, 2).map((r) => `${r.name} is ${STATUS_LABEL[r.status].toLowerCase()}`).join("; ")}.`
-    : `${running.length} rollouts running, all on track.`;
+    ? `${running.length} required courses rolling out. ${risky.slice(0, 2).map((r) => `${r.name} is ${STATUS_LABEL[r.status].toLowerCase()}`).join("; ")}.`
+    : `${running.length} required courses rolling out, all on track.`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,62 +71,6 @@ export function TrainerHome() {
         </div>
         <Button size="lg" onClick={() => router.push("/trainer/courses/new")}><Plus className="size-4" aria-hidden="true" />Create course</Button>
       </div>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2" title="Skill gaps by region" actions={
-          <Segmented aria-label="Score source">
-            <SegmentedButton active={hmSource === "assessment"} onClick={() => setHmSource("assessment")}>Latest assessment</SegmentedButton>
-            <SegmentedButton active={hmSource === "screening"} onClick={() => setHmSource("screening")}>Screening</SegmentedButton>
-          </Segmented>}>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[440px] border-separate border-spacing-1 text-body">
-              <thead>
-                <tr className="text-left text-caption text-ink-3">
-                  <th scope="col" className="px-1 font-semibold" />
-                  {DOMAINS.filter((d) => d.id !== "compliance").map((d) => <th key={d.id} scope="col" className="px-1 font-semibold">{d.short}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <th scope="row" className="px-1 text-left font-semibold">{r.name}</th>
-                    {r.cells.map((cell) => (
-                      <td key={cell.domain} className={`rounded-chip px-1.5 py-2.5 text-center font-bold tabular-nums ${bandCellClass(cell.value)}`}>{cell.value ?? "–"}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {weakest && <Text as="p" size="body-lg" tone="muted">{weakest.domain.name} is the weakest area at {weakest.value}. A short booster on it would reach the most reps.</Text>}
-        </Card>
-
-        <Card title="Signals" eyebrow="Worth a look this week">
-          <Link href="/trainer/courses/c-lumora-launch?module=lm4" className="group flex items-start gap-3">
-            <Dot tone="danger" />
-            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">Reps stop the LUMEN results video at 1:40</Text><Text size="caption" tone="subtle">62% of the last 120 viewers. Consider splitting it.</Text></span>
-            <ChevronRight className="mt-1 size-4 text-ink-4 group-hover:text-ink" aria-hidden="true" />
-          </Link>
-          <Link href="/trainer/courses/c-lumora-launch/questions" className="group flex items-start gap-3">
-            <Dot tone="danger" />
-            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">A dosing question only 31% get right</Text><Text size="caption" tone="subtle">Hepatic impairment. The wording may be unclear.</Text></span>
-            <ChevronRight className="mt-1 size-4 text-ink-4 group-hover:text-ink" aria-hidden="true" />
-          </Link>
-          <div className="flex items-start gap-3 border-t border-hair pt-4">
-            <Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <Text size="body-lg" weight="semibold">{PRACTICE_AGGREGATE.sessionsThisWeek} practice sessions this week</Text>
-              <Text size="caption" tone="subtle">Most missed: {PRACTICE_AGGREGATE.missed[0].criterion.toLowerCase()} ({PRACTICE_AGGREGATE.missed[0].hit}%). Anonymous, groups of 5+.</Text>
-            </span>
-          </div>
-        </Card>
-      </div>
-      <Card title="Rollouts" eyebrow="Everything you're running, riskiest first"
-        actions={<Link href="/trainer/campaigns/new" className="text-body-lg font-semibold text-brand-deep hover:underline">New campaign</Link>}>
-        <ul className="-mx-2 flex flex-col">
-          {list.map((r) => <RolloutRow key={r.id} r={r} />)}
-        </ul>
-      </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Needs your action" actions={<Chip tone="brand" size="md">{actions.length}</Chip>}>
@@ -150,6 +90,7 @@ export function TrainerHome() {
           )}
         </Card>
 
+        {/* The headline numbers; everything else lives in Analytics. */}
         <Card tone="ink" eyebrow="Proof of progress" title="Screening to final assessment">
           <Text size="caption" tone="inverse" className="-mt-3 opacity-60">All personalised courses · {lf.n} reps with both scores</Text>
           <div className="flex items-baseline gap-3">
@@ -158,47 +99,20 @@ export function TrainerHome() {
             <Text size="hero-lg" tone="inverse" weight="extrabold" tracking="tight" tabular>{lf.after}</Text>
             <Text size="title" weight="bold" className="text-ok-on-dark">+{lf.lift} pts</Text>
           </div>
-          <div className="flex flex-col gap-3 border-t border-white/10 pt-4 text-body-lg">
-            {[
-              ["Reps who improved", `${lf.improved}%`],
-              ["Median days to certified", `${timeToCertified(pps)}`],
-              ["Time saved by personalisation", `${saved} h`],
-              ["First-try pass rate", `${firstTry(pps)}%`],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4"><span className="text-white/65">{k}</span><span className="font-bold tabular-nums">{v}</span></div>
-            ))}
-          </div>
-          <Button variant="ghost" className="mt-auto border-white/20 text-white hover:bg-white/10 hover:text-white" fullWidth onClick={exportProof}>
-            <FileDown className="size-4" aria-hidden="true" />Export proof pack
-          </Button>
+          {weakest && <Text size="body" tone="inverse" className="opacity-75">Weakest area: {weakest.domain.name.toLowerCase()} at {weakest.value}.</Text>}
+          <Link href="/trainer/analytics" className="mt-auto flex items-center gap-1.5 text-body-lg font-semibold text-brand-light hover:underline">Open analytics <ArrowRight className="size-4" aria-hidden="true" /></Link>
         </Card>
       </div>
+
+      <Card title="Required courses" eyebrow="Who's certified by the due date, riskiest first">
+        <ul className="-mx-2 flex flex-col">
+          {list.map((r) => <RolloutRow key={r.id} r={r} />)}
+        </ul>
+      </Card>
 
       <Toast message={message} open={open} />
     </div>
   );
-
-  function exportProof() {
-    const csv = [
-      "Metric,Value",
-      `Scope,All personalised courses`,
-      `Generated,${TODAY.toDateString()}`,
-      ...running.map((r) => `${r.name},${r.certified} of ${r.total} certified (${r.ready}%) · projected ${r.projected}%`),
-      `Average screening score,${lf.before}`,
-      `Average final score,${lf.after}`,
-      `Lift (points),${lf.lift}`,
-      `Reps improved,${lf.improved}%`,
-      `Median days to certified,${timeToCertified(pps)}`,
-      `Hours saved by personalisation,${saved}`,
-      `Weakest domain,${weakest?.domain.name ?? "-"}`,
-      "Note,Prototype with fictional data",
-    ].join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "academy-proof-pack.csv";
-    a.click();
-    showToast("Proof pack downloaded");
-  }
 }
 
 function RolloutRow({ r }: { r: Rollout }) {

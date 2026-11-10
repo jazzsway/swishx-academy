@@ -22,13 +22,13 @@ export function AssignCourse() {
   const data = useCourse(id);
   const users = useApp((s) => s.users);
   const progress = useApp((s) => s.progress);
-  const campaigns = useApp((s) => s.campaigns);
+  // v1-hidden: const campaigns = useApp((s) => s.campaigns);
   const assign = useApp((s) => s.assign);
   const { message, open, showToast } = useToast();
-  const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
+  const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, roles: ["rep"], /* v1: reps only */ divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
   const [type, setType] = useState<Progress["assignType"]>("required");
   const [due, setDue] = useState(in30);
-  const [campaignId, setCampaignId] = useState<string>("");
+  const [campaignId] = useState<string>(""); // v1-hidden: setCampaignId, used by the campaign picker
 
   const matched = useMemo(() => audienceMatches(users, rules), [users, rules]);
   if (!data) return null;
@@ -52,10 +52,11 @@ export function AssignCourse() {
           </Segmented>
           <Text size="body" tone="muted">
             {type === "default" && "Everyone who matches now, and anyone who matches later (new hires, transfers), gets it automatically."}
-            {type === "required" && "Assigned with a due date. Reps get reminders at 7, 3 and 1 day; managers hear about overdue reps."}
+            {type === "required" && "Assigned with a due date. Reps get reminders at 7, 3 and 1 day before it's due."}
             {type === "recommended" && "Optional. No due date, no reminders."}
           </Text>
           {type !== "recommended" && <div className="max-w-[220px]"><Field label={type === "default" ? "Due (for current matches)" : "Due date"} type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>}
+          {/* v1-hidden: campaigns.
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Track as part of a campaign (optional)</Text>
             <select aria-label="Campaign" value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className="h-11 max-w-[360px] rounded-control border border-hair-2 bg-card px-3 text-body-lg">
@@ -63,6 +64,7 @@ export function AssignCourse() {
               {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+          */}
         </Card>
       </div>
       <aside className="flex flex-col gap-4 xl:sticky xl:top-[84px] xl:self-start">

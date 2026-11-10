@@ -80,7 +80,7 @@ export function Screening() {
         <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">Now, a short call</Text>
         <Text size="subhead" tone="muted" className="leading-relaxed">You'll talk to {sc?.persona.name}, an AI dermatologist. Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.</Text>
-        <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer and manager see your scores by competency, not the recording.</Text></div>
+        <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by competency, not the recording.</Text></div>
         <div className="mt-auto flex flex-col gap-2">
           <Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
           <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>Skip the call for now</Button>
@@ -156,7 +156,7 @@ export function ScreeningResults() {
           <Scorecard result={p.screening.call} mode="screening" approvedHref={(m) => `/rep/course/${c.id}/learn?module=${m}&optional=1`} />
         </section>
       )}
-      <Text size="caption" tone="subtle" className={cn("pb-2 text-center")}>Your trainer and manager see these scores, not your call recording.</Text>
+      <Text size="caption" tone="subtle" className={cn("pb-2 text-center")}>Your trainer sees these scores, not your call recording.</Text>
     </div>
   );
 }

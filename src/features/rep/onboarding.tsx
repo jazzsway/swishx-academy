@@ -49,12 +49,12 @@ export function RepOnboarding() {
     {
       icon: <Route className="size-7" aria-hidden="true" />, title: `Welcome, ${me.first}`,
       body: "Start with your foundation courses. Then a short screening finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.",
-      points: ["Foundations first: compliance and your therapy area", "Screening: ~10 min quiz + a 5 min call with an AI doctor", "Explore the Library any time. Nothing there is graded"],
+      points: ["Foundations first: compliance and your therapy area", "Screening: ~10 min quiz + a 5 min call with an AI doctor", "Practise privately with an AI doctor any time. Nothing there is graded"], // v1-hidden: "Explore the Library any time. Nothing there is graded"
     },
     {
       icon: <Lock className="size-7" aria-hidden="true" />, title: "Practice is private",
-      body: "Rehearse any conversation as often as you like. Your trainer and manager never see your practice sessions, only anonymous team-wide trends. Share a session yourself if you want coaching.",
-      points: ["Unlimited, ungraded, never in your record", "Recordings delete after 30 days", "You choose what to share"],
+      body: "Rehearse any conversation as often as you like. Your trainer never sees your practice sessions, only anonymous team-wide trends.",
+      points: ["Unlimited, ungraded, never in your record", "Recordings delete after 30 days", "Prep for a real meeting the night before" /* v1-hidden: "You choose what to share" */],
     },
   ];
 

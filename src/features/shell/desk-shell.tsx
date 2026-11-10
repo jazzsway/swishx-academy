@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Flag, FileCheck2, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, Library } from "lucide-react";
+import { BarChart3, BookOpen, FileCheck2, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, LineChart, Home } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -27,10 +27,11 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
   if (role === "Trainer")
     return [
       { items: [
-        { label: "Home", href: "/trainer", icon: <BarChart3 {...I} />, exact: true },
+        { label: "Home", href: "/trainer", icon: <Home {...I} />, exact: true },
         { label: "Courses", href: "/trainer/courses", icon: <BookOpen {...I} /> },
-        { label: "Campaigns", href: "/trainer/campaigns", icon: <Flag {...I} /> },
-        { label: "Library", href: "/trainer/library", icon: <Library {...I} /> },
+        // v1-hidden: { label: "Campaigns", href: "/trainer/campaigns", icon: <Flag {...I} /> },
+        // v1-hidden: { label: "Library", href: "/trainer/library", icon: <Library {...I} /> },
+        { label: "Analytics", href: "/trainer/analytics", icon: <LineChart {...I} /> },
         { label: "Records", href: "/trainer/records", icon: <FileCheck2 {...I} /> },
       ] },
       { label: "Workspace", items: [{ label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} /> }] },

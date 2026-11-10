@@ -25,14 +25,14 @@ export function RepLearn() {
     { label: "Required", items: mine.filter((p) => p.assignType === "required" && p.state !== "certified") },
     { label: "Start here", items: mine.filter((p) => p.assignType === "default" && p.state !== "certified") },
     { label: "Recommended", items: mine.filter((p) => p.assignType === "recommended" && p.state !== "certified") },
-    { label: "Started from the Library", items: mine.filter((p) => p.assignType === "self" && p.state !== "certified") },
+    { label: "Opted in", items: mine.filter((p) => p.assignType === "self" && p.state !== "certified") },
     { label: "Certified", items: mine.filter((p) => p.state === "certified") },
   ].filter((g) => g.items.length);
   return (
     <div className="flex flex-col gap-5 px-4 pt-5">
       <div className="flex items-end justify-between gap-3">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight">My learning</Text>
-        <Link href="/rep/library" className="pb-1.5 text-body font-semibold text-brand-deep">Browse the Library</Link>
+        {/* v1-hidden: <Link href="/rep/library" className="pb-1.5 text-body font-semibold text-brand-deep">Browse the Library</Link> */}
       </div>
       {groups.map((g) => (
         <section key={g.label} className="flex flex-col gap-2">
@@ -81,7 +81,7 @@ export function RepCourse() {
   const attemptsLeft = c.settings.attempts - p.attempts.filter((a) => !a.passed).length;
   const celebrate = search.get("celebrate") === "1" && p.state === "certified";
   /* Why it's on their list: the campaign it belongs to, in the rep's view. */
-  const campaign = s.campaigns.find((x) => x.id === p.campaignId && x.status === "active");
+  const campaign = undefined as { name: string } | undefined; // v1-hidden: s.campaigns.find((x) => x.id === p.campaignId && x.status === "active")
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-4">
@@ -89,6 +89,7 @@ export function RepCourse() {
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
         <Text size="body" tone="subtle">v{p.version}{ver?.docNumber ? ` · ${ver.docNumber}` : ""} · {ASSIGN_LABEL[p.assignType]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
+        {/* v1-hidden: campaigns aren't in v1, so `campaign` is always undefined. */}
         {campaign && p.state !== "certified" && (
           <span className="flex items-center gap-1.5 self-start rounded-chip bg-tint px-2.5 py-1 text-caption font-semibold text-brand-deep">
             <Flag className="size-3.5" aria-hidden="true" />Part of {campaign.name}
@@ -160,7 +161,7 @@ export function RepCourse() {
         <Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button>
       )}
 
-      {p.state === "not_started" && c.allowExplore && <ExploreModules courseId={c.id} />}
+      {/* v1-hidden: {p.state === "not_started" && c.allowExplore && <ExploreModules courseId={c.id} />} */}
 
       {pathDone(p, c) && c.settings.completion.assessment && ["learning", "remediation", "needs_coaching"].includes(p.state) && (
         <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">
@@ -249,7 +250,7 @@ function PrereqLock({ courses }: { courses: { id: string; title: string }[] }) {
     <div className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
       <div className="flex items-center gap-2.5"><span className="grid size-9 place-items-center rounded-full bg-subtle text-ink-2"><Lock className="size-4" aria-hidden="true" /></span>
         <Text size="title" weight="bold">Screening unlocks after your foundations</Text></div>
-      <Text size="body" tone="muted">Finish these first. You can explore this course while you wait; anything you watch or read now counts later.</Text>
+      <Text size="body" tone="muted">Finish these first.{/* v1-hidden: You can explore this course while you wait; anything you watch or read now counts later. */}</Text>
       <div className="flex flex-col gap-2">
         {courses.map((pc) => {
           const pp = s.progress.find((x) => x.userId === me.id && x.courseId === pc.id);

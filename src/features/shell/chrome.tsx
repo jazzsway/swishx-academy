@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Bell, ChevronDown, RotateCcw, Check, Palette, Presentation } from "lucide-react";
+import { Bell, ChevronDown, RotateCcw, Check, Presentation } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -13,7 +12,8 @@ import { Portal } from "@/components/ui/portal";
 
 export const PERSONAS = [
   { userId: "u-maya", role: "Trainer", href: "/trainer", blurb: "Builds courses, runs MLR, proves progress" },
-  { userId: "u-david", role: "Manager", href: "/manager", blurb: "Verifies reps, coaches the Northeast team" },
+  // v1-hidden: managers aren't in v1, only trainers and reps.
+  // { userId: "u-david", role: "Manager", href: "/manager", blurb: "Verifies reps, coaches the Northeast team" },
   { userId: "u-priya", role: "Rep", href: "/rep", blurb: "Learns, gets screened, practises privately" },
 ] as const;
 
@@ -77,9 +77,9 @@ export function ViewAs({ currentRole, compact }: { currentRole: string; compact?
             <span className="flex flex-1 flex-col"><span>Presenter mode</span><span className="text-caption font-normal text-ink-3">Tap-to-answer on calls, no retake wait</span></span>
             <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", presenter ? "bg-brand" : "bg-black/15")}><span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-hair transition-all", presenter ? "left-4.5" : "left-0.5")} /></span>
           </button>
-          <Link href="/design-system" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
+          {/* v1-hidden: <Link href="/design-system" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
             <Palette className="size-4" aria-hidden="true" /> Design system
-          </Link>
+          </Link> */}
           <button type="button" onClick={() => { resetDemo(); setOpen(false); router.push("/trainer"); }}
             className="flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left text-body font-semibold text-ink-2 hover:bg-subtle">
             <RotateCcw className="size-4" aria-hidden="true" /> Reset demo data

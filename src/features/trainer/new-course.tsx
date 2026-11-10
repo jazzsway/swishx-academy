@@ -22,9 +22,13 @@ import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card } from "@/components/patterns/academy";
 
 const STEPS = ["Goal", "Sources", "Competencies", "Outline", "Generate"];
+/* v1-hidden: Competencies is no longer its own step; it sits at the top of Outline. Step numbers stay the same inside. */
+const SHOWN = [0, 1, 3, 4];
+const prevStep = (n: number) => SHOWN[SHOWN.indexOf(n) - 1] ?? 0;
+const nextStep = (n: number) => SHOWN[SHOWN.indexOf(n) + 1] ?? n;
 
 /** Personalised skips what a rep already knows; linear takes everyone through everything. */
-const COURSE_TYPE = {
+export const COURSE_TYPE = { // v1-hidden: only read by the commented-out course type picker
   personalised: { label: "Personalised", hint: "A short screening first. Each rep gets only the modules they need, plus safety, then a final assessment and roleplay call.", useFor: "For skills: launches, objection handling." },
   linear: { label: "Same for everyone", hint: "Every module in order, with quick checks along the way. No screening and no final assessment.", useFor: "For must-read content: label updates, compliance policy." },
 } as const;
@@ -71,8 +75,9 @@ export function NewCourseWizard() {
   const [scope, setScope] = useState<ProductScope>({ mode: "product", productId: startProduct ?? "p-lumora", variants: [], indications: [], therapyAreas: [] });
   const productId = scope.mode === "product" ? scope.productId ?? "" : "";
   const [format, setFormat] = useState<"long" | "short">("short");
-  const [type, setType] = useState<"personalised" | "linear">("personalised");
-  const [writtenFor, setWrittenFor] = useState<"reps" | "new_hires" | "managers">("reps");
+  /* v1-hidden: every new course is personalised and written for field reps; the pickers are commented out below. */
+  const [type] = useState<"personalised" | "linear">("personalised");
+  const [writtenFor] = useState<"reps" | "new_hires" | "managers">("reps");
   const [teams, setTeams] = useState<string[]>(["div-imm"]);
   const users = useApp((s) => s.users);
   /* Only divisions with people in the Academy can be an audience. */
@@ -88,13 +93,15 @@ export function NewCourseWizard() {
   /* Suggested from the title and objective each time the trainer reaches the step, until they change the picks themselves. */
   const [compsTouched, setCompsTouched] = useState(false);
   const suggestions = suggestCompetencies(title, objective, scope.mode === "product" && !!productId);
-  useEffect(() => { if (step === 2 && !compsTouched) setComps(suggestions.map((x) => x.id)); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (step === 3 && !compsTouched) setComps(suggestions.map((x) => x.id)); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [compsOpen, setCompsOpen] = useState(false);
   const toggleComp = (id: string) => { setCompsTouched(true); setComps(comps.includes(id) ? comps.filter((x) => x !== id) : [...comps, id]); };
   const [outline, setOutline] = useState<Module[] | null>(null);
   const [outlineLoading, setOutlineLoading] = useState(false);
   const [shapeNote, setShapeNote] = useState<{ left: string[]; added: string[] }>({ left: [], added: [] });
   /* A drafted outline is fitted to the duration, so changing the duration means drafting again. */
-  useEffect(() => { setOutline(null); }, [format]);
+  /* The outline is drafted for the competencies too, so changing them means drafting again. */
+  useEffect(() => { setOutline(null); }, [format, comps.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const [genIndex, setGenIndex] = useState(-1);
 
   const prod = product(productId);
@@ -152,22 +159,22 @@ export function NewCourseWizard() {
     window.setTimeout(tick, 900);
   }
 
-  const canNext = [objective.trim().length > 20 && title.trim().length > 3 && (scope.mode === "company" || (scope.mode === "product" ? !!productId : scope.therapyAreas.length > 0)), sourceIds.length > 0 && hasPI, comps.length > 0, !!outline][step];
+  const canNext = [objective.trim().length > 20 && title.trim().length > 3 && (scope.mode === "company" || (scope.mode === "product" ? !!productId : scope.therapyAreas.length > 0)), sourceIds.length > 0 && hasPI, comps.length > 0, !!outline && comps.length > 0][step];
 
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => (step === 0 ? router.push("/trainer/courses") : setStep(step - 1))} disabled={step === 4}>
+        <Button variant="ghost" size="sm" onClick={() => (step === 0 ? router.push("/trainer/courses") : setStep(prevStep(step)))} disabled={step === 4}>
           <ArrowLeft className="size-4" aria-hidden="true" />{step === 0 ? "Courses" : "Back"}
         </Button>
         <ol className="ml-auto flex items-center gap-1.5" aria-label="Steps">
-          {STEPS.map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5">
-              <span className={cn("grid size-6 place-items-center rounded-full text-micro font-bold", i < step ? "bg-ok text-white" : i === step ? "bg-brand text-white" : "bg-black/[0.06] text-ink-3")}>
-                {i < step ? <Check className="size-3.5" aria-hidden="true" /> : i + 1}
+          {SHOWN.map((n, i) => (
+            <li key={n} className="flex items-center gap-1.5">
+              <span className={cn("grid size-6 place-items-center rounded-full text-micro font-bold", n < step ? "bg-ok text-white" : n === step ? "bg-brand text-white" : "bg-black/[0.06] text-ink-3")}>
+                {n < step ? <Check className="size-3.5" aria-hidden="true" /> : i + 1}
               </span>
-              <span className={cn("hidden text-caption font-semibold sm:inline", i === step ? "text-ink" : "text-ink-3")}>{s}</span>
-              {i < STEPS.length - 1 && <span className="mx-1 hidden h-px w-5 bg-hair-2 sm:block" />}
+              <span className={cn("hidden text-caption font-semibold sm:inline", n === step ? "text-ink" : "text-ink-3")}>{STEPS[n]}</span>
+              {i < SHOWN.length - 1 && <span className="mx-1 hidden h-px w-5 bg-hair-2 sm:block" />}
             </li>
           ))}
         </ol>
@@ -196,6 +203,7 @@ export function NewCourseWizard() {
               <SegmentedButton active={format === "long"} onClick={() => setFormat("long")}>Long · 30–120 min</SegmentedButton>
             </Segmented>
           </div>
+          {/* v1-hidden: course type (Personalised / Same for everyone) and "Who is it written for".
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">How do reps go through it?</Text>
             <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Course type">
@@ -221,6 +229,7 @@ export function NewCourseWizard() {
               ))}
             </div>
           </div>
+          */}
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Which field teams?</Text>
             <div className="flex flex-wrap gap-2">
@@ -232,7 +241,7 @@ export function NewCourseWizard() {
             </div>
             <Text size="caption" tone="subtle">
               {prod && teams.length === 1 && teams[0] === prod.divisionId ? `Matched to ${prod.brand}'s team. ` : ""}
-              About {reach} {writtenFor === "managers" ? "managers" : "reps"}. They&apos;ll find it in the Library. You choose exactly who must take it, and by when, when you assign it after MLR approval.
+              About {reach} {writtenFor === "managers" ? "managers" : "reps"}.{/* v1-hidden: They'll find it in the Library. */} You choose exactly who must take it, and by when, when you assign it after MLR approval.
             </Text>
           </div>
         </Card>
@@ -295,7 +304,8 @@ export function NewCourseWizard() {
         </Card>
       )}
 
-      {step === 2 && (
+      {/* v1-hidden: Competencies as a step of its own. Now the top of the Outline step. */}
+      {false && step === 2 && (
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Which competencies does this build?</Text>
@@ -331,6 +341,23 @@ export function NewCourseWizard() {
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Check the outline before SwishX writes it</Text>
             <Text tone="subtle" size="body-lg">Reorder, rename or remove modules. Nothing is written until you generate.</Text>
+          </div>
+          <div className="squircle flex flex-col gap-2.5 rounded-panel bg-subtle px-4 py-3.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <Text size="body-lg" weight="semibold">Competencies it builds</Text>
+              <button type="button" onClick={() => setCompsOpen(!compsOpen)} className="text-body font-semibold text-brand-deep hover:underline">{compsOpen ? "Done" : "Change"}</button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(compsOpen ? COMPETENCIES.map((c) => c.id) : comps).map((id) => (
+                <Chip key={id} size="md" selected={comps.includes(id)} onClick={compsOpen ? () => toggleComp(id) : undefined}
+                  title={suggestions.find((x) => x.id === id)?.why}>{competency(id)?.name}</Chip>
+              ))}
+              {!compsOpen && comps.length === 0 && <Text size="body" tone="danger">Pick at least one.</Text>}
+            </div>
+            <Text size="caption" tone="subtle">
+              Picked from your title and objective. Each gets its own questions and screening score.
+              {compsTouched && <> <button type="button" onClick={() => { setComps(suggestions.map((x) => x.id)); setCompsTouched(false); }} className="font-semibold text-brand-deep hover:underline">Reset to suggestions</button></>}
+            </Text>
           </div>
           {!outline && !outlineLoading && (
             <Button size="lg" onClick={buildOutline} className="self-start"><Sparkles className="size-4" aria-hidden="true" />Draft the outline</Button>
@@ -375,7 +402,7 @@ export function NewCourseWizard() {
                 <Text size="body" tone={fits ? "subtle" : "warn"} weight={fits ? undefined : "semibold"}>
                   {outline.length} modules · {mins} min · from {sourceIds.length} sources · {fits ? `fits a ${format} course (${band.min}–${band.max} min)` : `outside a ${format} course (${band.min}–${band.max} min)${format === "long" ? ". Add sources to give SwishX more to build from." : ""}`}
                 </Text>
-                {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}. Add {shapeNote.left.length > 1 ? "them" : "it"} to the Library if reps should still find {shapeNote.left.length > 1 ? "them" : "it"}.</Text>}
+                {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}.{/* v1-hidden: Add them to the Library if reps should still find them. */}</Text>}
                 {shapeNote.added.length > 0 && <Text size="caption" tone="subtle">Added for depth, from the same sources: {shapeNote.added.join(", ")}.</Text>}
               </div>
             );
@@ -410,11 +437,11 @@ export function NewCourseWizard() {
           <div className="flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float">
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
               {step === 0 && "Next: pick the sources AI may use"}
-              {step === 1 && `${sourceIds.length} sources selected`}
+              {step === 1 && `${sourceIds.length} sources selected · next: the outline`}
               {step === 2 && `${comps.length} competencies`}
               {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
             </Text>
-            <Button disabled={!canNext} onClick={() => (step === 3 ? generate() : setStep(step + 1))}>
+            <Button disabled={!canNext} onClick={() => (step === 3 ? generate() : setStep(nextStep(step)))}>
               {step === 3 ? <><Sparkles className="size-4" aria-hidden="true" />Generate course</> : <>Continue<ArrowRight className="size-4" aria-hidden="true" /></>}
             </Button>
           </div>

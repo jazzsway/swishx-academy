@@ -21,7 +21,7 @@ export function defaultSettings(type: Course["type"], over: Partial<CourseSettin
     criticalCompetencies: ["c-safety", "c-dosing"],
     attempts: 3,
     cooldownHours: 24,
-    verify: personalised ? "manager" : "auto",
+    verify: "auto", // v1-hidden: was personalised ? "manager" : "auto" (no manager sign-off in v1)
     recertMonths: 12,
     attestation: "I have read and understood the current Prescribing Information and will promote only within the approved indication.",
     completion: personalised

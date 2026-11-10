@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Flame, Mic, ListChecks, ChevronRight, Lock, CheckCircle2, Library as LibraryIcon } from "lucide-react";
+import { Flame, Mic, ChevronRight, Lock, CheckCircle2 } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon
 import { xpFor, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Ring, FictionalNote } from "@/components/patterns/academy";
 import { useRep, pathProgress } from "./use-rep";
-import { QuickWatchRail } from "./watch";
+// v1-hidden: import { QuickWatchRail } from "./watch";
 
 export function RepHome() {
   const router = useRouter();
@@ -79,19 +79,20 @@ export function RepHome() {
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid gap-3">
         <Link href="/rep/practice/prep" className="squircle flex flex-col gap-2 rounded-panel border border-tint-line bg-tint p-4">
           <span className="grid size-10 place-items-center rounded-control bg-brand text-white"><Mic className="size-5" aria-hidden="true" /></span>
           <Text size="body-lg" weight="bold">Prep for a meeting</Text>
           <span className="flex items-center gap-1 text-caption text-ink-2"><Lock className="size-3" aria-hidden="true" />Private AI roleplay</span>
         </Link>
-        <Link href="/rep/practice/quiz" className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4">
+        {/* v1-hidden: <Link href="/rep/practice/quiz" className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4">
           <span className="grid size-10 place-items-center rounded-control bg-ink text-white"><ListChecks className="size-5" aria-hidden="true" /></span>
           <Text size="body-lg" weight="bold">Quick quiz</Text>
           <span className="text-caption text-ink-3">5 questions · 2 min</span>
-        </Link>
+        </Link> */}
       </section>
 
+      {/* v1-hidden: the Library and its quick-watch rail.
       <Link href="/rep/library" className="squircle flex items-center gap-3.5 rounded-panel border border-hair bg-card p-4">
         <span className="grid size-11 place-items-center rounded-control bg-ink text-white"><LibraryIcon className="size-5" aria-hidden="true" /></span>
         <div className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold">Explore the Library</Text><Text size="caption" tone="subtle">Playlists, videos, readings and graphics for your team. Nothing graded.</Text></div>
@@ -99,6 +100,7 @@ export function RepHome() {
       </Link>
 
       <QuickWatchRail />
+      */}
 
       <FictionalNote className="pb-2" />
     </div>

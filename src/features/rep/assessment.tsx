@@ -116,7 +116,7 @@ export function Assessment() {
             <>
               <div className="squircle flex flex-col gap-1 rounded-panel bg-tint p-4">
                 <Text size="body-lg" weight="bold">Your next path: {fresh.path.moduleIds.length} modules · ~{pathMinutes(mods, fresh.path.moduleIds)} min</Text>
-                <Text size="body" tone="muted">{attemptsLeft - 1 > 0 ? `${attemptsLeft - 1} attempt${attemptsLeft - 1 === 1 ? "" : "s"} left. ` : "That was your last attempt; your manager and trainer have been told. "}Finish the path first; you can retake {st.cooldownHours} hours after this attempt{s.presenter ? " (presenter mode skips the wait)" : ""}.</Text>
+                <Text size="body" tone="muted">{attemptsLeft - 1 > 0 ? `${attemptsLeft - 1} attempt${attemptsLeft - 1 === 1 ? "" : "s"} left. ` : "That was your last attempt; your trainer has been told. "}Finish the path first; you can retake {st.cooldownHours} hours after this attempt{s.presenter ? " (presenter mode skips the wait)" : ""}.</Text>
               </div>
               <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><RotateCcw className="size-4" aria-hidden="true" />Start my retake path</Button>
             </>

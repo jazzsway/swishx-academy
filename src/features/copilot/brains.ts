@@ -53,8 +53,10 @@ function trainerQueue(s: AppState): CoItem[] {
     const lv = live(c);
     if (lv?.expiresAt && daysFromToday(lv.expiresAt) <= 30) out.push({ tone: "warn", title: `Approval expires in ${daysFromToday(lv.expiresAt)} days · ${c.title}`, sub: lv.docNumber, href: `/trainer/courses/${c.id}/review` });
   }
+  /* v1-hidden: no manager sign-off in v1, so nothing waits on a manager.
   const slow = s.progress.filter((p) => p.state === "awaiting_verify" && p.verify && -daysFromToday(p.verify.requestedAt) > 5);
   if (slow.length) out.push({ tone: "warn", title: `${plural(slow.length, "verification")} waiting over 5 days`, sub: "You can verify on the manager's behalf", href: "/trainer/verify" });
+  */
   const overdue = s.progress.filter(isOverdue);
   if (overdue.length) out.push({ tone: "warn", title: `${plural(overdue.length, "rep")} overdue`, sub: "Ask me to nudge them", href: "/trainer/records" });
   return out;
@@ -157,7 +159,7 @@ export const trainerBrain = {
       for (const x of ps) byCourse.set(x.courseId, [...(byCourse.get(x.courseId) ?? []), x]);
       const unstarted = ps.filter((x) => x.state === "not_started").length;
       return {
-        text: `${plural(ps.length, "rep")} overdue across ${plural(byCourse.size, "course")}. ${unstarted * 2 > ps.length ? "Most haven't started, which is usually a reminder problem, not a content one." : "Most have started and stalled partway, so a nudge plus a manager check-in works best."}`,
+        text: `${plural(ps.length, "rep")} overdue across ${plural(byCourse.size, "course")}. ${unstarted * 2 > ps.length ? "Most haven't started, which is usually a reminder problem, not a content one." : "Most have started and stalled partway, so a nudge with a clear next step works best."}`,
         items: [...byCourse].map(([cid, list]) => ({ tone: "warn", title: courseOf(s, cid)?.title ?? cid, sub: `${list.length} overdue · ${list.filter((x) => x.state === "not_started").length} not started`, href: `/trainer/courses/${cid}` })),
         actions: [nudgeAll(s, ps, "u-maya")],
       };
@@ -170,7 +172,7 @@ export const trainerBrain = {
       return {
         text: `On Lumora, the weakest area is ${weak[0]?.domain.name.toLowerCase()} (average ${weak[0]?.value}).${worstRegion ? ` ${worstRegion.name} is lowest there at ${worstRegion.v}.` : ""} A short booster on it would reach the most reps.`,
         items: weak.map((w) => ({ tone: w.value < 65 ? "danger" : w.value < 80 ? "warn" : "ok", title: w.domain.name, sub: `Average ${w.value}` })),
-        actions: [{ label: "See the heatmap", href: "/trainer" }],
+        actions: [{ label: "See the heatmap", href: "/trainer/analytics" }],
       };
     }
     if (has(p, "expir", "recert", "renew")) {
@@ -179,7 +181,7 @@ export const trainerBrain = {
       return {
         text: exp.length || certs.length ? `${plural(exp.length, "approval")} and ${plural(certs.length, "rep certification")} expire in the next 60 days.` : "Nothing expires in the next 60 days.",
         items: exp.map(({ x, lv }) => ({ tone: daysFromToday(lv!.expiresAt!) <= 30 ? "danger" : "warn", title: x.title, sub: `${lv!.docNumber} expires ${fmtDate(lv!.expiresAt)}`, href: `/trainer/courses/${x.id}/review` })),
-        actions: certs.length ? [{ label: "Plan a recert campaign", href: "/trainer/campaigns" }] : [],
+        actions: [], // v1-hidden: certs.length ? [{ label: "Plan a recert campaign", href: "/trainer/campaigns" }] : []
       };
     }
     if (has(p, "mlr", "review", "approv", "pipeline")) {
@@ -403,7 +405,7 @@ export const repBrain = {
       onCourse ? "Explain this module simply" : "What should I do next?",
       "Help me with the cost objection",
       "Can I talk about use in teens?",
-      "Quiz me for 2 minutes",
+      "When are my courses due?", // v1-hidden: "Quiz me for 2 minutes"
     ];
   },
   answer(prompt: string, ctx: Ctx): CoReply {
@@ -442,7 +444,8 @@ export const repBrain = {
       };
     }
     if (has(p, "quiz", "test me", "flashcard", "revise")) {
-      return { text: "Five quick questions from your courses' practice pool. Nothing is recorded or shared.", actions: [{ label: "Start a quick quiz", href: "/rep/practice/quiz" }, { label: "Flashcards", href: "/rep/practice/flashcards" }] };
+      // v1-hidden: actions: [{ label: "Start a quick quiz", href: "/rep/practice/quiz" }, { label: "Flashcards", href: "/rep/practice/flashcards" }]
+      return { text: "The best way to test yourself is a practice call with an AI doctor. It's private, and nothing is recorded for your manager or trainer.", actions: [{ label: "Prep for a meeting", href: "/rep/practice/prep" }] };
     }
     if (has(p, "score", "how am i", "weak", "improve")) {
       const mine = ctx.s.progress.filter((x) => x.userId === ctx.me.id);

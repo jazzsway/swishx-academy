@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Flame, Lock, Printer } from "lucide-react";
+import { Award, Flame, Printer } from "lucide-react"; // v1-hidden: Lock (badges)
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
-import { useMe, xpFor, badgesFor, fmtDate, LEVELS } from "@/store/selectors";
+import { useMe, xpFor, fmtDate, LEVELS } from "@/store/selectors"; // v1-hidden: badgesFor
 import { ORG } from "@/data/org";
 import type { Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -18,7 +18,7 @@ export function RepMe() {
   const s = useApp();
   const [cert, setCert] = useState<Progress | null>(null);
   const xp = xpFor(s, me.id);
-  const badges = badgesFor(s, me.id);
+  // v1-hidden: const badges = badgesFor(s, me.id);
   const streak = s.streaks[me.id]?.days ?? 0;
   const certs = s.progress.filter((p) => p.userId === me.id && p.state === "certified");
 
@@ -42,6 +42,7 @@ export function RepMe() {
         <Text size="caption" tone="inverse" className="opacity-60">XP comes from learning and practice. Attestations and safety acknowledgements never earn XP.</Text>
       </section>
 
+      {/* v1-hidden: badges.
       <section className="flex flex-col gap-2.5">
         <Text as="h2" size="subhead" weight="bold">Badges</Text>
         <div className="grid grid-cols-2 gap-2.5">
@@ -55,6 +56,7 @@ export function RepMe() {
           ))}
         </div>
       </section>
+      */}
 
       <section className="flex flex-col gap-2.5">
         <Text as="h2" size="subhead" weight="bold">Certificates</Text>

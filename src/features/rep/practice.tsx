@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Lock, Mic, ListChecks, Layers, ChevronRight, Trash2, Share2, RotateCcw, Flame, X, Check } from "lucide-react";
+import { Lock, Mic, ChevronRight, Trash2, RotateCcw, Flame, X, Check } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday } from "@/store/selectors";
@@ -36,24 +36,27 @@ export function PracticeHub() {
   const mine = s.practice.filter((x) => x.userId === me.id);
   const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId);
   const library = SCENARIOS.filter((x) => x.use.includes("practice") && assigned.includes(x.courseId));
-  const today = mine.filter((x) => x.at.slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+  const calls = mine.filter((x) => x.kind === "roleplay"); // v1-hidden: quiz sessions (no quiz in v1)
+  const today = calls.filter((x) => x.at.slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
   return (
     <div className="flex flex-col gap-5 px-4 pt-5">
       <Text as="h1" size="hero" weight="extrabold" tracking="tight">Practice</Text>
       <div className="squircle flex items-start gap-3 rounded-panel bg-ink p-4 text-white">
         <Lock className="mt-0.5 size-5 shrink-0 text-brand-light" aria-hidden="true" />
         <div className="flex flex-col gap-0.5"><Text size="body-lg" weight="bold" tone="inverse">Private. Only you can see your sessions.</Text>
-          <Text size="body" tone="inverse" className="opacity-70">Your trainer and manager see anonymous team trends only. Sessions delete after {s.settings.practiceRetentionDays} days.</Text></div>
+          <Text size="body" tone="inverse" className="opacity-70">Your trainer sees anonymous team trends only. Sessions delete after {s.settings.practiceRetentionDays} days.</Text></div>
       </div>
       <Link href="/rep/practice/prep" className="squircle flex items-center gap-4 rounded-card bg-brand-deep p-5 text-white">
         <span className="grid size-12 place-items-center rounded-panel bg-white/15"><Mic className="size-6" aria-hidden="true" /></span>
         <div className="flex min-w-0 flex-1 flex-col"><Text size="title" weight="bold" tone="inverse">Prep for a meeting</Text><Text size="body" tone="inverse" className="opacity-85">Rehearse tomorrow's tough conversation with an AI doctor.</Text></div>
         <ChevronRight className="size-5" aria-hidden="true" />
       </Link>
+      {/* v1-hidden: quick quiz and flashcards. Practice is the AI-doctor call.
       <div className="grid grid-cols-2 gap-3">
         <Link href="/rep/practice/quiz" className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4"><ListChecks className="size-6 text-brand-deep" aria-hidden="true" /><Text size="body-lg" weight="bold">Quick quiz</Text><Text size="caption" tone="subtle">5 questions, instant feedback</Text></Link>
         <Link href="/rep/practice/flashcards" className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4"><Layers className="size-6 text-brand-deep" aria-hidden="true" /><Text size="body-lg" weight="bold">Flashcards</Text><Text size="caption" tone="subtle">Numbers to know</Text></Link>
       </div>
+      */}
       <section className="flex flex-col gap-2">
         <Text as="h2" size="subhead" weight="bold">Scenario library</Text>
         {library.map((sc) => (
@@ -66,12 +69,12 @@ export function PracticeHub() {
       </section>
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between"><Text as="h2" size="subhead" weight="bold">Your sessions</Text>{today > 0 && <span className="flex items-center gap-1 text-caption font-semibold text-brand-deep"><Flame className="size-3.5" aria-hidden="true" />{today} today</span>}</div>
-        {mine.length === 0 && <Text tone="subtle">Nothing yet. Your first session takes 5 minutes.</Text>}
-        {mine.map((x) => (
+        {calls.length === 0 && <Text tone="subtle">Nothing yet. Your first session takes 5 minutes.</Text>}
+        {calls.map((x) => (
           <Link key={x.id} href={x.kind === "roleplay" ? `/rep/practice/session/${x.id}` : "/rep/practice/quiz"} className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
             <Ring value={x.result?.score ?? x.quizScore ?? 0} size={40} stroke={4} label={`${x.result?.score ?? x.quizScore}%`}><Text size="micro" weight="bold">{x.result?.score ?? x.quizScore}</Text></Ring>
             <div className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold" truncate>{x.title}</Text>
-              <Text size="caption" tone="subtle">{fmtDate(x.at)} · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days{x.shared ? " · shared with your manager" : ""}</Text></div>
+              <Text size="caption" tone="subtle">{fmtDate(x.at)} · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days{/* v1-hidden: x.shared ? " · shared with your manager" : "" */}</Text></div>
           </Link>
         ))}
       </section>
@@ -172,14 +175,17 @@ export function PracticeSessionView() {
         <Button variant="secondary" size="lg" onClick={() => router.push(x.setup ? `/rep/practice/prep?from=${x.id}` : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
         <Button variant="secondary" size="lg" disabled={!x.setup} onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>
       </div>
+      {/* v1-hidden: sharing a session with your manager (no managers in v1).
       {x.shared ? (
         <div className="squircle flex items-center justify-between gap-3 rounded-panel bg-ok-bg px-4 py-3">
           <Text size="body" tone="ok" weight="semibold">{x.shared.seen ? `Seen by ${manager?.first}` : `Shared with ${manager?.first}`}</Text>
           {!x.shared.seen && <button type="button" className="text-body font-semibold text-ok underline" onClick={() => s.setPracticeShared(x.id, false)}>Unshare</button>}
         </div>
       ) : <Button variant="soft" size="lg" onClick={() => setShareOpen(true)}><Share2 className="size-4" aria-hidden="true" />Share with my manager</Button>}
+      */}
       <Button variant="ghost" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }}><Trash2 className="size-4" aria-hidden="true" />Delete now</Button>
-      <Modal open={shareOpen} onClose={() => setShareOpen(false)} title={`Share with ${manager?.name ?? "your manager"}?`} size="sm"
+      {/* v1-hidden: share modal. */}
+      <Modal open={false && shareOpen} onClose={() => setShareOpen(false)} title={`Share with ${manager?.name ?? "your manager"}?`} size="sm"
         footer={<><Button variant="secondary" onClick={() => setShareOpen(false)}>Cancel</Button><Button onClick={() => { s.setPracticeShared(x.id, true); setShareOpen(false); }}>Share this session</Button></>}>
         <ul className="flex flex-col gap-2 text-body-lg">
           <li className="flex gap-2"><Check className="mt-0.5 size-4 text-ok" aria-hidden="true" />This session's transcript and scorecard</li>

@@ -10,7 +10,7 @@ import type { CourseSettings } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
+// v1-hidden: import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
 
@@ -67,6 +67,7 @@ export function CourseSettingsTab() {
         <Card title="Essentials" eyebrow="The decisions that matter">
           <div className="-mt-2 flex flex-col">
             {personalised && <Row label="Screen before learning" hint="Reps skip modules they already know."><Toggle label="Screening" on={s.screening} disabled={d} onChange={(v) => set({ screening: v })} /></Row>}
+            {/* v1-hidden: no manager sign-off in v1, so passing the assessment always certifies.
             {personalised && (
               <Row label="Who certifies" hint={s.verify === "manager" ? "The manager reviews the recorded call. After 5 days you can verify on their behalf." : "Passing the assessment certifies the rep."}>
                 <Segmented aria-label="Verify mode">
@@ -75,6 +76,7 @@ export function CourseSettingsTab() {
                 </Segmented>
               </Row>
             )}
+            */}
             {personalised
               ? <Row label="Pass mark" hint="Overall assessment score. A critical compliance violation always fails."><Num label="Pass overall" value={s.passOverall} suffix="%" disabled={d} onChange={(n) => set({ passOverall: n })} /></Row>
               : <Row label="Knowledge checks" hint="Minimum share answered correctly first time."><Num label="Knowledge checks" value={s.completion.checks} suffix="%" disabled={d} onChange={(n) => set({ completion: { ...s.completion, checks: n } })} /></Row>}
@@ -83,9 +85,10 @@ export function CourseSettingsTab() {
           </div>
         </Card>
 
-        <Card title="Library & prerequisites" eyebrow="Who can find it, and what comes first">
-          <Text size="body" tone="subtle" className="-mt-2">Distribution settings, not content, so you can change them on an approved version.</Text>
+        {personalised && <Card title="Prerequisites" eyebrow="What comes first">
+          <Text size="body" tone="subtle" className="-mt-2">Not content, so you can change it on an approved version.</Text>
           <div className="-mt-1 flex flex-col">
+            {/* v1-hidden: Library visibility and explore-before-starting (no Library in v1).
             <Row label="Library visibility" hint="Only the published, in-date version is ever shown.">
               <Segmented aria-label="Library visibility">
                 <SegmentedButton active={course.visibility === "assigned"} onClick={() => updateCourse(course.id, { visibility: "assigned" })}>Assigned</SegmentedButton>
@@ -94,6 +97,7 @@ export function CourseSettingsTab() {
               </Segmented>
             </Row>
             <Row label="Reps can explore before starting" hint="Not for credit. What they open counts later on the same version."><Toggle label="Allow explore" on={course.allowExplore} onChange={(v) => updateCourse(course.id, { allowExplore: v })} /></Row>
+            */}
             {personalised && (
               <div className="flex flex-col gap-2 py-4">
                 <Text size="body-lg" weight="semibold">Screening unlocks after</Text>
@@ -104,7 +108,7 @@ export function CourseSettingsTab() {
               </div>
             )}
           </div>
-        </Card>
+        </Card>}
       </div>
 
       <button type="button" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)} className="flex items-center gap-1.5 self-start text-body-lg font-semibold text-ink-2 hover:text-ink">
@@ -162,8 +166,10 @@ export function CourseSettingsTab() {
                     })()}
                   </Text>
                 </div>
+                {/* v1-hidden: roleplay pass score and cooldown; the defaults apply.
                 {hasScenario && <Row label="Roleplay call score at least" hint="Share of the rubric points the rep hits on the recorded call."><Num label="Pass roleplay" value={s.passRoleplay} suffix="%" disabled={d} onChange={(n) => set({ passRoleplay: n })} /></Row>}
                 <Row label="Cooldown between attempts"><Num label="Cooldown" value={s.cooldownHours} suffix="hours" disabled={d} onChange={(n) => set({ cooldownHours: n })} /></Row>
+                */}
               </div>
             </Card>
           )}

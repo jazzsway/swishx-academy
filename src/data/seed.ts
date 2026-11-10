@@ -146,6 +146,8 @@ export function seed(): SeedState {
         kind = roll < 0.12 ? "verify_old" : roll < 0.2 ? "verify_new" : roll < 0.5 ? "learning" : roll < 0.62 ? "assessment" : roll < 0.7 ? "coaching" : roll < 0.82 ? "screening" : "not_started";
       }
       if (regionId !== "reg-south" && regionId !== "reg-central" && kind === "verify_old" && !isNE) kind = "verify_new";
+      /* v1-hidden: no manager sign-off in v1, so passing the assessment certifies, and nobody is sent back for coaching. */
+      kind = (["verify_old", "verify_new", "coaching"] as string[]).includes(kind) ? "certified" : kind;
 
       const latestOverall = Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
       const passOverall = Math.max(80 + Math.round(r() * 9), Math.min(latestOverall, 97));
@@ -180,7 +182,7 @@ export function seed(): SeedState {
             p.attempts.push(mkAttempt(attemptAt, passOverall, true, latest, []));
             if (kind === "certified") {
               const at = day(attemptAt, 1 + Math.floor(r() * 3));
-              p.verify = { status: "approved", requestedAt: attemptAt, by: u.managerId, at };
+              // v1-hidden: p.verify = { status: "approved", requestedAt: attemptAt, by: u.managerId, at };
               p.state = "certified";
               p.certifiedAt = at;
               p.certExpiresAt = day(at, 365);

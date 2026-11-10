@@ -27,9 +27,10 @@ export function AudienceBuilder({ rules, onChange, limitToDistrictId }: { rules:
     <div className="flex flex-col gap-4">
       {!limitToDistrictId && (
         <>
-          <Row label="Role">
+          {/* v1-hidden: the Role row. v1 assigns to field reps only; rules default to reps. */}
+          {false && <Row label="Role">
             {(["rep", "manager"] as Role[]).map((r) => <Chip key={r} size="lg" selected={rules.roles.includes(r)} onClick={() => onChange({ ...rules, roles: toggle(rules.roles, r) })}>{r === "rep" ? "Field reps" : "Managers"}</Chip>)}
-          </Row>
+          </Row>}
           <Row label="Division" hint="Only teams with people in the Academy.">
             {teams.map((d) => <Chip key={d.id} size="lg" selected={rules.divisionIds.includes(d.id)} onClick={() => onChange({ ...rules, divisionIds: toggle(rules.divisionIds, d.id), regionIds: [], districtIds: [] })}>{d.name} · {headcount((u) => u.divisionId === d.id)}</Chip>)}
           </Row>

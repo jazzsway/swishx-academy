@@ -266,13 +266,14 @@ export function ReviewAndVersions() {
       <Modal open={!!published} onClose={() => { setPublished(null); router.push(`${base}/assign`); }} title={`v${cur.version} is published`} size="sm"
         footer={published?.recert ? (
           <>
-            <Button variant="secondary" onClick={() => { setPublished(null); router.push(`${base}/assign`); }}>Assign manually</Button>
-            <Button onClick={() => { setPublished(null); router.push(`/trainer/campaigns/new?type=label_update&course=${course.id}`); }}>Create recertification campaign</Button>
+            <Button variant="secondary" onClick={() => { setPublished(null); router.push("/trainer/records"); }}>See records</Button>
+            <Button onClick={() => { setPublished(null); router.push(`${base}/assign`); }}>Assign to more people</Button>
+            {/* v1-hidden: <Button onClick={() => { setPublished(null); router.push(`/trainer/campaigns/new?type=label_update&course=${course.id}`); }}>Create recertification campaign</Button> */}
           </>
         ) : <Button onClick={() => { setPublished(null); router.push(`${base}/assign`); }}>Assign it</Button>}>
         <div className="flex flex-col items-center gap-3 py-2 text-center">
           <div className="success-pop grid size-14 place-items-center rounded-full bg-ok-bg text-ok"><CircleCheck className="size-7" aria-hidden="true" /></div>
-          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify. Set a due date and track it as a campaign." : "Reps assigned to this course now see the new version."}</Text>
+          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify on this one. They're back on their list, due in 14 days." : "Reps assigned to this course now see the new version."}</Text>
         </div>
       </Modal>
 

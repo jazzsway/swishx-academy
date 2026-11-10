@@ -10,7 +10,7 @@ const TABS = [
   { id: "people", label: "People", href: "/trainer/settings/people" },
   { id: "products", label: "Products", href: "/trainer/settings/products" },
   { id: "competencies", label: "Competencies", href: "/trainer/settings/competencies" },
-  { id: "compliance", label: "Privacy & consent", href: "/trainer/settings/compliance" },
+  // v1-hidden: { id: "compliance", label: "Privacy & consent", href: "/trainer/settings/compliance" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

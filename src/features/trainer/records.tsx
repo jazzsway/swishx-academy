@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+// v1-hidden: import Link from "next/link"; (used by the verifications link)
 import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import { useApp } from "@/store/app-store";
@@ -104,7 +104,7 @@ export function Records() {
         ? <DataTable<PersonRow> rows={people.slice(0, 200)} rowKey={(r) => r.u.id} onRowClick={(r) => router.push(`/trainer/people/${r.u.id}`)} columns={columns} />
         : <PeopleTable s={s} rows={people.slice(0, 200)} onOpen={(r) => router.push(`/trainer/people/${r.u.id}`)} sub={district} />}
       {people.length > 200 && <Text size="caption" tone="subtle">Showing 200 of {people.length}. Search or filter to narrow it, or export the full list.</Text>}
-      <Link href="/trainer/verify" className="self-start text-body font-semibold text-brand-deep hover:underline">Verifications waiting on managers</Link>
+      {/* v1-hidden: <Link href="/trainer/verify" className="self-start text-body font-semibold text-brand-deep hover:underline">Verifications waiting on managers</Link> */}
     </div>
   );
 }
