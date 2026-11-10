@@ -27,6 +27,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
     { id: "content", label: "Content", href: base },
     { id: "questions", label: course.type === "personalised" ? "Assessment" : "Questions", href: `${base}/questions`, badge: course.items.length || undefined },
     { id: "settings", label: "Settings", href: `${base}/settings` },
+    { id: "people", label: "People & progress", href: `${base}/people` },
     { id: "preview", label: "Preview as rep", href: `${base}/preview` },
     { id: "review", label: "Publish & versions", href: `${base}/review` },
   ];
