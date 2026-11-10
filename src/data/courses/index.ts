@@ -68,7 +68,7 @@ function libraryCourse(id: string, title: string, objective: string, mods: Modul
 }
 
 export function seedCourses(): Course[] {
-  return [
+  const list: Course[] = [
     {
       id: "c-compliance", title: "Compliance essentials", format: "short", type: "linear",
       objective: "Every rep knows the rules for on-label promotion, medical information requests and adverse event reporting.",
@@ -183,6 +183,9 @@ export function seedCourses(): Course[] {
     libraryCourse("c-lib-np", "Working with nurse practitioners", "Who NPs see, what they ask about, and how to support NP-led follow-up visits.",
       clone(NP_MODULES.slice(0, 1), "lnp"), { everyone: true }, "2026-07-15"),
   ];
+  /* The flagship course leads every list. */
+  const FIRST = "c-lumora-launch";
+  return [...list.filter((c) => c.id === FIRST), ...list.filter((c) => c.id !== FIRST)];
 }
 
 export { LUMORA_LAUNCH_MODULES, LUMORA_ITEMS };
