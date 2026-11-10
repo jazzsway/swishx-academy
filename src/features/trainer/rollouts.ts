@@ -97,6 +97,8 @@ export function rollouts(s: AppState): Rollout[] {
     const ps = s.progress.filter((p) => p.courseId === c.id && (p.assignType === "required" || p.assignType === "default"));
     if (!ps.length) continue;
     const dueAt = latestDue(ps);
+    /* A rollout that's over (everyone certified, due date passed) isn't rolling out any more. */
+    if (ps.every((p) => p.state === "certified") && dueAt && daysFromToday(dueAt) < 0) continue;
     out.push({ id: c.id, name: c.title, kind: "Required course", href: `/trainer/courses/${c.id}`, ps, audience: audienceOf(s, ps), dueAt, target: 90, ...assess(s, ps, [c.id], dueAt, 90) });
   }
 

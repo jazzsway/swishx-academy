@@ -2,7 +2,7 @@
 
 import { ArrowRight, Compass } from "lucide-react";
 import type { AppState } from "@/store/app-store";
-import { fmtDate, isOverdue, minutesSaved } from "@/store/selectors";
+import { fmtDate, isOverdue, minutesSaved, opensLater } from "@/store/selectors";
 import { COMPETENCIES, competency } from "@/data/org";
 import type { Course, Progress, User } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -19,7 +19,7 @@ interface Measured { p: Progress; c: Course; before: number; after?: number }
 
 const finalScore = (p: Progress) => p.attempts.filter((a) => a.passed).at(-1)?.overall ?? p.attempts.at(-1)?.overall;
 const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
-const hours = (min: number) => (min < 60 ? `${min} min` : `${+(min / 60).toFixed(1)} h`);
+const hours = (min: number) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}`);
 
 export function useOverview(s: AppState, mine: Progress[]) {
   const courseOf = (p: Progress) => s.courses.find((c) => c.id === p.courseId)!;
@@ -45,16 +45,23 @@ export function PersonKpis({ s, mine }: { s: AppState; mine: Progress[] }) {
   const onTime = certified.filter((p) => !p.dueAt || !p.certifiedAt || p.certifiedAt <= p.dueAt).length;
   const minutes = mine.reduce((a, p) => a + p.minutesSpent, 0);
   const saved = mine.reduce((a, p) => a + minutesSaved([p], courseOf(p)), 0);
+  /* Same buckets as the Assigned courses list below, so the numbers always agree with it. */
   const overdue = mine.filter(isOverdue).length;
-  const active = mine.filter((p) => p.state !== "certified").length;
+  const scheduled = mine.filter((p) => p.state !== "certified" && opensLater(p)).length;
+  const notStarted = mine.filter((p) => p.state === "not_started" && !opensLater(p) && !isOverdue(p)).length;
+  const inProgress = mine.filter((p) => p.state !== "not_started" && p.state !== "certified" && !isOverdue(p)).length;
+  const breakdown = [
+    overdue && `${overdue} overdue`, inProgress && `${inProgress} in progress`, notStarted && `${notStarted} not started`,
+    scheduled && `${scheduled} scheduled`, certified.length && `${certified.length} certified`,
+  ].filter(Boolean).join(" · ");
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Card padded><Stat label="Certified" value={`${certified.length} of ${mine.length}`} sub={certified.length ? `${onTime} on time` : "None yet"} tone={certified.length ? "ok" : "default"} /></Card>
       <Card padded><Stat label="Knowledge gain" value={gained.length ? `+${avg(gained.map((m) => m.after - m.before))} pts` : "—"}
         sub={gained.length ? `${avg(gained.map((m) => m.before))} → ${avg(gained.map((m) => m.after))} across ${gained.length} course${gained.length === 1 ? "" : "s"}` : "Shows after a screening and a final"} tone={gained.length ? "ok" : "default"} /></Card>
       <Card padded><Stat label="Time in training" value={hours(minutes)} sub={saved ? `${hours(saved)} skipped: screening showed they knew it` : "Across every course"} /></Card>
-      <Card padded><Stat label="Right now" value={overdue ? `${overdue} overdue` : active ? `${active} in progress` : "All done"} tone={overdue ? "danger" : "default"}
-        sub={overdue ? "Past the due date" : active ? "Nothing overdue" : "Nothing left to do"} /></Card>
+      <Card padded><Stat label="Right now" value={overdue ? `${overdue} overdue` : inProgress ? `${inProgress} in progress` : notStarted ? `${notStarted} not started` : scheduled ? `${scheduled} scheduled` : "All done"}
+        tone={overdue ? "danger" : "default"} sub={breakdown || "Nothing assigned"} /></Card>
     </div>
   );
 }

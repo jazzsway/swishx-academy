@@ -278,6 +278,22 @@ export function seed(): SeedState {
     { id: "n4", userId: "u-maya", at: "2026-11-05T09:00:00", title: "Approval expiring", body: "Cardexa v1 (CDX-US-0412) expires in 13 days.", href: "/trainer/courses/c-cardexa/review", read: true },
   ];
 
+  /* Keep every record internally consistent: a certified course has all its blocks done, someone
+     part-way through has done the blocks their minutes add up to, and minutes never undercount the work. */
+  for (const p of progress) {
+    const c = courses.find((x) => x.id === p.courseId);
+    if (!c) continue;
+    const mods = c.versions.find((v) => v.version === p.version)?.modules.length ? c.versions.find((v) => v.version === p.version)!.modules : c.modules;
+    const inPath = mods.filter((m) => !p.path || p.path.moduleIds.includes(m.id)).flatMap((m) => m.blocks);
+    if (p.state === "certified" && p.completedBlocks.length === 0) p.completedBlocks = inPath.map((b) => b.id);
+    if (p.state === "learning" && p.completedBlocks.length === 0 && p.minutesSpent > 0) {
+      let sum = 0;
+      for (const b of inPath) { if (sum >= p.minutesSpent || p.completedBlocks.length >= inPath.length - 1) break; p.completedBlocks.push(b.id); sum += b.minutes; }
+    }
+    const done = inPath.filter((b) => p.completedBlocks.includes(b.id)).reduce((a, b) => a + b.minutes, 0);
+    p.minutesSpent = Math.max(p.minutesSpent, done);
+  }
+
   return { users, districts, courses, progress, campaigns, practice, notifications };
 }
 
