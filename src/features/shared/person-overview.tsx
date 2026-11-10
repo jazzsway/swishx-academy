@@ -90,7 +90,7 @@ export function BeforeAfter({ s, mine, first, onOpen }: { s: AppState; mine: Pro
                   <span className="absolute -top-1 h-4.5 w-0.5 rounded-full bg-ink/50" style={{ left: `${c.settings.passOverall}%` }} title={`Pass mark ${c.settings.passOverall}%`} />
                 </span>
                 <Text size="caption" tone="subtle">
-                  Screening {fmtDate(p.screening!.at)}{after !== undefined ? ` · final ${fmtDate((p.attempts.filter((a) => a.passed).at(-1) ?? p.attempts.at(-1))!.at)}` : ""} · pass mark {c.settings.passOverall}%{p.path?.kind === "screening" ? ` · tested out of ${Math.max(0, c.modules.length - p.path.moduleIds.length)} module${c.modules.length - p.path.moduleIds.length === 1 ? "" : "s"}` : ""}
+                  Screening {fmtDate(p.screening!.at)}{after !== undefined ? ` · final ${fmtDate((p.attempts.filter((a) => a.passed).at(-1) ?? p.attempts.at(-1))!.at)}` : ""} · pass mark {c.settings.passOverall}%{p.path?.kind === "screening" && c.modules.length > p.path.moduleIds.length ? ` · tested out of ${Math.max(0, c.modules.length - p.path.moduleIds.length)} module${c.modules.length - p.path.moduleIds.length === 1 ? "" : "s"}` : ""}
                 </Text>
               </button>
             </li>
@@ -111,8 +111,10 @@ export function SkillsThenNow({ s, mine }: { s: AppState; mine: Progress[] }) {
   const best = [...moved].sort((a, b) => (b.now - b.first) - (a.now - a.first))[0];
   const weakest = [...skills].sort((a, b) => a.now - b.now)[0];
   const rows = [...skills].sort((a, b) => (b.now - b.first) - (a.now - a.first) || a.now - b.now);
+  const improved = moved.filter((k) => k.now > k.first).length;
+  const gain = moved.length ? avg(moved.map((k) => k.now - k.first)) : 0;
   return (
-    <Card title="Skills, then and now" eyebrow="First score on record, and the latest"
+    <Card title="Skills, then and now" eyebrow={moved.length ? `Improved in ${improved} of ${moved.length} skills · average ${gain >= 0 ? "+" : ""}${gain} pts` : "First score on record, and the latest"}
       actions={<span className="flex flex-wrap gap-1.5">
         {best && best.now > best.first && <Chip size="sm" tone="ok">Biggest gain: {competency(best.id)?.name} +{best.now - best.first}</Chip>}
         <Chip size="sm" tone={weakest.now < 70 ? "danger" : "default"}>Lowest: {competency(weakest.id)?.name} {weakest.now}</Chip>
@@ -185,6 +187,63 @@ export function FocusNext({ s, mine, user }: { s: AppState; mine: Progress[]; us
           <Text size="body-lg" tone="inverse" className="leading-relaxed">{text}</Text>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * One course, competency by competency: screening against the latest assessment, which ones
+ * improved, which must-pass topics cleared the bar, and what's still below it.
+ */
+export function CourseCompetencies({ p, course }: { p: Progress; course: Course }) {
+  if (!p.screening) return null;
+  const latest = p.attempts.at(-1)?.competencyScores;
+  const critical = new Set(course.settings.criticalCompetencies);
+  const rows = COMPETENCIES.filter((c) => p.screening!.scores[c.id] !== undefined).map((c) => ({
+    id: c.id, before: p.screening!.scores[c.id], after: latest?.[c.id], critical: critical.has(c.id),
+  })).sort((a, b) => ((b.after ?? b.before) - b.before) - ((a.after ?? a.before) - a.before));
+  const scored = rows.filter((r) => r.after !== undefined) as (typeof rows[number] & { after: number })[];
+  const improved = scored.filter((r) => r.after > r.before).length;
+  const gain = scored.length ? avg(scored.map((r) => r.after - r.before)) : 0;
+  const below = scored.filter((r) => r.critical && r.after < course.settings.passCritical);
+  const final = finalScore(p);
+  return (
+    <Card title="Competencies, before and after" eyebrow={scored.length ? "Screening, then the latest assessment" : "Screening baseline"}>
+      {scored.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="squircle flex flex-col rounded-panel bg-ok-bg px-4 py-3"><Text size="caption" tone="subtle">Improved</Text><Text size="title" weight="extrabold" tone="ok" tabular>{improved} of {scored.length}</Text></div>
+          <div className="squircle flex flex-col rounded-panel bg-subtle px-4 py-3"><Text size="caption" tone="subtle">Average gain</Text><Text size="title" weight="extrabold" tabular>{gain >= 0 ? "+" : ""}{gain} pts</Text></div>
+          <div className="squircle flex flex-col rounded-panel bg-subtle px-4 py-3"><Text size="caption" tone="subtle">Overall</Text><Text size="title" weight="extrabold" tabular>{p.screening.overall} → {final}</Text></div>
+        </div>
+      )}
+      <div className="flex flex-col gap-3">
+        {rows.map((r) => {
+          const now = r.after ?? r.before;
+          const delta = r.after !== undefined ? r.after - r.before : undefined;
+          return (
+            <div key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[230px_minmax(0,1fr)_auto]">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Text size="body" weight="semibold" truncate>{competency(r.id)?.name}</Text>
+                {r.critical && <Chip size="xs" tone="warn">Must pass</Chip>}
+              </span>
+              <span className="relative col-span-2 block h-2.5 rounded-full bg-black/[0.06] sm:col-span-1">
+                <span className="absolute inset-y-0 left-0 rounded-full bg-black/15" style={{ width: `${r.before}%` }} />
+                {r.after !== undefined && <span className={`absolute inset-y-0 left-0 rounded-full ${now >= 80 ? "bg-ok" : now >= 50 ? "bg-brand-2" : "bg-danger"}`} style={{ width: `${now}%`, opacity: 0.85 }} />}
+                {r.critical && <span className="absolute -top-1 h-4.5 w-0.5 rounded-full bg-ink/50" style={{ left: `${course.settings.passCritical}%` }} title={`Must-pass bar ${course.settings.passCritical}`} />}
+              </span>
+              <span className="row-start-1 flex items-center gap-2 justify-self-end sm:row-start-auto">
+                <Text size="caption" tone="subtle" tabular>{r.before}{r.after !== undefined ? " →" : ""}</Text>
+                {r.after !== undefined && <Text size="body" weight="semibold" tabular>{r.after}</Text>}
+                {delta !== undefined ? <Chip size="xs" tone={delta > 0 ? "ok" : delta < 0 ? "danger" : "default"}>{delta > 0 ? "+" : ""}{delta}</Chip> : <BandChip score={r.before} size="xs" />}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <Text size="caption" tone="subtle">
+        Grey: screening. Colour: {scored.length ? "latest assessment" : "not assessed yet"}.{critical.size ? ` The tick on must-pass topics is the ${course.settings.passCritical} bar.` : ""}
+        {below.length ? ` Still below it: ${below.map((r) => competency(r.id)?.name).join(", ")}.` : ""}
+      </Text>
     </Card>
   );
 }

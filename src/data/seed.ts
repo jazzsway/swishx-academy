@@ -219,6 +219,27 @@ export function seed(): SeedState {
     completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
   });
 
+  /* Priya's first months: a personalised skills course she was screened on, failed once, then passed. Her record shows the whole arc. */
+  const skills = courses.find((c) => c.id === "c-skills")!;
+  const pScreen = { "c-opening": 62, "c-objections": 41, "c-access": 38, "c-safety": 66, "c-compliance": 72 };
+  const pSkills: Progress = {
+    id: "p-u-priya-skills", userId: "u-priya", courseId: "c-skills", version: 1, state: "certified",
+    assignedAt: "2026-05-04", dueAt: "2026-06-01", assignType: "required", startedAt: "2026-05-06",
+    screening: { at: "2026-05-06", overall: 54, scores: pScreen },
+    completedBlocks: [], minutesSpent: 74, coachingNotes: [],
+    attempts: [
+      mkAttempt("2026-05-20", 71, false, { "c-opening": 78, "c-objections": 64, "c-access": 58, "c-safety": 82, "c-compliance": 86 }, ["c-objections"]),
+      mkAttempt("2026-05-27", 86, true, { "c-opening": 88, "c-objections": 84, "c-access": 79, "c-safety": 91, "c-compliance": 92 }, []),
+    ],
+    attestedAt: "2026-05-27", attestName: "Priya Shah", certifiedAt: "2026-05-28", certExpiresAt: "2027-05-28",
+  };
+  pSkills.path = buildPath(skills.modules, pScreen, "screening");
+  pSkills.path.builtAt = "2026-05-06";
+  pSkills.completedBlocks = skills.modules.filter((m) => pSkills.path!.moduleIds.includes(m.id)).flatMap((m) => m.blocks.map((b) => b.id));
+  progress.push(pSkills);
+  /* She's working through AD 101 properly, and the compliance course is long done. */
+  Object.assign(progress.find((x) => x.userId === "u-priya" && x.courseId === "c-compliance")!, { minutesSpent: 18 });
+
   /* Managers learn too (MG-1 AC2). */
   progress.push({ ...defaultProgress("u-david", "c-compliance", 3, true, "2026-01-12") });
   progress.push({

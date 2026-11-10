@@ -7,17 +7,17 @@ import { ArrowLeft, ChevronRight, Lock, Mic } from "lucide-react";
 import { useApp, live, current } from "@/store/app-store";
 import { fmtDate, isOverdue, STATE_LABEL, ASSIGN_LABEL, ASSIGN_TAG, daysFromToday } from "@/store/selectors";
 import { Chip } from "@/components/ui/chip";
-import { COMPETENCIES, competency } from "@/data/org";
+import { competency } from "@/data/org";
 import type { Progress, User } from "@/data/types";
 import { pathMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { Card, Avatar, ProgressChip, Meter, BandChip, KeyValue, EmptyState } from "@/components/patterns/academy";
+import { Card, Avatar, ProgressChip, KeyValue, EmptyState } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { TabNav } from "@/components/patterns/tab-nav";
 import { CourseProgress } from "./course-progress";
-import { BeforeAfter, FocusNext, PersonKpis, ScoreTrend, SkillsThenNow } from "./person-overview";
+import { BeforeAfter, CourseCompetencies, FocusNext, PersonKpis, ScoreTrend, SkillsThenNow } from "./person-overview";
 
 /** Needs attention first: overdue, coaching, waiting, in progress, not started, certified. */
 function rank(p: Progress) {
@@ -55,7 +55,6 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
   const p = mine.find((x) => x.courseId === courseId);
   const course = s.courses.find((c) => c.id === courseId);
   const mods = course ? (live(course) ?? current(course)).modules : [];
-  const latest = p?.attempts.at(-1)?.competencyScores;
   const me = viewer === "manager" ? "u-david" : "u-maya";
   const shared = s.practice.filter((x) => x.userId === userId && x.shared);
   const back = viewer === "manager" ? "/manager/team" : "/trainer/records";
@@ -159,30 +158,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
               ]} />
             </Card>
             <CourseProgress p={p} course={course} mods={mods} user={u} />
-            {p.screening && (
-              <Card title="Screening → latest" eyebrow="By competency">
-                <div className="flex flex-col gap-3">
-                  {COMPETENCIES.filter((c) => p.screening!.scores[c.id] !== undefined).map((c) => {
-                    const a = p.screening!.scores[c.id];
-                    const b = latest?.[c.id];
-                    return (
-                      <div key={c.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
-                        <Text size="body" weight="semibold" truncate>{c.name}</Text>
-                        <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-                          <Meter value={a} tone="ink" height={6} label={`Screening ${a}`} />
-                          {b !== undefined && <Meter value={b} tone={b >= 80 ? "ok" : b >= 50 ? "brand-2" : "danger"} height={6} label={`Latest ${b}`} />}
-                        </div>
-                        <div className="row-start-1 flex items-center gap-2 justify-self-end sm:row-start-auto">
-                          <Text size="body" tone="subtle" tabular>{a}{b !== undefined ? ` → ${b}` : ""}</Text>
-                          <BandChip score={b ?? a} size="xs" />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <Text size="caption" tone="subtle">Dark bar: screening. Coloured bar: latest assessment.</Text>
-              </Card>
-            )}
+            <CourseCompetencies p={p} course={course} />
             {p.attempts.length > 0 && (
               <Card title="Assessment attempts">
                 {p.attempts.map((a, i) => (
