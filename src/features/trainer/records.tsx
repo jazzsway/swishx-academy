@@ -79,7 +79,7 @@ export function Records() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Training records" description="Everyone in the Academy and where they are. Open a person to see each course, its version and the full audit trail."
+      <PageHeading title="Teams" description="Every rep in your field teams and how they're doing. Open a person to see their progress, what improved, and each course."
         actions={<Button variant="secondary" onClick={exportCsv}><Download className="size-4" aria-hidden="true" />Export CSV</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[260px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" /></div>

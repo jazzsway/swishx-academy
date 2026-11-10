@@ -17,6 +17,7 @@ import { Card, Avatar, ProgressChip, Meter, BandChip, KeyValue, EmptyState } fro
 import { useToast, Toast } from "@/components/patterns/toast";
 import { TabNav } from "@/components/patterns/tab-nav";
 import { CourseProgress } from "./course-progress";
+import { BeforeAfter, FocusNext, PersonKpis, ScoreTrend, SkillsThenNow } from "./person-overview";
 
 /** Needs attention first: overdue, coaching, waiting, in progress, not started, certified. */
 function rank(p: Progress) {
@@ -59,16 +60,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
   const shared = s.practice.filter((x) => x.userId === userId && x.shared);
   const back = viewer === "manager" ? "/manager/team" : "/trainer/records";
 
-  /* Person-level views: the newest score per competency, and activity across every course. */
-  const scoreSets = mine.flatMap((x) => {
-    const title = s.courses.find((c) => c.id === x.courseId)?.title ?? "";
-    const sets = [] as { at: string; from: string; scores: Record<string, number> }[];
-    if (x.screening) sets.push({ at: x.screening.at, from: `${title} screening`, scores: x.screening.scores });
-    x.attempts.forEach((a) => sets.push({ at: a.at, from: `${title} assessment`, scores: a.competencyScores }));
-    return sets;
-  }).sort((a, b) => b.at.localeCompare(a.at));
-  const skills = COMPETENCIES.map((c) => { const hit = scoreSets.find((x) => x.scores[c.id] !== undefined); return hit ? { id: c.id, score: hit.scores[c.id], from: hit.from } : null; })
-    .filter(Boolean).sort((a, b) => a!.score - b!.score) as { id: string; score: number; from: string }[];
+  /* Activity across every course; the progress analytics live in person-overview. */
   const activity = mine.flatMap((x) => events(x, users).map((e) => ({ ...e, course: s.courses.find((c) => c.id === x.courseId)?.title ?? "" })))
     .sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
   const practiceCard = (
@@ -86,7 +78,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={back} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{viewer === "manager" ? "Team" : "Records"}</Link>
+      <Link href={back} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{viewer === "manager" ? "Team" : "Teams"}</Link>
       <div className="flex flex-wrap items-center gap-4">
         <Avatar initials={u.initials} size={64} tone="ink" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -103,64 +95,53 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
         items={[{ id: "overview", label: "Overview" }, ...sorted.map((x) => ({ id: x.courseId, label: s.courses.find((c) => c.id === x.courseId)?.title ?? x.courseId }))]} />
 
       {tab === "overview" && (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="flex min-w-0 flex-col gap-5">
-            <Card title="Assigned courses" eyebrow={`${mine.length} course${mine.length === 1 ? "" : "s"} · ${mine.filter((x) => x.state === "certified").length} certified${mine.some(isOverdue) ? ` · ${mine.filter(isOverdue).length} overdue` : ""}`}>
-              <ul className="-mx-2 flex flex-col">
-                {sorted.map((x) => {
-                  const c = s.courses.find((y) => y.id === x.courseId);
-                  const cmp = s.campaigns.find((y) => y.id === x.campaignId);
-                  return (
-                    <li key={x.id}>
-                      <button type="button" onClick={() => setTab(x.courseId)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-panel px-2 py-3 text-left transition-colors hover:bg-subtle">
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <Text size="body-lg" weight="semibold" truncate>{c?.title ?? x.courseId}</Text>
-                            <Chip size="xs" tone={ASSIGN_TAG[x.assignType].tone}>{ASSIGN_LABEL[x.assignType]}</Chip>
+        <div className="flex flex-col gap-5">
+          <PersonKpis s={s} mine={mine} />
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="flex min-w-0 flex-col gap-5">
+              <BeforeAfter s={s} mine={mine} first={u.first} onOpen={setTab} />
+              <SkillsThenNow s={s} mine={mine} />
+              <Card title="Assigned courses" eyebrow={`${mine.length} course${mine.length === 1 ? "" : "s"} · ${mine.filter((x) => x.state === "certified").length} certified${mine.some(isOverdue) ? ` · ${mine.filter(isOverdue).length} overdue` : ""}`}>
+                <ul className="-mx-2 flex flex-col">
+                  {sorted.map((x) => {
+                    const c = s.courses.find((y) => y.id === x.courseId);
+                    const cmp = s.campaigns.find((y) => y.id === x.campaignId);
+                    return (
+                      <li key={x.id}>
+                        <button type="button" onClick={() => setTab(x.courseId)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-panel px-2 py-3 text-left transition-colors hover:bg-subtle">
+                          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Text size="body-lg" weight="semibold" truncate>{c?.title ?? x.courseId}</Text>
+                              <Chip size="xs" tone={ASSIGN_TAG[x.assignType].tone}>{ASSIGN_LABEL[x.assignType]}</Chip>
+                            </span>
+                            <Text size="caption" tone="subtle">{cmp && cmp.name !== c?.title ? `Part of ${cmp.name}` : ASSIGN_TAG[x.assignType].from}</Text>
                           </span>
-                          <Text size="caption" tone="subtle">{cmp && cmp.name !== c?.title ? `Part of ${cmp.name}` : ASSIGN_TAG[x.assignType].from}</Text>
-                        </span>
-                        <Text size="body" tone={isOverdue(x) ? "danger" : "subtle"} className="shrink-0" tabular>
-                          {x.state === "certified" ? `Valid to ${fmtDate(x.certExpiresAt, true)}` : x.dueAt ? `${isOverdue(x) ? "Was due" : "Due"} ${fmtDate(x.dueAt, true)}` : "No due date"}
-                        </Text>
-                        <span className="w-[150px] shrink-0 text-right"><ProgressChip state={x.state} overdue={isOverdue(x)} label={STATE_LABEL[x.state]} size="sm" /></span>
-                        <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
+                          <Text size="body" tone={isOverdue(x) ? "danger" : "subtle"} className="shrink-0" tabular>
+                            {x.state === "certified" ? `Valid to ${fmtDate(x.certExpiresAt, true)}` : x.dueAt ? `${isOverdue(x) ? "Was due" : "Due"} ${fmtDate(x.dueAt, true)}` : "No due date"}
+                          </Text>
+                          <span className="w-[150px] shrink-0 text-right"><ProgressChip state={x.state} overdue={isOverdue(x)} label={STATE_LABEL[x.state]} size="sm" /></span>
+                          <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
 
-            <Card title="Skills" eyebrow="Latest score per competency, across courses">
-              {skills.length === 0 ? <Text tone="subtle">No scores yet. Screening sets the baseline.</Text> : (
-                <div className="flex flex-col gap-3">
-                  {skills.map((k) => (
-                    <div key={k.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
-                      <Text size="body" weight="semibold" truncate>{competency(k.id)?.name}</Text>
-                      <div className="col-span-2 sm:col-span-1"><Meter value={k.score} tone={k.score >= 80 ? "ok" : k.score >= 50 ? "brand-2" : "danger"} height={6} label={`${competency(k.id)?.name} ${k.score}`} /></div>
-                      <div className="row-start-1 flex items-center gap-2 justify-self-end sm:row-start-auto">
-                        <Text size="caption" tone="subtle">{k.from}</Text>
-                        <Text size="body" weight="semibold" tabular>{k.score}</Text>
-                        <BandChip score={k.score} size="xs" />
-                      </div>
-                    </div>
+            </div>
+            <aside className="flex flex-col gap-4 xl:sticky xl:top-[84px] xl:self-start">
+              <FocusNext s={s} mine={mine} user={u} />
+              <ScoreTrend s={s} mine={mine} />
+              <Card title="Recent activity" padded>
+                <ol className="flex flex-col gap-3">
+                  {activity.map((e, i) => (
+                    <li key={i} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" /><div className="flex flex-col"><Text size="body">{e.text}</Text><Text size="caption" tone="subtle">{e.course} · {fmtDate(e.at, true)}</Text></div></li>
                   ))}
-                </div>
-              )}
-            </Card>
+                </ol>
+              </Card>
+              {practiceCard}
+            </aside>
           </div>
-
-          <aside className="flex flex-col gap-4 xl:sticky xl:top-[84px] xl:self-start">
-            <Card title="Recent activity" padded>
-              <ol className="flex flex-col gap-3">
-                {activity.map((e, i) => (
-                  <li key={i} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" /><div className="flex flex-col"><Text size="body">{e.text}</Text><Text size="caption" tone="subtle">{e.course} · {fmtDate(e.at, true)}</Text></div></li>
-                ))}
-              </ol>
-            </Card>
-            {practiceCard}
-          </aside>
         </div>
       )}
 

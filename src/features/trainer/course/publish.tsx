@@ -117,7 +117,7 @@ export function PublishAndVersions() {
 
       <Modal open={!!published} onClose={() => { setPublished(null); router.push(`${base}/assign`); }} title={`v${cur.version} is published`} size="sm"
         footer={<>
-          {published?.recert && <Button variant="secondary" onClick={() => { setPublished(null); router.push("/trainer/records"); }}>See records</Button>}
+          {published?.recert && <Button variant="secondary" onClick={() => { setPublished(null); router.push("/trainer/records"); }}>See teams</Button>}
           <Button onClick={() => { setPublished(null); router.push(`${base}/assign`); }}>{published?.recert ? "Assign to more people" : "Assign it"}</Button>
         </>}>
         <div className="flex flex-col items-center gap-3 py-2 text-center">

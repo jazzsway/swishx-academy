@@ -19,7 +19,7 @@ import { COMPARATIVE_HINTS, OFF_LABEL_HINTS } from "@/features/library/library-d
 /**
  * Every number the trainer looks at, in one place: does training work, where are the gaps,
  * how each course is landing, and what reps practise and look for. Aggregates only;
- * a named person lives in Records.
+ * a named person lives in Teams.
  */
 export function TrainerAnalytics() {
   const s = useApp();
@@ -51,7 +51,7 @@ export function TrainerAnalytics() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Analytics" description="How training is working across your courses. Everything here is aggregated; open Records to see a person."
+      <PageHeading title="Analytics" description="How training is working across your courses. Everything here is aggregated; open Teams to see a person."
         actions={
           <select aria-label="Course" value={scope} onChange={(e) => setScope(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
             <option value="all">All personalised courses</option>
