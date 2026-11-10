@@ -147,6 +147,8 @@ export function seed(): SeedState {
       }
       if (regionId !== "reg-south" && regionId !== "reg-central" && kind === "verify_old" && !isNE) kind = "verify_new";
       /* v1-hidden: no manager sign-off in v1, so passing the assessment certifies, and nobody is sent back for coaching. */
+      /* Those who were waiting for sign-off passed recently, so they certify on their pass dates: that keeps this week busy. */
+      const recentPass = kind === "verify_old" ? "2026-10-29" : kind === "verify_new" ? "2026-11-04" : undefined;
       kind = (["verify_old", "verify_new", "coaching"] as string[]).includes(kind) ? "certified" : kind;
 
       const latestOverall = Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / COMPETENCIES.length);
@@ -172,7 +174,7 @@ export function seed(): SeedState {
           const overall = latestOverall;
           const firstFail = r() < 0.24;
           /* Reps waiting on their manager passed on the day they asked for verification. */
-          const attemptAt = kind === "verify_old" ? "2026-10-29" : kind === "verify_new" ? "2026-11-04" : day(startedAt, 10 + Math.floor(r() * 10));
+          const attemptAt = recentPass ?? day(startedAt, 10 + Math.floor(r() * 10));
           if (firstFail) {
             p.attempts.push(mkAttempt(day(attemptAt, -4), Math.min(76, overall - 8), false, latest, ["c-access"]));
           }
@@ -180,7 +182,7 @@ export function seed(): SeedState {
             /* About half sat the final and missed: a real cohort has people on a retake path. */
             if (!firstFail && r() < 0.6) {
               const weak = Object.entries(latest).sort((a, b) => a[1] - b[1])[0][0];
-              p.attempts.push(mkAttempt(attemptAt, Math.min(77, overall - 6), false, latest, [weak]));
+              p.attempts.push(mkAttempt(day("2026-10-31", Math.floor(r() * 6)), Math.min(77, overall - 6), false, latest, [weak]));
               p.state = "remediation";
             } else {
               p.state = firstFail ? "remediation" : "assessment";
@@ -188,7 +190,7 @@ export function seed(): SeedState {
           } else {
             p.attempts.push(mkAttempt(attemptAt, passOverall, true, latest, []));
             if (kind === "certified") {
-              const at = day(attemptAt, 1 + Math.floor(r() * 3));
+              const at = recentPass ? day(attemptAt, 1) : day(attemptAt, 1 + Math.floor(r() * 3));
               // v1-hidden: p.verify = { status: "approved", requestedAt: attemptAt, by: u.managerId, at };
               p.state = "certified";
               p.certifiedAt = at;
@@ -246,6 +248,15 @@ export function seed(): SeedState {
   progress.push(pSkills);
   /* She's working through AD 101 properly, and the compliance course is long done. */
   Object.assign(progress.find((x) => x.userId === "u-priya" && x.courseId === "c-compliance")!, { minutesSpent: 18 });
+
+  /* A few reps picked up an open course from the Library this week. */
+  const pickers = reps.filter((u) => u.divisionId === "div-imm" && u.id !== "u-priya").filter((_, i) => i % 41 === 7).slice(0, 3).map((u) => u.id);
+  for (const [i, uid] of pickers.entries()) {
+    progress.push({
+      id: `p-${uid}-lob`, userId: uid, courseId: "c-lib-objections", version: 1, state: "learning",
+      assignedAt: day("2026-11-02", i), assignType: "self", startedAt: day("2026-11-02", i), completedBlocks: [], minutesSpent: 6 + i * 4, attempts: [], coachingNotes: [],
+    });
+  }
 
   /* Managers learn too (MG-1 AC2). */
   progress.push({ ...defaultProgress("u-david", "c-compliance", 3, true, "2026-01-12") });
