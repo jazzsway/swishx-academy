@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Sparkles, X, Search } from "lucide-react";
+import { ArrowLeft, Plus, X, Search } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { Text, Label } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -94,7 +95,7 @@ export function DesignSystem() {
         <Section n="04" title="Primitives" note="Ported from SwishX for Business. Feature code never sets a colour, size, radius or shadow directly; it picks a prop.">
           <Spec label="Button · variant">{(["primary", "secondary", "soft", "ghost", "danger"] as const).map((v) => <Button key={v} variant={v}>{v}</Button>)}</Spec>
           <Spec label="Button · size">{(["sm", "md", "lg"] as const).map((sz) => <Button key={sz} size={sz}>{sz}</Button>)}<Button size="icon" aria-label="Add"><Plus className="size-4" /></Button><Button disabled>disabled</Button></Spec>
-          <Spec label="IconButton">{(["default", "brand", "danger"] as const).map((t) => <IconButton key={t} tone={t} aria-label={t}><X className="size-4" /></IconButton>)}<IconButton aria-label="Sparkle" size={9}><Sparkles className="size-4" /></IconButton></Spec>
+          <Spec label="IconButton">{(["default", "brand", "danger"] as const).map((t) => <IconButton key={t} tone={t} aria-label={t}><X className="size-4" /></IconButton>)}<IconButton aria-label="Sparkle" size={9}><AgentIcon className="size-4" /></IconButton></Spec>
           <Spec label="Chip · tone / selected">{(["default", "brand", "ok", "warn", "danger"] as const).map((t) => <Chip key={t} tone={t} size="md">{t}</Chip>)}{(["default", "brand"] as const).map((t) => <Chip key={t + "s"} tone={t} size="md" selected onClick={() => {}}>selected</Chip>)}</Spec>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Field" placeholder="Search courses" iconLeft={<Search className="size-4" />} hint="Label, hint and error are props." />
@@ -121,7 +122,7 @@ export function DesignSystem() {
           <Spec label="VersionChip (MLR lifecycle)">{(["draft", "ready", "in_review", "changes", "approved", "published", "withdrawn"] as const).map((x) => <VersionChip key={x} state={x} size="md" />)}<VersionChip state="published" expiring size="md" /></Spec>
           <Spec label="ProgressChip">{(["not_started", "learning", "awaiting_verify", "needs_coaching", "certified"] as const).map((x) => <ProgressChip key={x} state={x} size="md" />)}<ProgressChip state="learning" overdue size="md" /></Spec>
           <Spec label="Avatar · Citation"><Avatar initials="PS" /><Avatar initials="DO" tone="ink" /><Text size="body-lg">EASI-75: 51% vs 17%<Citation n={1} title="Lumora Prescribing Information" page={11} /></Text></Spec>
-          <EmptyState icon={<Sparkles className="size-5" />} title="EmptyState" body="Says what's missing and what to do next. Never fake numbers." />
+          <EmptyState icon={<AgentIcon className="size-5" />} title="EmptyState" body="Says what's missing and what to do next. Never fake numbers." />
         </Section>
 
         <Section n="07" title="Learning blocks" note="The approved unit. Rendered identically in the editor, the MLR package, the rep player and preview.">

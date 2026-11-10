@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowUp, Lock, Sparkles, Trash2, PencilLine, MessageSquareText, FileText, Scissors } from "lucide-react";
+import { ArrowUp, Lock, Trash2, PencilLine, MessageSquareText, FileText, Scissors } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
@@ -91,7 +92,7 @@ export function CourseEditor() {
                   ) : <Text as="h2" size="display" weight="bold" tracking="tight">{mod.title}</Text>}
                   <Text size="body-lg" tone="subtle">{mod.summary}</Text>
                 </div>
-                {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><Sparkles className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
+                {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>

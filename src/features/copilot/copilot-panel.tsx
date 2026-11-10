@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, ChevronRight, Sparkles, X } from "lucide-react";
+import { ArrowUp, ChevronRight, X } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -169,7 +170,7 @@ export function CopilotPanel({ role, variant }: { role: Role; variant: "desk" | 
             ? "fixed inset-y-0 right-0 z-50 w-[min(400px,100vw)] border-l border-hair shadow-modal min-[1600px]:sticky min-[1600px]:top-0 min-[1600px]:z-20 min-[1600px]:h-dvh min-[1600px]:w-[380px] min-[1600px]:shrink-0 min-[1600px]:shadow-none"
             : "fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] shadow-modal sm:absolute sm:w-[92%]")}>
         <header className="flex h-(--screen-header-h) min-h-14 shrink-0 items-center gap-2.5 border-b border-hair px-4">
-          <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><Sparkles className="size-4" aria-hidden="true" /></span>
+          <span className="grid size-8 place-items-center rounded-control bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
           <div className="flex flex-1 flex-col"><Text size="body-lg" weight="bold">SwishX AI Agent</Text><Text size="micro" tone="subtle">{ROLE_LABEL[role]}</Text></div>
           <IconButton aria-label="Close SwishX AI Agent" onClick={close}><X className="size-4" /></IconButton>
         </header>
@@ -197,7 +198,7 @@ export function CopilotButton({ role, compact }: { role: Role; compact?: boolean
     <button type="button" onClick={toggle} aria-pressed={open} title="SwishX AI Agent (⌘J)"
       className={cn("focus-ring relative flex h-10 items-center gap-2 rounded-control border px-3 text-body font-semibold transition-colors",
         open ? "border-brand bg-brand text-white" : "border-tint-line bg-tint text-brand-deep hover:bg-tint/70")}>
-      <Sparkles className="size-4" aria-hidden="true" />
+      <AgentIcon className="size-4" aria-hidden="true" />
       {!compact && <span className="hidden sm:inline">SwishX AI Agent</span>}
       {n > 0 && !open && <span className="grid min-w-5 place-items-center rounded-full bg-brand px-1 text-micro font-bold text-white">{n}</span>}
     </button>

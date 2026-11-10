@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CirclePlay, Sparkles, FileText, Presentation, Headphones, Upload, Check } from "lucide-react";
+import { CirclePlay, FileText, Presentation, Headphones, Upload, Check } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import type { Block, Course, Module } from "@/data/types";
 import { DOC_PAGES, VA_PAGES } from "@/data/media";
@@ -23,7 +24,7 @@ export function AddMediaRow({ course, module, onAdd }: { course: Course; module:
   const audio = audioBlock(module);
   const items = [
     { k: "upload" as const, icon: Upload, label: "Upload video", show: true },
-    { k: "ai" as const, icon: Sparkles, label: "Generate a short video", show: true },
+    { k: "ai" as const, icon: AgentIcon, label: "Generate a short video", show: true },
     { k: "document" as const, icon: FileText, label: "Assign PDF pages", show: docSources.length > 0 },
     { k: "visualaid" as const, icon: Presentation, label: "Visual-aid walkthrough", show: vaSources.length > 0 },
   ].filter((x) => x.show);
@@ -96,7 +97,7 @@ function AiVideo({ module, onClose, onAdd }: { module: Module; onClose: () => vo
   const { at, start } = useSteps(steps.length, () => { onAdd(videoFromModule(module, "ai"), "AI video added · goes to MLR as new content"); onClose(); });
   return (
     <Modal open onClose={onClose} title="Generate a short video" description={`A 1–3 minute explainer for “${module.title}”, made with the SwishX video engine. The script uses only this module's cited sentences.`}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={at >= 0} onClick={start}><Sparkles className="size-4" aria-hidden="true" />Generate</Button></>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={at >= 0} onClick={start}><AgentIcon className="size-4" aria-hidden="true" />Generate</Button></>}>
       <div className="flex flex-col gap-3">
         <div className="squircle rounded-panel border border-warn-line bg-warn-bg px-4 py-3"><Text size="body" tone="warn" weight="semibold">AI-generated video is new content. It's flagged in checks and goes to MLR as part of this version.</Text></div>
         {at >= 0 && <Steps steps={steps} at={at} />}

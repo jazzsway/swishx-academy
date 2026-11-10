@@ -3,7 +3,8 @@
 import { Suspense, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, Mic, UserRound, Sparkles } from "lucide-react";
+import { Home, BookOpen, Mic, UserRound } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -33,6 +34,7 @@ export function RepShell({ children }: { children: ReactNode }) {
   const immersive = IMMERSIVE.some((r) => r.test(pathname));
   const copilot = !NO_COPILOT.some((r) => r.test(pathname));
   const openCopilot = useCopilot((s) => s.setOpen);
+  const copilotOpen = useCopilot((s) => s.open);
   useEffect(() => { if (!copilot) openCopilot(false); }, [copilot, openCopilot]);
 
   /* The rep app always renders as a rep. */
@@ -68,13 +70,14 @@ export function RepShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            {/* The agent sits in the tab bar, not floating over the content. */}
+            <button type="button" onClick={() => openCopilot(true)} disabled={!copilot} aria-label="Open SwishX AI Agent" aria-expanded={copilotOpen}
+              className={cn("focus-ring flex flex-col items-center gap-1 rounded-control py-1.5 text-micro font-semibold transition-colors disabled:opacity-40",
+                copilotOpen ? "text-brand-deep" : "text-ink-3 hover:text-ink")}>
+              <AgentIcon className="size-[22px] text-brand" />
+              AI Agent
+            </button>
           </nav>
-        )}
-        {copilot && !immersive && (
-          <button type="button" onClick={() => openCopilot(true)} aria-label="Open SwishX AI Agent"
-            className="fixed bottom-[92px] right-4 z-30 grid size-13 place-items-center rounded-full bg-brand text-white shadow-float transition-transform hover:scale-105 sm:absolute sm:bottom-[84px]">
-            <Sparkles className="size-5.5" aria-hidden="true" />
-          </button>
         )}
         {copilot && <Suspense><CopilotPanel role="rep" variant="phone" /></Suspense>}
       </div>

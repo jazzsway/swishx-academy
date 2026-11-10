@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Lock, Mic, Route, ShieldCheck, Check } from "lucide-react";
+import { Lock, Mic, Route, ShieldCheck, Check } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -103,7 +104,7 @@ export function RepOnboarding() {
           {micState === "blocked" && <Text tone="warn" weight="semibold">The browser blocked the microphone. You can still type in every call.</Text>}
           <div className="mt-auto flex flex-col gap-2">
             {micState !== "on" ? <Button size="lg" fullWidth onClick={testMic}><Mic className="size-4" aria-hidden="true" />Test my microphone</Button>
-              : <Button size="lg" fullWidth onClick={finish}><Sparkles className="size-4" aria-hidden="true" />Sounds good, let&apos;s go</Button>}
+              : <Button size="lg" fullWidth onClick={finish}><AgentIcon className="size-4" aria-hidden="true" />Sounds good, let&apos;s go</Button>}
             <Button size="lg" fullWidth variant="ghost" onClick={finish}>Skip</Button>
           </div>
         </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, Captions, Volume2, VolumeX, RotateCcw, Sparkles, Scissors } from "lucide-react";
+import { Pause, Play, Captions, Volume2, VolumeX, RotateCcw, Scissors } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import type { VideoSpec } from "@/data/types";
 import { fmtTime } from "@/data/media";
@@ -75,7 +76,7 @@ export function VideoPlayer({ spec, title, onWatched, compact }: {
           {!playing && <span className="mt-2 grid size-14 place-items-center rounded-full bg-white/95 text-ink shadow-float">{t >= dur ? <RotateCcw className="size-6" /> : <Play className="ml-1 size-6" />}</span>}
         </button>
         <div className="pointer-events-none absolute left-3 top-3 flex gap-1.5">
-          {spec.origin === "ai" && <span className="flex items-center gap-1 rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold"><Sparkles className="size-3" aria-hidden="true" />AI-generated</span>}
+          {spec.origin === "ai" && <span className="flex items-center gap-1 rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold"><AgentIcon className="size-3" aria-hidden="true" />AI-generated</span>}
           {spec.origin === "clip" && <span className="flex items-center gap-1 rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold"><Scissors className="size-3" aria-hidden="true" />Clip</span>}
           {chapter && <span className="rounded-glyph bg-black/50 px-2 py-0.5 text-micro font-semibold">{chapter.title}</span>}
         </div>

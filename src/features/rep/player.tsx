@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { X, ArrowRight, Sparkles, Trophy } from "lucide-react";
+import { X, ArrowRight, Trophy } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
@@ -88,7 +89,7 @@ export function BlockPlayer() {
           {allDone ? (
             linear
               ? <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/attest`)}>Sign attestation<ArrowRight className="size-4" aria-hidden="true" /></Button>
-              : <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment`)}><Sparkles className="size-4" aria-hidden="true" />{fresh.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment"}</Button>
+              : <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment`)}><AgentIcon className="size-4" aria-hidden="true" />{fresh.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment"}</Button>
           ) : nextModule && !optional ? (
             <Button size="lg" fullWidth onClick={() => { setDoneScreen(false); setIdx(0); router.replace(`/rep/course/${c.id}/learn?module=${nextModule.id}`); }}>Next: {nextModule.title}<ArrowRight className="size-4" aria-hidden="true" /></Button>
           ) : null}
@@ -106,7 +107,7 @@ export function BlockPlayer() {
           <div className="flex justify-between gap-2 text-caption text-ink-3"><span className="truncate">{explore ? "Exploring · " : ""}{mod.title}</span><span className="shrink-0">{idx + 1} / {mod.blocks.length}</span></div>
           <Meter value={((idx + (completed(block.id) ? 1 : 0)) / mod.blocks.length) * 100} height={6} label="Module progress" />
         </div>
-        <button type="button" aria-label="Ask SwishX AI Agent about this module" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><Sparkles className="size-4.5" aria-hidden="true" /></button>
+        <button type="button" aria-label="Ask SwishX AI Agent about this module" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
       </div>
       <div key={block.id} className="rise-in flex flex-1 flex-col gap-4 px-5 py-6">
         <span className="flex items-center gap-1.5 text-caption font-bold text-brand-deep"><Meta.icon className="size-3.5" aria-hidden="true" />{Meta.label} · {block.minutes} min</span>

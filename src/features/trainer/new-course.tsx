@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, ShieldAlert, Sparkles, Upload, Trash2, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, FileText, ShieldAlert, Upload, Trash2, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { COMPETENCIES, DIVISIONS, SOURCES, competency, domainOf, isApproved, product } from "@/data/org";
@@ -317,7 +318,7 @@ export function NewCourseWizard() {
                 <Text size="caption" weight="bold" tone="subtle">{domainOf(COMPETENCIES.find((c) => c.domain === d)!.id).name}</Text>
                 <div className="flex flex-wrap gap-2">
                   {COMPETENCIES.filter((c) => c.domain === d).map((c) => (
-                    <Chip key={c.id} size="lg" selected={comps.includes(c.id)} iconLeft={comps.includes(c.id) ? <Sparkles className="size-3.5" aria-hidden="true" /> : undefined}
+                    <Chip key={c.id} size="lg" selected={comps.includes(c.id)} iconLeft={comps.includes(c.id) ? <AgentIcon className="size-3.5" aria-hidden="true" /> : undefined}
                       onClick={() => toggleComp(c.id)}>{c.name}</Chip>
                   ))}
                 </div>
@@ -360,7 +361,7 @@ export function NewCourseWizard() {
             </Text>
           </div>
           {!outline && !outlineLoading && (
-            <Button size="lg" onClick={buildOutline} className="self-start"><Sparkles className="size-4" aria-hidden="true" />Draft the outline</Button>
+            <Button size="lg" onClick={buildOutline} className="self-start"><AgentIcon className="size-4" aria-hidden="true" />Draft the outline</Button>
           )}
           {outlineLoading && (
             <div className="flex flex-col gap-2.5">
@@ -442,7 +443,7 @@ export function NewCourseWizard() {
               {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
             </Text>
             <Button disabled={!canNext} onClick={() => (step === 3 ? generate() : setStep(nextStep(step)))}>
-              {step === 3 ? <><Sparkles className="size-4" aria-hidden="true" />Generate course</> : <>Continue<ArrowRight className="size-4" aria-hidden="true" /></>}
+              {step === 3 ? <><AgentIcon className="size-4" aria-hidden="true" />Generate course</> : <>Continue<ArrowRight className="size-4" aria-hidden="true" /></>}
             </Button>
           </div>
         </div>

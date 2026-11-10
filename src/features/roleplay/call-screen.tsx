@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Mic, MicOff, PhoneOff, Volume2, VolumeX, X, Lock, Sparkles, ArrowUp } from "lucide-react";
+import { Keyboard, Mic, MicOff, PhoneOff, Volume2, VolumeX, X, Lock, ArrowUp } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import type { Scenario } from "@/data/types";
@@ -126,7 +127,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
             <Text size="title" weight="bold" tone="inverse">Call ended</Text>
             <Text size="body" tone="inverse" className="opacity-70">{state.turns.filter((t) => t.speaker === "rep").length} turns · {mmss(elapsed)}</Text>
             <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping)); }}>
-              <Sparkles className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : "See my scorecard"}
+              <AgentIcon className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : "See my scorecard"}
             </Button>
           </div>
         )}

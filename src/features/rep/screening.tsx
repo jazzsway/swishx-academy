@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { X, Lock, Sparkles, ArrowRight } from "lucide-react";
+import { X, Lock, ArrowRight } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -135,7 +136,7 @@ export function ScreeningResults() {
         <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR PATH IS READY</Text>
         <Text as="h1" size="hero" weight="extrabold" tone="inverse" className="leading-tight">{p.path.moduleIds.length} of {mods.length} modules · ~{mins} min</Text>
         <Text size="body-lg" tone="inverse" className="opacity-80">Full course is {full} min. You tested out of {p.path.testedOut.length} module{p.path.testedOut.length === 1 ? "" : "s"}; {mods.filter((m) => m.required).length} safety modules are required for everyone.</Text>
-        <Link href={`/rep/course/${c.id}`} className="mt-1 flex h-12 items-center justify-center gap-2 rounded-control bg-brand text-subhead font-bold text-white"><Sparkles className="size-4" aria-hidden="true" />Start my path</Link>
+        <Link href={`/rep/course/${c.id}`} className="mt-1 flex h-12 items-center justify-center gap-2 rounded-control bg-brand text-subhead font-bold text-white"><AgentIcon className="size-4" aria-hidden="true" />Start my path</Link>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="squircle flex flex-col gap-1 rounded-panel bg-ok-bg p-4"><Text size="caption" weight="bold" tone="ok">STRONGEST</Text>{strongest.map((x) => <Text key={x.id} size="body" weight="semibold">{x.name}</Text>)}</div>

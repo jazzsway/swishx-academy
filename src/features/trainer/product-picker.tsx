@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { PencilLine, Sparkles } from "lucide-react";
+import { PencilLine } from "lucide-react";
+import { AgentIcon } from "@/components/ui/logo-mark";
 import type { Product } from "@/data/types";
 import { DIVISIONS } from "@/data/org";
 import { useApp } from "@/store/app-store";
@@ -53,7 +54,7 @@ function Row({ label, note, children }: { label: string; note?: ReactNode; child
 }
 
 function Auto({ children }: { children: ReactNode }) {
-  return <div className="flex items-start gap-2 pt-0.5 text-body text-ink-2 sm:pt-1"><Sparkles className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden="true" /><span>{children}</span></div>;
+  return <div className="flex items-start gap-2 pt-0.5 text-body text-ink-2 sm:pt-1"><AgentIcon className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden="true" /><span>{children}</span></div>;
 }
 
 export function ProductPicker({ value, onChange }: { value: ProductScope; onChange: (v: ProductScope) => void }) {
