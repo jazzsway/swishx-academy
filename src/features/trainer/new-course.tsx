@@ -82,9 +82,10 @@ export function NewCourseWizard() {
   const updateCourse = useApp((s) => s.updateCourse);
 
   const [step, setStep] = useState(0);
-  const [title, setTitle] = useState("Lumora: handling access & cost objections");
-  const [objective, setObjective] = useState("Reps handle the cost and prior-authorization objection with the Access Hub, without promising coverage, and keep fair balance in the conversation.");
-  const [scope, setScope] = useState<ProductScope>({ mode: "product", productId: startProduct ?? "p-lumora", variants: [], indications: [], therapyAreas: [] });
+  /* Nothing is picked until the trainer searches for a product (or the copilot passes one in). */
+  const [title, setTitle] = useState("");
+  const [objective, setObjective] = useState("");
+  const [scope, setScope] = useState<ProductScope>({ mode: "product", productId: startProduct, variants: [], indications: [], therapyAreas: [] });
   const productId = scope.mode === "product" ? scope.productId ?? "" : "";
   const [minutes, setMinutes] = useState(20);
   const format = lengthOf(minutes);
@@ -101,7 +102,7 @@ export function NewCourseWizard() {
   const addUploads = useApp((s) => s.addUploads);
   const removeUpload = useApp((s) => s.removeUpload);
   const [preview, setPreview] = useState<Source | null>(null);
-  const [sourceIds, setSourceIds] = useState<string[]>(["src-lum-pi", "src-lum-obj", "src-lum-payer", "src-code"]);
+  const [sourceIds, setSourceIds] = useState<string[]>(["src-code"]);
   const [comps, setComps] = useState<string[]>([]);
   /* Suggested from the title and objective each time the trainer reaches the step, until they change the picks themselves. */
   const [compsTouched, setCompsTouched] = useState(false);
@@ -131,8 +132,13 @@ export function NewCourseWizard() {
   useEffect(() => {
     const pr = product(productId);
     setSourceIds(productId === "p-cardexa" ? ["src-cdx-pi", "src-cdx-va", "src-code"] : productId === "p-lumora" ? ["src-lum-pi", "src-lum-obj", "src-lum-payer", "src-code"] : pr ? [pr.piSourceId, "src-code"] : scope.mode === "area" ? ["src-ad-guide", "src-code"] : ["src-code"]);
-    if (productId === "p-cardexa") setTitle("Cardexa: updated label in practice");
-    else if (productId === "p-lumora") setTitle("Lumora: handling access & cost objections");
+    if (productId === "p-cardexa") {
+      setTitle("Cardexa: updated label in practice");
+      setObjective("Reps know what changed in the October 2026 Cardexa label and deliver the updated safety information in balance.");
+    } else if (productId === "p-lumora") {
+      setTitle("Lumora: handling access & cost objections");
+      setObjective("Reps handle the cost and prior-authorization objection with the Access Hub, without promising coverage, and keep fair balance in the conversation.");
+    }
     else if (pr) {
       setTitle(`${pr.brand}: label essentials`);
       setObjective(`Reps can state what ${pr.brand} is approved for in the label's own words, know its presentations, and deliver its safety information in balance.`);
@@ -212,12 +218,12 @@ export function NewCourseWizard() {
             <Text size="label" weight="semibold" tone="muted">What is this course about?</Text>
             <ProductPicker value={scope} onChange={setScope} />
           </div>
-          <Field label="Objective" multiline rows={3} value={objective} onChange={(e) => setObjective(e.target.value)} />
+          <Field label="Objective" multiline rows={3} value={objective} onChange={(e) => setObjective(e.target.value)} placeholder="What reps should be able to do by the end, e.g. handle the cost objection without promising coverage." />
           <button type="button" onClick={() => setObjective(measurable(prod?.brand, comps, scope.indications))}
             className="-mt-2 flex items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline">
             <Wand2 className="size-4" aria-hidden="true" />Make it measurable
           </button>
-          <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
           <div className="flex flex-col gap-2.5">
             <div className="flex items-baseline justify-between gap-3">
               <Text size="label" weight="semibold" tone="muted">Rough course duration</Text>
