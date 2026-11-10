@@ -27,6 +27,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
   const tabs = [
     { id: "content", label: "Content", href: base },
     { id: "questions", label: "Questions", href: `${base}/questions`, badge: questionCount(course) || undefined },
+    ...(course.type === "personalised" ? [{ id: "roleplay", label: "AI roleplay", href: `${base}/roleplay`, badge: course.scenarioIds.length || undefined }] : []),
     { id: "settings", label: "Settings", href: `${base}/settings` },
     { id: "people", label: "People & progress", href: `${base}/people` },
     // v1-hidden: { id: "preview", label: "Preview as rep", href: `${base}/preview` },

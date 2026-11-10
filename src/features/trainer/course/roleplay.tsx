@@ -19,9 +19,32 @@ export function RoleplaySetup() {
   return (
     <div id="roleplay" className="flex flex-col gap-4">
       <div className="flex flex-col gap-0.5">
-        <Text as="h2" size="title" weight="bold">Roleplay doctor</Text>
-        <Text size="body" tone="subtle">The AI HCP reps talk to in screening, assessment and practice. Its persona, rubric and prohibited list come from this product's materials.</Text>
+        <Text as="h2" size="title" weight="bold">AI roleplay</Text>
+        <Text size="body" tone="subtle">Reps talk to an AI doctor by voice. Each doctor's persona, objections, rubric and prohibited language come from {product(data.course.productId)?.brand ?? "this product"}&apos;s materials.</Text>
       </div>
+      {scs.length > 1 && (
+        <div className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
+          <Text size="body-lg" weight="bold">Why {scs.length} doctors? Each one is a different call in the rep&apos;s journey.</Text>
+          <ol className="grid gap-3 sm:grid-cols-2">
+            {scs.map((sc) => {
+              const first = sc.use.includes("screening");
+              const inModule = data.course.modules.findIndex((m) => m.blocks.some((b) => b.scenarioId === sc.id));
+              return (
+                <li key={sc.id}>
+                  <a href={`#${sc.id}`} className="squircle flex h-full flex-col gap-1 rounded-panel bg-subtle px-4 py-3 hover:bg-tint">
+                    <Text size="caption" weight="bold" tone="brand-deep" uppercase tracking="wider">{first ? "Before the course" : "End of the course"}</Text>
+                    <Text size="body-lg" weight="semibold">{sc.persona.name} · {first ? "screening call" : "final assessment call"}</Text>
+                    <Text size="body" tone="muted">
+                      {first ? "A short first call. With the screening questions, it decides which modules each rep can skip. It doesn’t count toward certification."
+                        : `Part of the final assessment: 40% of the score, alongside the questions. Afterwards reps can rehearse it any time in Practice${inModule >= 0 ? `, and module ${inModule + 1} lets them try it first` : ""}.`}
+                    </Text>
+                  </a>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
       {scs.length === 0 && (
         <Card>
           <Text size="body-lg" weight="semibold">No roleplay doctor for {product(data.course.productId)?.brand ?? "this course"} yet</Text>
@@ -29,8 +52,8 @@ export function RoleplaySetup() {
         </Card>
       )}
       {scs.map((sc) => (
-        <Card key={sc.id} title={sc.title} eyebrow={`Used for ${sc.use.join(" · ")}`}
-          actions={<Link href={`/trainer/test-call?scenario=${sc.id}&back=/trainer/courses/${id}/questions`} className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white hover:bg-brand-deep"><Mic className="size-4" aria-hidden="true" />Test call</Link>}>
+        <Card key={sc.id} id={sc.id} title={sc.title} eyebrow={`Used for ${sc.use.join(" · ")}`}
+          actions={<Link href={`/trainer/test-call?scenario=${sc.id}&back=/trainer/courses/${id}/roleplay`} className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white hover:bg-brand-deep"><Mic className="size-4" aria-hidden="true" />Test call</Link>}>
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">

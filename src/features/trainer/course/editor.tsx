@@ -220,6 +220,9 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
   }]);
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
+  const draft = useCopilot((s) => s.draft);
+  const setDraft = useCopilot((s) => s.setDraft);
+  useEffect(() => { if (draft) { setText(draft); setDraft(""); } }, [draft, setDraft]);
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns, thinking]);
   if (!data) return null;
@@ -280,10 +283,11 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
                       </>
                     )}
                     {ch.kind === "block" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.block.title.startsWith(BLOCK_META[ch.block.type].label) ? "" : `${BLOCK_META[ch.block.type].label}: `}{ch.block.check?.question ?? ch.block.title}</span>}
-                    {ch.kind === "items" && ch.items.map((it) => <span key={it.id} className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {it.question} <span className="text-micro font-bold">({it.pool})</span></span>)}
+                    {ch.kind === "items" && ch.items.map((it) => <span key={it.id} className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {it.question} <span className="text-micro font-bold">({it.format === "open" ? "written answer" : it.pool})</span></span>)}
                     {ch.kind === "insert" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.label}</span>}
                     {ch.kind === "addModule" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ Module: {ch.module.title} · {ch.module.minutes} min</span>}
                     {(ch.kind === "removeBlock" || ch.kind === "removeModule" || ch.kind === "retire") && <span className="rounded-chip bg-danger-bg px-2 py-1 text-danger line-through decoration-danger/60">{ch.kind === "removeModule" ? "Module: " : ""}{ch.label}</span>}
+                    {ch.kind === "guide" && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                     {(ch.kind === "module" || ch.kind === "pool") && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                   </div>
                 ))}

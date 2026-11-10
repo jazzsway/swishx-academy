@@ -20,7 +20,9 @@ export type Change =
   | { kind: "addModule"; module: Module }
   | { kind: "removeModule"; moduleId: string; label: string }
   | { kind: "retire"; itemIds: string[]; label: string }
-  | { kind: "pool"; itemIds: string[]; pool: Item["pool"]; label: string };
+  | { kind: "pool"; itemIds: string[]; pool: Item["pool"]; label: string }
+  /* The trainer's word on what a right written answer must (or must not) do. */
+  | { kind: "guide"; itemId: string; note: string; point?: { text: string; keywords: string[] }; label: string };
 
 export interface ChatTurn {
   id: string;
@@ -51,6 +53,7 @@ export const SUGGESTIONS = [
 
 /** Prompts for the Assessment tab, where the chat edits the question bank. */
 export const QUESTION_SUGGESTIONS = [
+  "Add an open question for this module",
   "Which competencies have fewer than 6 questions?",
   "Add 3 harder questions on dosing",
   "Retire the questions nobody gets wrong",
@@ -146,8 +149,39 @@ function editAction(p: string, raw: string, course: Course, mod: Module): ChatTu
   return null;
 }
 
-/** Question-bank edits for the Assessment tab. */
-function questionAction(p: string, raw: string, course: Course): ChatTurn | null {
+const STOP = new Set(["should", "answer", "mention", "must", "always", "never", "their", "there", "about", "which", "would", "the", "that", "this", "with", "good", "right"]);
+/** The words in a sentence worth marking an answer on. */
+const keywordsOf = (t: string) => [...new Set(t.toLowerCase().match(/[a-z0-9-]{4,}/g) ?? [])].filter((w) => !STOP.has(w)).slice(0, 4);
+
+/** A written-answer question for a module, drafted from its cited sentences. */
+function openQuestionFor(course: Course, mod: Module): Item {
+  const lines = mod.blocks.flatMap((b) => [...(b.paragraphs ?? []), ...(b.points ?? [])]).filter((x) => x.cite).slice(0, 3);
+  return {
+    id: `${course.id}-w${uid()}`, competency: mod.competency, moduleId: mod.id, pool: "assessment", difficulty: 2, format: "open",
+    question: `In your own words, explain “${mod.title}” as you would to an HCP.`, options: [], answer: -1,
+    rationale: lines.map((l) => l.text).join(" "), cite: lines[0]?.cite,
+    guide: { suggested: lines.map((l) => l.text).join(" "), mustCover: lines.map((l) => ({ text: l.text.split(/[,.:;]/)[0], keywords: keywordsOf(l.text).slice(0, 2) })) },
+  };
+}
+
+/** Question-bank edits for the Questions tab. */
+function questionAction(p: string, raw: string, course: Course, mod?: Module): ChatTurn | null {
+  if (mod && /(open|written|subjective|own words)/.test(p) && /question/.test(p) && /(add|write|draft|create|new)/.test(p)) {
+    const it = openQuestionFor(course, mod);
+    return { id: uid(), from: "ai", text: `A written-answer question for ${mod.title}. I drafted a suggested answer and ${it.guide!.mustCover.length} points a good answer must cover, all from the module's cited sentences. Tell me what a right answer must say, and I'll mark against that too.`, changes: [{ kind: "items", items: [it] }], status: "pending" };
+  }
+  const guide = raw.match(/^for\s+["“']([^"”']{3,})["”'][^,]*,\s*(.+)$/i);
+  if (guide) {
+    const hit = course.items.find((i) => i.format === "open" && i.question.toLowerCase().includes(guide[1].replace(/…$/, "").toLowerCase()));
+    if (!hit) return { id: uid(), from: "ai", text: "I couldn't find that written-answer question. Quote a few words of it exactly." };
+    const note = guide[2].trim().replace(/^./, (c) => c.toUpperCase());
+    const phrase = note.match(/["“']([^"”']+)["”']/)?.[1];
+    const what = note.replace(/^(a )?(good|right) answers? (must|should) (also )?(mention|say|include|cover)?\s*/i, "").replace(/^./, (c) => c.toUpperCase());
+    const point = phrase ? { text: `Mentions “${phrase}”`, keywords: [phrase.toLowerCase()] } : { text: what, keywords: keywordsOf(what) };
+    const must = !/(not|never|don't|shouldn't|fail|lose)/i.test(note) && point.keywords.length > 0;
+    return { id: uid(), from: "ai", text: must ? `Got it. I'll keep your guidance with the question and add a point a good answer must cover: ${point.text}.` : "Got it. I'll keep your guidance with the question and flag answers that do this.",
+      changes: [{ kind: "guide", itemId: hit.id, note, point: must ? point : undefined, label: `Guidance → ${hit.question}` }], status: "pending" };
+  }
   const move = p.match(/move .*to (?:the )?(screening|assessment|practice)/);
   if (move) {
     const q = quoted(raw);
@@ -167,7 +201,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
   const p = prompt.toLowerCase();
   const mod = course.modules.find((m) => m.id === moduleId) ?? course.modules[0];
 
-  const q = questionAction(p, prompt, course);
+  const q = questionAction(p, prompt, course, mod);
   if (q) return q;
   if (mod) {
     const e = editAction(p, prompt, course, mod);
@@ -251,6 +285,8 @@ export function applyChanges(course: Course, changes: Change[]): { modules: Modu
     if (ch.kind === "removeModule") modules = modules.filter((m) => m.id !== ch.moduleId);
     if (ch.kind === "retire") items = items.filter((i) => !ch.itemIds.includes(i.id));
     if (ch.kind === "pool") items = items.map((i) => (ch.itemIds.includes(i.id) ? { ...i, pool: ch.pool } : i));
+    if (ch.kind === "guide") items = items.map((i) => (i.id === ch.itemId && i.guide
+      ? { ...i, guide: { ...i.guide, trainerNote: ch.note, mustCover: ch.point ? [...i.guide.mustCover, ch.point] : i.guide.mustCover } } : i));
     if (ch.kind === "para")
       modules = modules.map((m) => m.id !== ch.moduleId ? m : {
         ...m,

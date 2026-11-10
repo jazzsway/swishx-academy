@@ -84,21 +84,28 @@ export function courseMinutes(course: Pick<Course, "modules">) {
 }
 
 /** Score answered items into per-competency percentages, weighting harder items more. */
-export function scoreItems(items: Item[], answers: Record<string, number | null>) {
+/** The points an open answer covers: each counts once if the answer mentions any of its keywords. */
+export function coveredPoints(it: Item, text: string) {
+  const t = text.toLowerCase();
+  return (it.guide?.mustCover ?? []).map((pt) => ({ ...pt, covered: pt.keywords.some((k) => t.includes(k)) }));
+}
+
+/** Multiple choice scores all or nothing; an open answer earns the share of its points it covers. */
+export function scoreItems(items: Item[], answers: Record<string, number | string | null>) {
   const byComp: Record<string, { got: number; max: number }> = {};
   let got = 0;
   let max = 0;
   for (const it of items) {
     if (!(it.id in answers)) continue;
     const w = it.difficulty;
-    const ok = answers[it.id] === it.answer;
+    const a = answers[it.id];
+    const pts = it.format === "open" ? coveredPoints(it, typeof a === "string" ? a : "") : [];
+    const credit = it.format === "open" ? (pts.length ? w * (pts.filter((x) => x.covered).length / pts.length) : 0) : a === it.answer ? w : 0;
     byComp[it.competency] ??= { got: 0, max: 0 };
     byComp[it.competency].max += w;
     max += w;
-    if (ok) {
-      byComp[it.competency].got += w;
-      got += w;
-    }
+    byComp[it.competency].got += credit;
+    got += credit;
   }
   const scores: Record<string, number> = {};
   for (const [k, v] of Object.entries(byComp)) scores[k] = Math.round((v.got / v.max) * 100);

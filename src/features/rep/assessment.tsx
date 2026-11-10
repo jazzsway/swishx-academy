@@ -3,14 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { X, ArrowRight, ShieldCheck, RotateCcw } from "lucide-react";
+import { X, ArrowRight, Check, ShieldCheck, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { nowIso, useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { competency } from "@/data/org";
 import { scenario as getScenario, prohibited } from "@/data/scenarios";
 import type { Attempt, Item } from "@/data/types";
-import { blendScores, scoreItems, pathMinutes } from "@/lib/learning";
+import { blendScores, coveredPoints, scoreItems, pathMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -20,12 +20,15 @@ import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { modulesOf } from "./use-rep";
 
+/** One question per competency first, then the rest; up to two written answers, asked last. */
 function pickAssessment(pool: Item[], n: number, comps: string[], seed: number) {
   const rot = <T,>(a: T[]) => a.map((_, i) => a[(i + seed) % a.length]);
+  const choice = pool.filter((i) => i.format !== "open");
+  const written = rot(pool.filter((i) => i.format === "open")).slice(0, Math.min(2, Math.floor(n / 4)));
   const picked: Item[] = [];
-  for (const c of comps) { const it = rot(pool.filter((i) => i.competency === c))[0]; if (it) picked.push(it); }
-  for (const it of rot(pool)) { if (picked.length >= n) break; if (!picked.includes(it)) picked.push(it); }
-  return picked.slice(0, n);
+  for (const c of comps) { const it = rot(choice.filter((i) => i.competency === c))[0]; if (it) picked.push(it); }
+  for (const it of rot(choice)) { if (picked.length >= n - written.length) break; if (!picked.includes(it)) picked.push(it); }
+  return [...picked.slice(0, n - written.length), ...written];
 }
 
 export function Assessment() {
@@ -39,20 +42,22 @@ export function Assessment() {
   const items = useMemo(() => (c && p ? pickAssessment(c.items.filter((i) => i.pool === "assessment"), c.settings.assessmentItems, c.competencyIds, p.attempts.length * 3) : []), [c, p]);
   const [phase, setPhase] = useState<"intro" | "quiz" | "bridge" | "call" | "result">("intro");
   const [qi, setQi] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number | null>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string | null>>({});
+  const [draft, setDraft] = useState("");
   const [result, setResult] = useState<Attempt | null>(null);
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
   const st = c.settings;
   const sc = st.assessmentScenarioId ? getScenario(st.assessmentScenarioId) : undefined;
   const attemptNo = p.attempts.length + 1;
+  const nWritten = items.filter((i) => i.format === "open").length;
   const failsSoFar = p.attempts.filter((a) => !a.passed).length;
   const attemptsLeft = st.attempts - failsSoFar;
   const lastFail = p.attempts.filter((a) => !a.passed).at(-1);
   const retakeAt = lastFail ? new Date(new Date(lastFail.at).getTime() + st.cooldownHours * 3600_000) : undefined;
   const coolingDown = !resubmit && !s.presenter && !!retakeAt && retakeAt > new Date(nowIso());
 
-  function grade(call?: CallOutcome, ans: Record<string, number | null> = answers) {
+  function grade(call?: CallOutcome, ans: Record<string, number | string | null> = answers) {
     const quiz = resubmit ? { overall: p!.attempts.at(-1)?.quiz ?? 0, scores: p!.attempts.at(-1)?.competencyScores ?? {} } : scoreItems(items, ans);
     const scores = blendScores(quiz.scores, call?.competencyScores);
     const overall = call ? Math.round(quiz.overall * 0.6 + call.score * 0.4) : quiz.overall;
@@ -84,6 +89,9 @@ export function Assessment() {
   if (phase === "result" && result) {
     const fresh = useApp.getState().progress.find((x) => x.id === p.id)!;
     const mods = modulesOf(c);
+    const written = items.filter((it) => it.format === "open" && typeof answers[it.id] === "string");
+    /* Answer keys show only after a pass or the last attempt. */
+    const showKey = result.passed || attemptsLeft - 1 <= 0;
     return (
       <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-8">
         <div className="flex items-center gap-4">
@@ -98,6 +106,24 @@ export function Assessment() {
             <Text size="caption" weight="bold" tone="subtle">WHAT HELD YOU BACK</Text>
             {result.reason.split(" · ").map((r) => <Text key={r} size="body-lg">· {r}</Text>)}
           </div>
+        )}
+        {written.length > 0 && (
+          <section className="flex flex-col gap-2.5">
+            <Text size="subhead" weight="bold">Your written answers</Text>
+            {written.map((it) => (
+              <div key={it.id} className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4">
+                <Text size="body-lg" weight="semibold">{it.question}</Text>
+                <ul className="flex flex-col gap-1">
+                  {coveredPoints(it, String(answers[it.id] ?? "")).map((pt) => (
+                    <li key={pt.text} className={cn("flex items-center gap-2 text-body", pt.covered ? "text-ok" : "text-ink-3")}>
+                      {pt.covered ? <Check className="size-4 shrink-0" aria-hidden="true" /> : <X className="size-4 shrink-0" aria-hidden="true" />}{pt.text}
+                    </li>
+                  ))}
+                </ul>
+                {showKey && <Text size="body" tone="muted"><strong className="text-ink-2">A strong answer: </strong>{it.guide?.suggested}</Text>}
+              </div>
+            ))}
+          </section>
         )}
         {result.call && <Scorecard result={result.call} mode="assessment" approvedHref={(m) => `/rep/course/${c.id}/learn?module=${m}&optional=1`} />}
         <section className="flex flex-col gap-2.5">
@@ -142,7 +168,7 @@ export function Assessment() {
         <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{resubmit ? "Resubmit your roleplay" : "Final assessment"}</Text>
         <div className="squircle flex flex-col gap-2.5 rounded-panel border border-hair bg-card p-4">
-          {!resubmit && <Text size="body-lg">· {items.length} questions, no feedback until the end</Text>}
+          {!resubmit && <Text size="body-lg">· {items.length} questions{nWritten ? `, ${nWritten} of them written in your own words` : ""}, no feedback until the end</Text>}
           {st.assessmentCall && <Text size="body-lg">· A ~{sc?.durationMin}-minute call with {sc?.persona.name}, recorded</Text>}
           <Text size="body-lg">· Pass: {st.passOverall}% overall, {st.passCritical}% on {st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}{st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}</Text>
           <Text size="body-lg">· Any critical compliance flag is an automatic fail</Text>
@@ -155,6 +181,13 @@ export function Assessment() {
     );
 
   const q = items[qi];
+  function answer(a: number | string) {
+    const next = { ...answers, [q.id]: a };
+    setAnswers(next);
+    if (qi < items.length - 1) setQi(qi + 1);
+    else if (st.assessmentCall && sc) setPhase("bridge");
+    else grade(undefined, next);
+  }
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
       <div className="flex items-center gap-3">
@@ -166,17 +199,22 @@ export function Assessment() {
       </div>
       <div key={q.id} className="rise-in flex flex-1 flex-col gap-5">
         <Text as="h1" size="display" weight="bold" className="leading-snug">{q.question}</Text>
-        <div className="flex flex-col gap-2.5">
-          {q.options.map((o, i) => (
-            <button key={i} type="button" onClick={() => {
-              const next = { ...answers, [q.id]: i };
-              setAnswers(next);
-              if (qi < items.length - 1) setQi(qi + 1);
-              else if (st.assessmentCall && sc) setPhase("bridge");
-              else grade(undefined, next);
-            }} className="squircle flex min-h-[52px] items-center rounded-control border border-hair-2 bg-card px-4 py-3 text-left text-subhead font-medium transition-colors hover:border-brand hover:bg-tint">{o}</button>
-          ))}
-        </div>
+        {q.format === "open" ? (
+          <div className="flex flex-1 flex-col gap-3">
+            <Text size="body-lg" tone="muted">Answer in your own words, as you would say it to the HCP. SwishX marks it against what a good answer covers.</Text>
+            <Field multiline aria-label="Your answer" value={draft} onChange={(e) => setDraft(e.target.value)} rows={6} placeholder="Type your answer…" />
+            <Button size="lg" fullWidth className="mt-auto" disabled={draft.trim().length < 15} onClick={() => { answer(draft.trim()); setDraft(""); }}>
+              {qi < items.length - 1 ? "Next question" : "Submit"}<ArrowRight className="size-4" aria-hidden="true" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {q.options.map((o, i) => (
+              <button key={i} type="button" onClick={() => answer(i)}
+                className="squircle flex min-h-[52px] items-center rounded-control border border-hair-2 bg-card px-4 py-3 text-left text-subhead font-medium transition-colors hover:border-brand hover:bg-tint">{o}</button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

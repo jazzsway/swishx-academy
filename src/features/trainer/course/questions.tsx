@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Check, Lock } from "lucide-react"; // v1-hidden: Trash2
+import { Check, ListChecks, Lock, PenLine } from "lucide-react"; // v1-hidden: Trash2
 import { cn } from "@/lib/cn";
 import { competency, source } from "@/data/org";
 import { Text } from "@/components/ui/text";
@@ -20,7 +20,7 @@ import { useCopilot } from "@/features/copilot/copilot-store";
 const KINDS: { id: QuestionKind; label: string; when: string }[] = [
   { id: "screening", label: "Screening", when: "Asked before the course starts, to skip what reps already know. No feedback." },
   { id: "check", label: "Knowledge checks", when: "Inside the lessons. Reps see the answer straight away." },
-  { id: "assessment", label: "Final assessment", when: "Drawn into the final assessment. Answer keys show after a pass or the last attempt." },
+  { id: "assessment", label: "Final assessment", when: "Drawn into the final assessment: multiple choice, plus written answers SwishX marks against the points below. Answer keys show after a pass or the last attempt." },
   { id: "practice", label: "Practice", when: "Practice mode only. Doesn't count toward certification." },
 ];
 const LOOSE = "__course";
@@ -107,7 +107,7 @@ export function QuestionBank() {
                 <Text size="body-lg" weight="bold">{k.label} <span className="font-normal text-ink-3">· {qs.length}</span></Text>
                 <Text size="caption" tone="subtle">{k.when}</Text>
               </div>
-              {qs.map((q, n) => <QuestionCard key={q.id} q={q} n={n + 1} />)}
+              {qs.map((q, n) => <QuestionCard key={q.id} q={q} n={n + 1} editable={editable} />)}
             </section>
           );
         })}
@@ -132,25 +132,62 @@ function IndexRow({ n, title, meta, active, locked, onClick }: { n: number | str
   );
 }
 
-function QuestionCard({ q, n }: { q: Question; n: number }) {
+function QuestionCard({ q, n, editable }: { q: Question; n: number; editable?: boolean }) {
+  const setDraft = useCopilot((s) => s.setDraft);
+  const setOpen = useCopilot((s) => s.setOpen);
+  const short = q.question.length > 48 ? `${q.question.slice(0, 48).trimEnd()}…` : q.question;
   return (
     <article className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Text size="caption" weight="bold" tone="subtle">Q{n}</Text>
         <Chip size="sm" tone="brand">{competency(q.competency)?.name}</Chip>
         {q.difficulty && <Chip size="sm">{["", "Easy", "Medium", "Hard"][q.difficulty]}</Chip>}
+        <Chip size="sm" iconLeft={q.format === "open" ? <PenLine className="size-3" aria-hidden="true" /> : <ListChecks className="size-3" aria-hidden="true" />}>{q.format === "open" ? "Written answer" : "Multiple choice"}</Chip>
         {q.lesson && <Text size="caption" tone="subtle" className="ml-auto">After “{q.lesson}”</Text>}
         {/* v1-hidden: the pool picker and Retire button. Ask the agent: Move “…” to practice, or Retire the question “…”. */}
       </div>
       <Text size="subhead" weight="bold" className="leading-snug">{q.question}</Text>
-      <ol className="grid gap-1.5 sm:grid-cols-2">
-        {q.options.map((o, i) => (
-          <li key={i} className={cn("squircle flex items-center gap-2 rounded-control border px-3 py-2 text-body", i === q.answer ? "border-ok-line bg-ok-bg font-semibold text-ok" : "border-hair text-ink-2")}>
-            <span className="text-micro font-bold opacity-60">{String.fromCharCode(65 + i)}</span>{o}{i === q.answer && <Check className="ml-auto size-4" aria-label="Correct answer" />}
-          </li>
-        ))}
-      </ol>
-      <Text size="body" tone="subtle"><strong className="text-ink-2">Rationale.</strong> {q.rationale} {q.cite && <span className="text-brand-deep">({source(q.cite.sourceId)?.title}, p. {q.cite.page})</span>}</Text>
+      {q.format === "open" && q.guide ? (
+        <div className="flex flex-col gap-3">
+          <div className="squircle flex flex-col gap-1 rounded-panel bg-subtle px-4 py-3">
+            <Text size="caption" weight="bold" tone="subtle" className="flex items-center gap-1.5"><AgentIcon className="size-3.5 text-brand" />SwishX&apos;s suggested answer</Text>
+            <Text size="body" tone="muted" className="leading-relaxed">{q.guide.suggested} {q.cite && <span className="text-brand-deep">({source(q.cite.sourceId)?.title}, p. {q.cite.page})</span>}</Text>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Text size="caption" weight="bold" tone="subtle">A good answer covers · each point is a share of the marks</Text>
+            <ul className="flex flex-col gap-1">
+              {q.guide.mustCover.map((pt) => (
+                <li key={pt.text} className="flex items-start gap-2 text-body">
+                  <Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />
+                  <span className="text-ink-2">{pt.text}<span className="text-caption text-ink-4"> · listens for {pt.keywords.slice(0, 3).map((k) => `“${k}”`).join(", ")}</span></span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {q.guide.trainerNote ? (
+            <div className="squircle flex flex-col gap-0.5 rounded-panel border border-tint-line bg-tint px-4 py-3">
+              <Text size="caption" weight="bold" tone="brand-deep">Your guidance</Text>
+              <Text size="body" className="text-ink-2">{q.guide.trainerNote}</Text>
+            </div>
+          ) : editable && (
+            <button type="button" onClick={() => { setDraft(`For “${short}”, a good answer must `); setOpen(true); }}
+              className="squircle flex items-center gap-2 self-start rounded-control border border-dashed border-hair-3 px-3 py-2 text-body font-semibold text-ink-2 hover:bg-subtle">
+              <AgentIcon className="size-4 text-brand" />Tell SwishX what a right answer must say
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <ol className="grid gap-1.5 sm:grid-cols-2">
+            {q.options.map((o, i) => (
+              <li key={i} className={cn("squircle flex items-center gap-2 rounded-control border px-3 py-2 text-body", i === q.answer ? "border-ok-line bg-ok-bg font-semibold text-ok" : "border-hair text-ink-2")}>
+                <span className="text-micro font-bold opacity-60">{String.fromCharCode(65 + i)}</span>{o}{i === q.answer && <Check className="ml-auto size-4" aria-label="Correct answer" />}
+              </li>
+            ))}
+          </ol>
+          <Text size="body" tone="subtle"><strong className="text-ink-2">Rationale.</strong> {q.rationale} {q.cite && <span className="text-brand-deep">({source(q.cite.sourceId)?.title}, p. {q.cite.page})</span>}</Text>
+        </>
+      )}
     </article>
   );
 }

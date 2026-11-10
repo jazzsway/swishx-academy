@@ -1,4 +1,4 @@
-import type { Citation, Course, Item, Module, Pool } from "@/data/types";
+import type { AnswerGuide, Citation, Course, Item, Module, Pool } from "@/data/types";
 
 export type QuestionKind = "check" | Pool;
 
@@ -8,6 +8,8 @@ export interface Question {
   kind: QuestionKind;
   competency: string;
   difficulty?: Item["difficulty"];
+  format?: Item["format"];
+  guide?: AnswerGuide;
   question: string;
   options: string[];
   answer: number;

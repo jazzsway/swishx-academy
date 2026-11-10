@@ -144,11 +144,25 @@ export interface Item {
   /** The module this question tests. Without it, the first module that teaches its competency. */
   moduleId?: string;
   difficulty: 1 | 2 | 3;
+  /** "open": the rep writes the answer in their own words. Otherwise it's multiple choice. */
+  format?: "open";
   question: string;
+  /** Multiple choice only. Open questions have none, and answer -1. */
   options: string[];
   answer: number;
   rationale: string;
   cite?: Citation;
+  /** Open questions only: how SwishX marks the written answer. */
+  guide?: AnswerGuide;
+}
+
+/** SwishX drafts the suggested answer and the points from the sources; the trainer's guidance overrides both. */
+export interface AnswerGuide {
+  suggested: string;
+  /** Each point counts once if the answer mentions any of its keywords. */
+  mustCover: { text: string; keywords: string[] }[];
+  /** What the trainer said a right answer must (or must not) do. */
+  trainerNote?: string;
 }
 
 export interface RubricCriterion {

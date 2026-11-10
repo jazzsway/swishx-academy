@@ -95,6 +95,81 @@ export const VIDEO_WEBINAR: VideoSpec = {
   ],
 };
 
+/* Short videos SwishX scripted from the cited sentences of a module, and a short series of model-call clips. */
+export const VIDEO_PATIENT_MONTH: VideoSpec = {
+  durationSec: 95, origin: "ai",
+  chapters: [{ at: 0, title: "The visit" }, { at: 40, title: "The month before" }, { at: 70, title: "What to ask" }],
+  captions: [
+    { at: 0, text: "Many adults start on topical corticosteroids and cycle through several before a systemic therapy is considered." },
+    { at: 40, text: "By the time they are seen, a flare may have settled, so symptoms are often under-reported." },
+    { at: 70, text: "Asking about sleep, itch and missed work in the last month surfaces disease a single visit can miss." },
+  ],
+  scenes: [
+    { at: 0, headline: "Cycling through topicals", sub: "Before a systemic is considered" },
+    { at: 40, headline: "“It's fine today”", sub: "The flare has settled by the visit" },
+    { at: 70, headline: "Ask about the last month", sub: "Sleep · itch · missed work" },
+  ],
+};
+
+export const VIDEO_FAIR_BALANCE: VideoSpec = {
+  durationSec: 80, origin: "ai",
+  chapters: [{ at: 0, title: "Comparable prominence" }, { at: 35, title: "Words to avoid" }, { at: 60, title: "Off-label questions" }],
+  captions: [
+    { at: 0, text: "Whenever you discuss efficacy, present the important safety information with comparable prominence." },
+    { at: 35, text: "Never minimise risk. Avoid absolute terms such as safest, no side effects or guaranteed." },
+    { at: 60, text: "If an HCP asks about a use outside the approved indication, offer a medical information request." },
+  ],
+  scenes: [
+    { at: 0, headline: "Efficacy and safety, together", sub: "Comparable prominence" },
+    { at: 35, headline: "No absolutes", sub: "“Safest” · “no side effects” · “guaranteed”" },
+    { at: 60, headline: "Off-label? Medical Information", sub: "Don't discuss it yourself" },
+  ],
+};
+
+export const VIDEO_HUB_ENROL: VideoSpec = {
+  durationSec: 105, origin: "upload", fileName: "access-hub-enrolment.mp4",
+  chapters: [{ at: 0, title: "One form" }, { at: 40, title: "Benefits in 2 days" }, { at: 75, title: "Bridge supply" }],
+  captions: [
+    { at: 0, text: "Offices enrol patients in the Corvana Access Hub with one form." },
+    { at: 40, text: "The Hub runs benefits verification and confirms benefits within 2 business days." },
+    { at: 75, text: "Eligible commercially insured patients facing a PA delay may receive a bridge supply." },
+  ],
+  scenes: [
+    { at: 0, headline: "One enrolment form", sub: "Sent by the office" },
+    { at: 40, headline: "Benefits confirmed", stat: "2 business days" },
+    { at: 75, headline: "Bridge supply", sub: "Eligible commercial patients, during a PA delay" },
+  ],
+};
+
+const clip = (fileName: string, durationSec: number, lines: [string, string, string?][]): VideoSpec => ({
+  durationSec, origin: "upload", fileName,
+  chapters: [{ at: 0, title: lines[0][1] }],
+  captions: lines.map(([text], i) => ({ at: Math.round((durationSec / lines.length) * i), text })),
+  scenes: lines.map(([, headline, sub], i) => ({ at: Math.round((durationSec / lines.length) * i), headline, sub })),
+});
+
+export const CLIP_OPEN_PATIENT = clip("opener-patient-type.mp4", 45, [
+  ["Rep: Think of your adult patients still flaring despite topicals.", "Lead with the patient", "Not the product"],
+  ["Rep: How many of them did you see this month?", "Ask a number", "Let them picture one patient"],
+]);
+export const CLIP_OPEN_NEEDS = clip("opener-needs-question.mp4", 50, [
+  ["Rep: What makes you decide a patient needs more than topicals?", "Ask before you tell", "A needs-discovery question"],
+  ["Doctor: Usually when they keep flaring and can't sleep.", "Listen for the signal", "Flares · sleep"],
+]);
+export const CLIP_OPEN_BRIDGE = clip("opener-bridge-to-data.mp4", 55, [
+  ["Rep: For patients like that, LUMEN-1 and LUMEN-2 studied 1,540 adults.", "Bridge to the data", "Only once they've described the patient"],
+  ["Rep: At week 16, 51% reached EASI-75 versus 17% with placebo, and here is the safety information.", "Data with safety", "51% vs 17% · then the ISI"],
+]);
+export const CLIP_OBJ_EYES = clip("objection-eye-safety.mp4", 60, [
+  ["Doctor: I've heard about the eye problems.", "“What about the eyes?”", "The objection"],
+  ["Rep: Conjunctivitis occurred in 9% with Lumora versus 3% with placebo.", "Quote the label rate", "9% vs 3%"],
+  ["Rep: Advise patients to report new or worsening eye symptoms.", "What patients should do", "Report new eye symptoms"],
+]);
+export const CLIP_OBJ_TOPICALS = clip("objection-fine-on-topicals.mp4", 60, [
+  ["Doctor: Honestly, my patients are fine on topicals.", "“They're fine on topicals”", "The objection"],
+  ["Rep: In the last month, how many of them had a flare or lost sleep to itch?", "Ask about the last month", "Flares · sleep · missed work"],
+]);
+
 export interface DocPage { title: string; sections: { h?: string; p: string }[] }
 
 export const DOC_PAGES: Record<string, Record<number, DocPage>> = {
@@ -111,9 +186,32 @@ export const DOC_PAGES: Record<string, Record<number, DocPage>> = {
     13: { title: "14 Clinical studies (continued)", sections: [{ h: "14.2 LUMEN-EXT", p: "Among week-16 EASI-75 responders, 78% maintained EASI-75 at week 52 with 250 mg every 4 weeks." }] },
     16: { title: "16–17 How supplied, patient counseling", sections: [{ h: "16 Storage", p: "Store pens refrigerated. Allow to reach room temperature for 30 minutes before injecting." }, { h: "17 Injection sites", p: "Thigh or abdomen, except the 2 inches around the navel. The upper arm may be used if a caregiver administers the injection." }] },
   },
+  "src-ad-guide": {
+    2: { title: "What atopic dermatitis is", sections: [{ p: "Atopic dermatitis is a chronic, relapsing inflammatory skin disease driven by type 2 inflammation and a disrupted skin barrier." }, { h: "The itch–scratch cycle", p: "Scratching damages the barrier further, which lets in irritants and drives more inflammation." }] },
+    3: { title: "How common it is", sections: [{ p: "Around 1 in 4 adults with atopic dermatitis has moderate-to-severe disease, defined by extent, intensity and impact on daily life." }] },
+    4: { title: "What patients feel", sections: [{ p: "Itch is the symptom patients rate as most burdensome. It disrupts sleep, work and mood." }] },
+    7: { title: "The treatment journey", sections: [{ p: "Most adults start on topical corticosteroids. Many cycle through several topicals before a systemic therapy is considered." }] },
+    8: { title: "Why disease is under-estimated", sections: [{ p: "Patients are often seen between flares, so symptoms are under-reported at the visit. Asking about the last month gives a truer picture." }] },
+    11: { title: "Systemic therapy", sections: [{ p: "Systemic options for moderate-to-severe atopic dermatitis include biologics and oral JAK inhibitors. Choice depends on the patient, the label and coverage." }] },
+  },
+  "src-code": {
+    4: { title: "Fair balance", sections: [{ p: "Whenever you discuss efficacy, present the important safety information with comparable prominence." }] },
+    5: { title: "Claims you may not make", sections: [{ p: "Never minimise risk. Do not use absolute or superlative terms such as \"safest\", \"no side effects\" or \"guaranteed\"." }] },
+    6: { title: "Off-label questions", sections: [{ p: "If an HCP asks about a use outside the approved indication, do not discuss it. Offer to submit a medical information request." }] },
+    8: { title: "Adverse event reporting", sections: [{ p: "Report any adverse event you learn about to Pharmacovigilance within 24 hours, whatever its source." }] },
+  },
+  "src-lum-obj": {
+    2: { title: "“Coverage is a nightmare”", sections: [{ h: "Acknowledge", p: "The paperwork is real, and it lands on the office staff." }, { h: "Respond", p: "Describe the Access Hub: benefits verification, PA support and the copay program for eligible commercially insured patients. Never promise coverage." }] },
+    3: { title: "“How fast does it work?”", sections: [{ p: "Itch separated from placebo as early as week 2. At week 16, 51% reached EASI-75 vs 17% with placebo." }] },
+    4: { title: "“What about the eyes?”", sections: [{ p: "Conjunctivitis occurred in 9% vs 3% with placebo. Advise patients to report new or worsening eye symptoms." }] },
+    5: { title: "“My patients are fine on topicals”", sections: [{ p: "Ask about flares, sleep and missed work in the last month to uncover uncontrolled disease." }] },
+    6: { title: "“Is it better than …?”", sections: [{ p: "Lumora has not been studied head-to-head against any other systemic therapy. Redirect to Lumora's own data and safety profile." }] },
+  },
   "src-lum-payer": {
     2: { title: "Coverage and prior authorization", sections: [{ p: "Most commercial plans require prior authorization documenting an inadequate response to at least one topical prescription therapy." }, { h: "Documentation", p: "Diagnosis of moderate-to-severe AD; topical prescription therapies tried, with dates and outcome; body surface area or severity score." }] },
     3: { title: "The Corvana Access Hub", sections: [{ p: "Offices enrol patients with one form. The Hub runs benefits verification, confirms benefits within 2 business days, and prepares PA support for the office." }] },
+    5: { title: "Bridge supply", sections: [{ p: "Eligible commercially insured patients facing a prior authorization delay may receive a bridge supply while the PA is decided." }] },
+    6: { title: "What to promise", sections: [{ p: "Never promise coverage or a copay amount. Describe the Hub's services and let the Hub confirm each patient's eligibility." }] },
     4: { title: "Copay program", sections: [{ p: "Eligible commercially insured patients may pay as little as $0 per fill. Patients with government insurance (e.g. Medicare, Medicaid) are not eligible." }] },
   },
 };
@@ -126,6 +224,8 @@ export const VA_PAGES: Record<string, Record<number, VaPage>> = {
     2: { title: "Burden", headline: "Itch that won't let them sleep", sub: "Ask about the last month: flares, sleep, missed work", visual: "patient" },
     3: { title: "Efficacy", headline: "EASI-75 at week 16", sub: "LUMEN-1 and LUMEN-2, pooled", visual: "chart", stat: "51% vs 17%" },
     4: { title: "Safety", headline: "Important safety information", sub: "Contraindication, warnings, most common adverse reactions", visual: "safety" },
+    5: { title: "Dosing", headline: "One loading dose, then every 2 weeks", sub: "500 mg at week 0, then 250 mg every 2 weeks through week 16", visual: "chart", stat: "250 mg Q2W" },
+    6: { title: "Access", headline: "The Corvana Access Hub", sub: "Benefits verification · PA support · copay for eligible commercial patients", visual: "access", stat: "2 business days" },
   },
 };
 

@@ -12,6 +12,9 @@ interface CopilotUi {
   setSlot: (el: HTMLElement | null) => void;
   overrides: number;
   claim: () => () => void;
+  /** Text a page puts in the composer for the trainer to finish, e.g. guidance for an open question. */
+  draft: string;
+  setDraft: (v: string) => void;
 }
 
 export const useCopilot = create<CopilotUi>((set) => ({
@@ -25,4 +28,6 @@ export const useCopilot = create<CopilotUi>((set) => ({
     set((s) => ({ overrides: s.overrides + 1 }));
     return () => set((s) => ({ overrides: s.overrides - 1 }));
   },
+  draft: "",
+  setDraft: (draft) => set({ draft }),
 }));

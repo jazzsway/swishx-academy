@@ -88,7 +88,7 @@ export function MlrPackage() {
               <div key={it.id} className="flex flex-col gap-1 break-inside-avoid border-b border-hair pb-3">
                 <Text size="body" weight="bold">Q{i + 1} · {it.pool} · {competency(it.competency)?.name}</Text>
                 <Text size="body">{it.question}</Text>
-                <Text size="body" tone="muted">{it.options.map((o, j) => `${String.fromCharCode(65 + j)}) ${o}${j === it.answer ? " ✓" : ""}`).join("   ")}</Text>
+                <Text size="body" tone="muted">{it.format === "open" ? `Written answer. Must cover: ${it.guide?.mustCover.map((m) => m.text).join("; ")}` : it.options.map((o, j) => `${String.fromCharCode(65 + j)}) ${o}${j === it.answer ? " ✓" : ""}`).join("   ")}</Text>
                 <Text size="caption" tone="subtle">Rationale: {it.rationale} {it.cite ? `[${source(it.cite.sourceId)?.title}, p. ${it.cite.page}]` : ""}</Text>
               </div>
             ))}

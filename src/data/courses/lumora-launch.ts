@@ -1,8 +1,12 @@
 import type { Module } from "../types";
-import { VIDEO_INJECTION, VIDEO_LUMEN, VIDEO_MOA, VIDEO_MODEL_CALL } from "../media";
+import {
+  CLIP_OBJ_EYES, CLIP_OBJ_TOPICALS, CLIP_OPEN_BRIDGE, CLIP_OPEN_NEEDS, CLIP_OPEN_PATIENT,
+  VIDEO_FAIR_BALANCE, VIDEO_HUB_ENROL, VIDEO_INJECTION, VIDEO_LUMEN, VIDEO_MOA, VIDEO_MODEL_CALL, VIDEO_PATIENT_MONTH,
+} from "../media";
 
-/* Lumora launch readiness: 14 modules, 118 minutes. All product facts are fictional
-   and come from the fictional sources in org.ts, cited by page. */
+/* Lumora launch readiness: 14 modules, each with a lesson, at least one piece of media
+   (video, PDF pages, infographic, deck walkthrough or audio) and a check. All product facts are
+   fictional and come from the fictional sources in org.ts, cited by page. */
 
 const PI = "src-lum-pi";
 const VA = "src-lum-va";
@@ -32,6 +36,11 @@ const RAW: Module[] = [
         question: "Which symptom do adults with atopic dermatitis rate as most burdensome?",
         options: ["Dry skin", "Itch", "Redness", "Scaling"], answer: 1,
         rationale: "Itch is consistently rated the most burdensome symptom.", cite: c(AD, 4) } },
+      { id: "lm1-g1", type: "graphic", title: "Atopic dermatitis by the numbers", minutes: 1, competencies: ["c-disease"], graphic: { sourceId: AD,
+        headline: "A chronic disease that keeps coming back", stats: [{ value: "1 in 4", label: "adults with AD have moderate-to-severe disease" }, { value: "#1", label: "most burdensome symptom: itch" }, { value: "Type 2", label: "inflammation drives it" }],
+        points: ["Chronic and relapsing: flares return even after the skin clears.", "Itch disrupts sleep, work and mood."], footnote: "Atopic dermatitis disease-state guide, pp. 2–4" } },
+      { id: "lm1-d1", type: "document", title: "Read it in the disease-state guide", minutes: 2, competencies: ["c-disease"], document: { sourceId: AD, pages: [2, 3, 4],
+        callouts: [{ page: 3, text: "“1 in 4” is the only prevalence figure to quote." }] } },
     ],
   },
   {
@@ -48,6 +57,9 @@ const RAW: Module[] = [
         { front: "\"I can't sleep through the night.\"", back: "Itch-driven sleep loss, a marker of uncontrolled disease.", cite: c(AD, 4) },
         { front: "\"I've tried every cream.\"", back: "Inadequate response to topical prescription therapy.", cite: c(AD, 7) },
       ] },
+      { id: "lm2-v1", type: "video", title: "A month on topicals", minutes: 2, competencies: ["c-disease"], video: VIDEO_PATIENT_MONTH },
+      { id: "lm2-d1", type: "document", title: "Read it in the disease-state guide", minutes: 2, competencies: ["c-disease"], document: { sourceId: AD, pages: [7, 8],
+        callouts: [{ page: 8, text: "This is why you ask about the last month, not today." }] } },
     ],
   },
   {
@@ -60,6 +72,9 @@ const RAW: Module[] = [
         { text: "By binding IL-13, relvokimab prevents it from signalling through its receptor complex.", cite: c(PI, 9) },
       ] },
       { id: "lm3-b2", type: "video", title: "Mechanism in 3 minutes", minutes: 3, competencies: ["c-moa"], video: VIDEO_MOA },
+      { id: "lm3-g1", type: "graphic", title: "IL-13 in three steps", minutes: 1, competencies: ["c-moa"], graphic: { sourceId: PI,
+        headline: "How relvokimab works", stats: [{ value: "IL-13", label: "the cytokine it binds" }, { value: "mAb", label: "human monoclonal antibody" }],
+        points: ["IL-13 drives type 2 inflammation in the skin.", "It contributes to barrier dysfunction, itch and inflammation.", "Relvokimab binds IL-13 so it can't signal through its receptor complex."], footnote: "Lumora Prescribing Information, section 12.1" } },
     ],
   },
   {
@@ -82,6 +97,13 @@ const RAW: Module[] = [
         rationale: "51% vs 17% placebo. 36% is IGA 0/1; 78% is maintenance in LUMEN-EXT.", cite: c(PI, 11) } },
       { id: "lm4-d1", type: "document", title: "Read it in the PI: section 14", minutes: 3, competencies: ["c-efficacy"], document: { sourceId: PI, pages: [11, 12, 13],
         callouts: [{ page: 11, text: "These are the only efficacy numbers you may quote." }, { page: 12, text: "“As early as week 2” refers to itch, not skin clearance." }] } },
+      { id: "lm4-g1", type: "graphic", title: "Week-16 results at a glance", minutes: 1, competencies: ["c-efficacy"], graphic: { sourceId: PI,
+        headline: "LUMEN-1 and LUMEN-2, pooled", stats: [{ value: "51%", label: "EASI-75 vs 17% placebo" }, { value: "36%", label: "IGA 0/1 vs 10% placebo" }, { value: "78%", label: "kept EASI-75 at week 52" }],
+        points: ["1,540 adults with moderate-to-severe atopic dermatitis.", "Always quote the placebo number alongside."], footnote: "Lumora Prescribing Information, section 14. Present with the important safety information." } },
+      { id: "lm4-va1", type: "visualaid", title: "Walk the data pages of the visual aid", minutes: 2, competencies: ["c-efficacy", "c-safety"], visualaid: { sourceId: VA, pages: [
+        { page: 3, say: "“At week 16, 51% reached EASI-75 versus 17% with placebo.” Point to the placebo bar.", avoid: "No comparisons with other biologics." },
+        { page: 4, say: "Turn straight to safety. Read the contraindication and the most common adverse reactions.", avoid: "Never show page 3 without page 4." },
+      ] } },
     ],
   },
   {
@@ -97,6 +119,10 @@ const RAW: Module[] = [
         { front: "Earliest itch separation from placebo", back: "Week 2", cite: c(PI, 12) },
         { front: "EASI-75 at week 16", back: "51% vs 17% placebo", cite: c(PI, 11) },
       ] },
+      { id: "lm5-g1", type: "graphic", title: "Itch relief at a glance", minutes: 1, competencies: ["c-efficacy"], graphic: { sourceId: PI,
+        headline: "What patients feel first", stats: [{ value: "44%", label: "≥4-point itch improvement vs 13% placebo" }, { value: "Week 2", label: "earliest separation from placebo" }],
+        points: ["“As early as week 2” is about itch, not skin clearance."], footnote: "Lumora Prescribing Information, p. 12" } },
+      { id: "lm5-a1", type: "audio", title: "Listen: itch numbers in 1 minute", minutes: 1, competencies: ["c-efficacy"], audio: { fromBlockIds: ["lm5-b1"], durationSec: 55 } },
     ],
   },
   {
@@ -118,6 +144,12 @@ const RAW: Module[] = [
         rationale: "Within 7 days: give the missed dose, then resume the original schedule.", cite: c(PI, 3) } },
       { id: "lm6-d1", type: "document", title: "Read it in the PI: section 2", minutes: 2, competencies: ["c-dosing"], document: { sourceId: PI, pages: [2, 3],
         callouts: [{ page: 3, text: "The 7-day rule is the most-missed question in screening." }] } },
+      { id: "lm6-g1", type: "graphic", title: "Dosing at a glance", minutes: 1, competencies: ["c-dosing"], graphic: { sourceId: PI,
+        headline: "From loading dose to maintenance", stats: [{ value: "500 mg", label: "week 0 (two 250 mg injections)" }, { value: "250 mg", label: "every 2 weeks to week 16" }, { value: "Q4W", label: "option after week 16 if IGA 0/1" }],
+        points: ["Missed dose: within 7 days give it; after 7 days skip it.", "No adjustment for renal or hepatic impairment."], footnote: "Lumora Prescribing Information, section 2" } },
+      { id: "lm6-va1", type: "visualaid", title: "Walk the dosing page of the visual aid", minutes: 1, competencies: ["c-dosing"], visualaid: { sourceId: VA, pages: [
+        { page: 5, say: "“One loading dose of 500 mg, then 250 mg every 2 weeks through week 16.”", avoid: "Don't suggest every-4-week dosing from the start." },
+      ] } },
     ],
   },
   {
@@ -133,6 +165,8 @@ const RAW: Module[] = [
         { front: "\"How many injections on day one?\"", back: "Two 250 mg injections (500 mg loading dose), at different sites.", cite: c(PI, 2) },
         { front: "\"Can patients self-inject?\"", back: "Yes, after proper training. A caregiver may use the upper arm.", cite: c(PI, 16) },
       ] },
+      { id: "lm7-d1", type: "document", title: "Read it in the PI: sections 16–17", minutes: 1, competencies: ["c-dosing"], document: { sourceId: PI, pages: [16],
+        callouts: [{ page: 16, text: "The 30-minute room-temperature rule is the office's most common question." }] } },
     ],
   },
   {
@@ -157,6 +191,9 @@ const RAW: Module[] = [
       { id: "lm8-d1", type: "document", title: "Read it in the PI: sections 4–6", minutes: 3, competencies: ["c-safety"], document: { sourceId: PI, pages: [3, 4, 5, 6],
         callouts: [{ page: 4, text: "Know 5.2 word for word: it's the safety question HCPs ask most." }, { page: 6, text: "Quote rates with placebo, every time." }] } },
       { id: "lm8-a1", type: "audio", title: "Listen: safety information in 2 minutes", minutes: 2, competencies: ["c-safety"], audio: { fromBlockIds: ["lm8-b1", "lm8-b2"], durationSec: 110 } },
+      { id: "lm8-g1", type: "graphic", title: "Safety at a glance", minutes: 1, competencies: ["c-safety"], graphic: { sourceId: PI,
+        headline: "Important safety information", stats: [{ value: "9%", label: "conjunctivitis vs 3% placebo" }, { value: "6%", label: "injection-site reactions vs 2%" }],
+        points: ["Contraindicated with known hypersensitivity to relvokimab or excipients.", "Treat helminth infections first; avoid live vaccines."], footnote: "Lumora Prescribing Information, sections 4–6" } },
     ],
   },
   {
@@ -173,6 +210,9 @@ const RAW: Module[] = [
         { front: "\"Sure, it works in teenagers too.\"", back: "Off-label. Say: \"Lumora is approved for adults. I can submit a medical information request for you.\"", cite: c(CODE, 6) },
         { front: "A patient had an eye reaction", back: "That's an adverse event. Report it to Pharmacovigilance within 24 hours.", cite: c(CODE, 8) },
       ] },
+      { id: "lm9-v1", type: "video", title: "Fair balance in 80 seconds", minutes: 2, competencies: ["c-safety", "c-compliance"], video: VIDEO_FAIR_BALANCE },
+      { id: "lm9-d1", type: "document", title: "Read it in the compliance policy", minutes: 2, competencies: ["c-compliance"], document: { sourceId: CODE, pages: [4, 5, 6, 8],
+        callouts: [{ page: 8, text: "24 hours, whatever the source. Even if the doctor mentions it in passing." }] } },
     ],
   },
   {
@@ -188,6 +228,10 @@ const RAW: Module[] = [
         question: "An HCP asks if Lumora works better than another biologic. Best response?",
         options: ["\"Yes, our numbers are higher.\"", "\"There are no head-to-head studies. Here's what Lumora showed in LUMEN-1 and LUMEN-2.\"", "\"They're all the same.\"", "\"I'll send you our internal comparison.\""], answer: 1,
         rationale: "No head-to-head data exists, so redirect to Lumora's own approved results.", cite: c(OBJ, 6) } },
+      { id: "lm10-g1", type: "graphic", title: "Where Lumora fits", minutes: 1, competencies: ["c-competitive"], graphic: { sourceId: AD,
+        headline: "Talk about Lumora, not the others", stats: [{ value: "0", label: "head-to-head studies" }],
+        points: ["Systemic options include other biologics and oral JAK inhibitors.", "Redirect any comparison to LUMEN-1 and LUMEN-2.", "No comparative efficacy or safety claims."], footnote: "Disease-state guide p. 11 · Objection handler p. 6" } },
+      { id: "lm10-d1", type: "document", title: "Read it in the objection handler", minutes: 1, competencies: ["c-competitive"], document: { sourceId: OBJ, pages: [6], callouts: [] } },
     ],
   },
   {
@@ -207,6 +251,9 @@ const RAW: Module[] = [
       { id: "lm11-d1", type: "document", title: "Read it in the payer guide", minutes: 2, competencies: ["c-access"], document: { sourceId: PAY, pages: [2, 3, 4],
         callouts: [{ page: 4, text: "Government-insured patients are not eligible. Never imply otherwise." }] } },
       { id: "lm11-a1", type: "audio", title: "Listen on the road: access basics", minutes: 2, competencies: ["c-access"], audio: { fromBlockIds: ["lm11-b1", "lm11-b2"], durationSec: 95 } },
+      { id: "lm11-g1", type: "graphic", title: "The PA checklist", minutes: 1, competencies: ["c-access"], graphic: { sourceId: PAY,
+        headline: "What the office sends with a PA", stats: [{ value: "3", label: "things to document" }, { value: "$0", label: "copay for eligible commercial patients" }],
+        points: ["Diagnosis of moderate-to-severe AD.", "Topical prescription therapies tried, with dates and outcome.", "Body surface area or severity score."], footnote: "Corvana Access Hub payer guide, p. 2" } },
     ],
   },
   {
@@ -222,6 +269,11 @@ const RAW: Module[] = [
         question: "A Medicare patient asks about the $0 copay program. What's correct?",
         options: ["They qualify automatically", "Government-insured patients are not eligible for the copay program", "They qualify after PA", "Only with a bridge supply"], answer: 1,
         rationale: "The copay program is for eligible commercially insured patients only.", cite: c(PAY, 4) } },
+      { id: "lm12-v1", type: "video", title: "Enrolling a patient in the Hub", minutes: 2, competencies: ["c-access"], video: VIDEO_HUB_ENROL },
+      { id: "lm12-va1", type: "visualaid", title: "Walk the access page of the visual aid", minutes: 1, competencies: ["c-access"], visualaid: { sourceId: VA, pages: [
+        { page: 6, say: "Describe the three services: benefits verification, PA support, the copay program for eligible commercial patients.", avoid: "Never promise coverage or a copay amount." },
+      ] } },
+      { id: "lm12-d1", type: "document", title: "Read it in the payer guide", minutes: 1, competencies: ["c-access"], document: { sourceId: PAY, pages: [3, 5, 6], callouts: [{ page: 6, text: "The one line to remember: never promise coverage." }] } },
     ],
   },
   {
@@ -236,6 +288,9 @@ const RAW: Module[] = [
         { front: "Patient-type opener", back: "\"Think of your adult patients still flaring despite topicals. How many did you see this month?\"", cite: c(VA, 1) },
         { front: "Needs question", back: "\"What makes you decide a patient needs more than topicals?\"", cite: c(VA, 2) },
       ] },
+      { id: "lm13-v1", type: "video", title: "Short clip 1: open on the patient", minutes: 1, competencies: ["c-opening"], video: CLIP_OPEN_PATIENT },
+      { id: "lm13-v2", type: "video", title: "Short clip 2: the needs question", minutes: 1, competencies: ["c-opening"], video: CLIP_OPEN_NEEDS },
+      { id: "lm13-v3", type: "video", title: "Short clip 3: bridge to the data", minutes: 1, competencies: ["c-opening", "c-safety"], video: CLIP_OPEN_BRIDGE },
       { id: "lm13-va1", type: "visualaid", title: "Walk the visual aid", minutes: 4, competencies: ["c-opening", "c-safety"], visualaid: { sourceId: VA, pages: [
         { page: 1, say: "Open here. “Think of your adult patients still flaring despite topicals.” Then ask how many they saw this month.", avoid: "Don't open on the product name or price." },
         { page: 2, say: "Ask about the last month: flares, sleep, missed work. Let them describe their patient.", avoid: "Don't diagnose for them." },
@@ -249,6 +304,9 @@ const RAW: Module[] = [
     summary: "Cost and access, speed of response, eye safety, \"my patients are fine on topicals\".",
     blocks: [
       { id: "lm14-v1", type: "video", title: "Model call: the cost objection", minutes: 3, competencies: ["c-objections", "c-access"], video: VIDEO_MODEL_CALL },
+      { id: "lm14-v2", type: "video", title: "Short clip: “What about the eyes?”", minutes: 1, competencies: ["c-objections", "c-safety"], video: CLIP_OBJ_EYES },
+      { id: "lm14-v3", type: "video", title: "Short clip: “They're fine on topicals”", minutes: 1, competencies: ["c-objections", "c-disease"], video: CLIP_OBJ_TOPICALS },
+      { id: "lm14-d1", type: "document", title: "Read it in the objection handler", minutes: 2, competencies: ["c-objections"], document: { sourceId: OBJ, pages: [2, 3, 4, 5], callouts: [{ page: 2, text: "Acknowledge first, every time." }] } },
       { id: "lm14-b1", type: "lesson", title: "The approved responses", minutes: 6, competencies: ["c-objections", "c-access"], paragraphs: [
         { text: "\"Coverage is a nightmare.\" Acknowledge it, then describe the Access Hub: benefits verification, PA support and the copay program for eligible commercially insured patients.", cite: c(OBJ, 2) },
         { text: "\"How fast does it work?\" Share the approved data: itch separation from placebo as early as week 2, and EASI-75 of 51% vs 17% at week 16.", cite: c(OBJ, 3) },
@@ -264,5 +322,11 @@ const RAW: Module[] = [
   },
 ];
 
-/* Module time is the sum of its blocks, so adding media keeps estimates honest. */
-export const LUMORA_LAUNCH_MODULES: Module[] = RAW.map((m) => ({ ...m, minutes: m.blocks.reduce((a, b) => a + b.minutes, 0) }));
+/* Module time is the sum of its blocks, so adding media keeps estimates honest.
+   The knowledge check and the roleplay close each module, after its material. */
+const LAST = ["check", "scenario"];
+export const LUMORA_LAUNCH_MODULES: Module[] = RAW.map((m) => ({
+  ...m,
+  minutes: m.blocks.reduce((a, b) => a + b.minutes, 0),
+  blocks: [...m.blocks].sort((a, b) => +LAST.includes(a.type) - +LAST.includes(b.type)),
+}));

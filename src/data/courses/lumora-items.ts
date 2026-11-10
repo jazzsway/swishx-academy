@@ -9,6 +9,18 @@ function q(
   return { id, competency, pool, difficulty, question, options, answer, rationale, cite: { sourceId, page } };
 }
 
+/** An open assessment question: SwishX's suggested answer, and the points a good answer must cover. */
+function open(
+  id: string, competency: string, moduleId: string, difficulty: 1 | 2 | 3, question: string,
+  suggested: string, mustCover: [string, string[]][], sourceId: string, page: number, trainerNote?: string,
+): Item {
+  return {
+    id, competency, moduleId, pool: "assessment", difficulty, format: "open", question, options: [], answer: -1,
+    rationale: suggested, cite: { sourceId, page },
+    guide: { suggested, mustCover: mustCover.map(([text, keywords]) => ({ text, keywords })), trainerNote },
+  };
+}
+
 const ITEMS: Item[] = [
   /* ── Disease state ── */
   q("li-d1", "c-disease", "screening", 1, "Atopic dermatitis is best described as:", ["An acute infection of the skin", "A chronic, relapsing inflammatory skin disease", "An allergic reaction that resolves in weeks", "A fungal condition"], 1, "AD is chronic and relapsing, driven by type 2 inflammation and barrier disruption.", AD, 2),
@@ -81,6 +93,58 @@ const ITEMS: Item[] = [
   q("li-p3", "c-compliance", "assessment", 1, "Which phrase is NOT allowed?", ["\"In LUMEN-1...\"", "\"No side effects\"", "\"Advise patients to report eye symptoms\"", "\"Approved for adults\""], 1, "Never minimise risk.", CODE, 5),
   q("li-p4", "c-compliance", "assessment", 2, "Off-label questions from HCPs go to:", ["Your manager", "Medical Information", "Marketing", "The Access Hub"], 1, "Medical Information handles unsolicited off-label questions.", CODE, 6),
   q("li-p5", "c-compliance", "practice", 1, "\"Safest biologic\" is:", ["Fine to say", "An unapproved superlative", "Required fair balance", "A label statement"], 1, "Avoid superlatives.", CODE, 5),
+
+  /* ── Open answers: one per module, marked against what a good answer covers ── */
+  open("li-w1", "c-disease", "lm1", 2, "In your own words, describe the moderate-to-severe atopic dermatitis patient to an HCP.",
+    "An adult with chronic, relapsing atopic dermatitis driven by type 2 inflammation, whose disease is extensive or intense enough to affect daily life. Itch is their most burdensome symptom: it disrupts sleep, work and mood.",
+    [["Chronic and relapsing", ["chronic", "relaps", "flare"]], ["Itch is the biggest burden", ["itch"]], ["Affects daily life: sleep, work or mood", ["sleep", "work", "mood", "daily"]]], AD, 3),
+  open("li-w2", "c-disease", "lm2", 2, "An HCP says their patients seem fine at visits. Why might that be, and what would you ask?",
+    "Flares have often settled by the time the patient is seen, so symptoms are under-reported. Ask about the last month: how many flares, how many nights itch woke them, and any missed work.",
+    [["Flares settle before the visit", ["settle", "between flares", "under-report", "underreport", "by the time"]], ["Ask about the last month", ["last month", "past month", "last 4 weeks"]], ["Sleep, itch or missed work", ["sleep", "itch", "work"]]], AD, 8,
+    "Must ask about the last month. Asking only about today misses the point."),
+  open("li-w3", "c-moa", "lm3", 2, "Explain how Lumora works, as you would to a busy dermatologist.",
+    "Lumora (relvokimab) is a human monoclonal antibody that binds IL-13, a key driver of type 2 inflammation in the skin, and stops it signalling through its receptor complex. That reduces barrier dysfunction, itch and inflammation.",
+    [["Binds IL-13", ["il-13", "il13", "interleukin"]], ["A human monoclonal antibody", ["antibody", "monoclonal", "mab"]], ["Blocks its signalling", ["signal", "receptor", "block", "prevent"]]], PI, 9),
+  open("li-w4", "c-efficacy", "lm4", 3, "Summarise the week-16 LUMEN results the way you're approved to.",
+    "In LUMEN-1 and LUMEN-2, 51% of patients reached EASI-75 at week 16 versus 17% with placebo, and 36% reached clear or almost clear skin versus 10%. Then I present the important safety information.",
+    [["EASI-75: 51%", ["51"]], ["With the placebo number", ["placebo", "17%", "17 %"]], ["Followed by safety information", ["safety"]]], PI, 11,
+    "A number quoted without its placebo comparison doesn't count."),
+  open("li-w5", "c-efficacy", "lm5", 2, "An HCP asks how quickly patients feel a difference. What can you say?",
+    "Itch separated from placebo as early as week 2, and at week 16, 44% had at least a 4-point itch improvement versus 13% with placebo. Week 2 refers to itch, not skin clearance.",
+    [["As early as week 2", ["week 2", "2 weeks", "two weeks"]], ["44% vs 13% at week 16", ["44"]], ["It's about itch, not clearance", ["itch"]]], PI, 12),
+  open("li-w6", "c-dosing", "lm6", 2, "Walk an office nurse through the Lumora dosing schedule.",
+    "A 500 mg loading dose, given as two 250 mg injections, at week 0. Then 250 mg every 2 weeks through week 16. After week 16, patients with clear or almost clear skin may move to every 4 weeks.",
+    [["500 mg loading dose", ["500", "loading"]], ["250 mg every 2 weeks to week 16", ["every 2 weeks", "every two weeks", "q2w", "fortnight"]], ["Every 4 weeks after week 16, if clear", ["4 weeks", "four weeks", "q4w"]]], PI, 2),
+  open("li-w7", "c-dosing", "lm7", 1, "A patient is nervous about injecting at home. What should the office tell them?",
+    "Let the pen reach room temperature for 30 minutes, then inject into the thigh or abdomen, avoiding 2 inches around the navel. A caregiver can use the upper arm. Patients self-inject after training.",
+    [["30 minutes at room temperature", ["30 min", "room temperature"]], ["Thigh or abdomen", ["thigh", "abdomen", "stomach", "belly"]], ["After training, or a caregiver helps", ["train", "caregiver"]]], PI, 16),
+  open("li-w8", "c-safety", "lm8", 3, "An HCP asks, “What's the catch?” Give them the important safety information.",
+    "Lumora is contraindicated with known hypersensitivity to relvokimab or its excipients; hypersensitivity, including rare anaphylaxis, has been reported. Conjunctivitis and keratitis occurred more often: conjunctivitis 9% versus 3% with placebo. Treat helminth infections first, and avoid live vaccines.",
+    [["Contraindication: hypersensitivity", ["hypersensitiv", "allerg"]], ["Conjunctivitis, with its rate", ["conjunctivitis", "keratitis", "eye"]], ["Helminth infections or live vaccines", ["helminth", "parasit", "vaccin"]]], PI, 4,
+    "Don't let reps soften it. “Mild” or “nothing to worry about” should lose marks."),
+  open("li-w9", "c-compliance", "lm9", 2, "An HCP asks if Lumora is fine for their 15-year-old patient. What do you say?",
+    "Lumora is approved for adults, so I can't discuss use in teenagers. I can submit a medical information request so our Medical team can answer you directly.",
+    [["Approved for adults only", ["adult"]], ["Won't discuss the off-label use", ["can't", "cannot", "not able", "off-label", "off label", "not approved"]], ["Offers a medical information request", ["medical information", "mi request", "medical team", "medical affairs"]]], CODE, 6),
+  open("li-w10", "c-competitive", "lm10", 2, "An HCP says another biologic works better. How do you respond without comparing?",
+    "Lumora hasn't been studied head-to-head against other systemic therapies, so I can't make that comparison. What I can share is what Lumora showed in LUMEN-1 and LUMEN-2, along with its safety profile.",
+    [["No head-to-head data", ["head-to-head", "head to head", "not been compared", "no comparison", "not compared"]], ["Redirect to Lumora's own data", ["lumen", "our data", "lumora showed", "lumora's"]], ["Mention safety", ["safety"]]], OBJ, 6),
+  open("li-w11", "c-access", "lm11", 2, "An office manager asks what they need for a Lumora prior authorization. What do you tell them?",
+    "Most commercial plans want documentation of an inadequate response to at least one topical prescription therapy: the diagnosis, the topicals tried with dates and outcome, and a body surface area or severity score. The Access Hub can prepare PA support.",
+    [["Inadequate response to a topical", ["topical"]], ["Diagnosis, dates or a severity score", ["diagnos", "dates", "bsa", "severity", "body surface"]], ["The Access Hub can help", ["hub", "access"]]], PAY, 2),
+  open("li-w12", "c-access", "lm12", 2, "A patient's PA is taking weeks. What can the Hub do, and what must you not promise?",
+    "The Hub confirms benefits within 2 business days, and eligible commercially insured patients facing a PA delay may get a bridge supply. I must never promise coverage; the Hub confirms each patient's eligibility.",
+    [["A bridge supply", ["bridge"]], ["Only for eligible commercial patients", ["commercial", "eligib"]], ["Never promise coverage", ["promise", "guarantee"]]], PAY, 5),
+  open("li-w13", "c-opening", "lm13", 2, "Write the first two lines you'd say to open a Lumora call.",
+    "“Think of your adult patients still flaring despite topicals. How many did you see this month?” Then: “What makes you decide a patient needs more than topicals?”",
+    [["Leads with the patient type", ["flaring", "topical", "your patients", "adult patients"]], ["Asks how many they see", ["how many", "this month"]], ["Asks a needs question", ["what makes", "decide", "needs more"]]], VA, 1,
+    "Opening on the product name or the price is a fail, even if the rest is right."),
+  open("li-w14", "c-objections", "lm14", 3, "An HCP says, “The prior auth paperwork kills my staff.” Write your response.",
+    "“I hear you, the paperwork is real and it lands on your staff. The Corvana Access Hub runs benefits verification and prepares PA support for your office, and eligible commercially insured patients can use the copay program. Could I send the enrolment form to your nurse?”",
+    [["Acknowledges it first", ["hear you", "understand", "is real", "fair point", "i get"]], ["Describes the Hub's services", ["hub", "benefits verification", "pa support"]], ["Asks for a next step", ["send", "enrol", "form", "next step"]]], OBJ, 2),
+
+  /* ── Multiple choice for the two modules that had none in the final assessment ── */
+  q("li-g7", "c-dosing", "assessment", 2, "On day one, the loading dose is given as:", ["One 500 mg injection", "Two 250 mg injections at different sites", "Two 250 mg injections at the same site", "250 mg, repeated after a week"], 1, "500 mg as two 250 mg injections, at different sites.", PI, 2),
+  q("li-a6", "c-access", "assessment", 2, "A patient's PA is delayed. Who may receive a bridge supply?", ["Any patient", "Eligible commercially insured patients", "Medicare patients only", "Only patients already on the copay program"], 1, "Bridge supply is for eligible commercially insured patients facing a PA delay.", PAY, 5),
 ];
 
 /* Where a competency is taught in more than one module, the module each question tests. The rest go to the module that teaches their competency. */
@@ -89,8 +153,9 @@ const HOME: Record<string, string> = {
   "li-e1": "lm4", "li-e2": "lm4", "li-e3": "lm4", "li-e4": "lm5", "li-e5": "lm4", "li-e6": "lm5",
   "li-g1": "lm6", "li-g2": "lm6", "li-g3": "lm6", "li-g4": "lm6", "li-g5": "lm6", "li-g6": "lm7",
   "li-s1": "lm8", "li-s2": "lm8", "li-s3": "lm8", "li-s4": "lm8", "li-s5": "lm9", "li-s6": "lm8",
-  "li-a1": "lm11", "li-a2": "lm11", "li-a3": "lm11", "li-a4": "lm11", "li-a5": "lm12",
+  "li-a1": "lm11", "li-a2": "lm11", "li-a3": "lm12", "li-a4": "lm11", "li-a5": "lm12", "li-a6": "lm12", "li-g7": "lm7",
   "li-p1": "lm9", "li-p2": "lm9", "li-p3": "lm9", "li-p4": "lm9", "li-p5": "lm9",
 };
 
 export const LUMORA_ITEMS: Item[] = ITEMS.map((i) => (HOME[i.id] ? { ...i, moduleId: HOME[i.id] } : i));
+
