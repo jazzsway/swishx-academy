@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, ChevronRight, X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { IconButton } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
+import { Composer, Suggestions } from "./composer";
 import { BRAINS, type CoItem, type CoReply, type Ctx, type Role, type Tone } from "./brains";
 import { useCopilot } from "./copilot-store";
 
@@ -115,23 +115,15 @@ function RoleCopilot({ role, onGo }: { role: Role; onGo: () => void }) {
             )}
           </div>
         ))}
+        {turns.length === 0 && <Suggestions items={prompts} onPick={send} variant="list" />}
         {thinking && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
         <div ref={endRef} />
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-hair p-3">
-        <div className="flex flex-wrap gap-1.5">
-          {prompts.map((p) => <Chip key={p} size="sm" onClick={() => send(p)}>{p}</Chip>)}
-        </div>
-        <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); send(text); }}>
-          <label className="sr-only" htmlFor={`copilot-${role}`}>Ask SwishX AI Agent</label>
-          <textarea id={`copilot-${role}`} rows={1} value={text} onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(text); } }}
-            placeholder="Ask anything about your work here"
-            className="squircle min-h-[44px] flex-1 resize-none rounded-control border border-hair-2 bg-card px-3 py-2.5 text-body-lg outline-none focus:border-brand" />
-          <IconButton aria-label="Send" type="submit" size={9} tone="brand" className="bg-brand text-white hover:bg-brand-deep hover:text-white"><ArrowUp className="size-4" /></IconButton>
-        </form>
-        <Text size="micro" tone="faint">{brain.scope}</Text>
+      <div className="flex flex-col gap-2.5 border-t border-hair p-3">
+        {turns.length > 0 && <Suggestions items={prompts} onPick={send} variant="row" />}
+        <Composer id={`copilot-${role}`} value={text} onChange={setText} onSend={() => send(text)} busy={thinking}
+          placeholder="Ask anything about your work here" hint={brain.scope} />
       </div>
     </>
   );

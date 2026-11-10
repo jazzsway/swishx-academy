@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowUp, Lock, PencilLine, MessageSquareText, FileText, Paperclip } from "lucide-react"; // v1-hidden: Trash2, Scissors
+import { Lock, PencilLine, MessageSquareText, FileText } from "lucide-react"; // v1-hidden: Trash2, Scissors
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
 import type { Block, Module, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -24,6 +24,7 @@ import { blockFor, howRepsGetIt } from "../materials";
 // v1-hidden: import { clipsFrom } from "./media-builders";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { CopilotOverride } from "@/features/copilot/copilot-panel";
+import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 
 export function CourseEditor() {
@@ -222,6 +223,7 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns, thinking]);
   if (!data) return null;
+  const started = turns.some((x) => x.from === "you");
 
   /* Your own files go into the module you're on, as a proposed change like any other. */
   function attach(files: File[]) {
@@ -295,25 +297,15 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
             )}
           </div>
         ))}
+        {!started && <Suggestions items={suggestions} onPick={send} variant="list" />}
         {thinking && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
         <div ref={endRef} />
       </div>
-      <div className="flex flex-col gap-2 border-t border-hair p-3">
-        <div className="flex flex-wrap gap-1.5">
-          {suggestions.map((s) => <Chip key={s} size="sm" onClick={() => send(s)}>{s}</Chip>)}
-        </div>
-        <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); send(text); }}>
-          <label className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control border border-hair-2 bg-card text-ink-3 hover:bg-subtle hover:text-ink" title="Attach your own video, PDF, slides, image or audio">
-            <Paperclip className="size-4" aria-hidden="true" /><span className="sr-only">Attach a file</span>
-            <input type="file" multiple className="sr-only" onChange={(e) => { attach(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-          </label>
-          <label className="sr-only" htmlFor="course-chat">Message</label>
-          <textarea id="course-chat" rows={2} value={text} onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(text); } }}
-            placeholder={moduleId ? "e.g. Add a short video to this module" : "Ask for a change"}
-            className="squircle min-h-[44px] flex-1 resize-none rounded-control border border-hair-2 bg-card px-3 py-2.5 text-body-lg outline-none focus:border-brand" />
-          <IconButton aria-label="Send" type="submit" size={9} tone="brand" className="bg-brand text-white hover:bg-brand-deep hover:text-white"><ArrowUp className="size-4" /></IconButton>
-        </form>
+      <div className="flex flex-col gap-2.5 border-t border-hair p-3">
+        {started && <Suggestions items={suggestions.slice(0, 4)} onPick={send} variant="row" />}
+        <Composer id="course-chat" value={text} onChange={setText} onSend={() => send(text)} busy={thinking} onAttach={attach}
+          placeholder={moduleId ? "Ask for a change, e.g. add a short video to this module" : "Ask for a change"}
+          hint={`Uses only this course's ${data.course.sourceIds.length} sources. Changes wait for your OK.`} />
       </div>
     </div>
   );
