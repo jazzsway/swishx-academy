@@ -63,7 +63,7 @@ export interface Product {
 export type SourceType =
   | "Prescribing Information" | "Visual aid" | "Clinical summary" | "Objection handler" | "Payer guide" | "Policy" | "Uploaded file";
 
-export type FileFormat = "pdf" | "slides" | "doc" | "video" | "data" | "image" | "other";
+export type FileFormat = "pdf" | "slides" | "doc" | "video" | "audio" | "data" | "image" | "other";
 
 export interface Source {
   id: string;

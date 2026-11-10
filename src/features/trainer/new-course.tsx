@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, Upload, Trash2, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, FileText, Upload, Trash2, ChevronUp, ChevronDown, Wand2, Lock, Plus, Info, X } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { COMPETENCIES, DIVISIONS, SOURCES, competency, domainOf, product } from "@/data/org";
-import { FORMAT_ICON, SourcePreview, formatOf, rememberFile, sourceMeta } from "./source-preview";
-import { USE_LABEL, defaultUse, placeMaterials, type MaterialUse } from "./materials";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
+import { FORMAT_ICON, FORMAT_LABEL, SourcePreview, formatOf, rememberFile } from "./source-preview";
+import { defaultPlace, howRepsGetIt, placeMaterials, type Place } from "./materials";
 import { ProductPicker, type ProductScope } from "./product-picker";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
@@ -120,12 +119,14 @@ export function NewCourseWizard() {
 
   const prod = product(productId);
   const library = [...SOURCES, ...uploads].filter((s) => !s.productId || s.productId === productId);
-  /* Each picked piece is something SwishX learns from, something reps see as it is, or both. */
-  const [uses, setUses] = useState<Record<string, MaterialUse>>({});
-  const useOf = (s: Source) => uses[s.id] ?? defaultUse(s);
+  /* Each picked piece goes in the course (reps see it) or stays background (only SwishX reads it). SwishX reads both. */
+  const [places, setPlaces] = useState<Record<string, Place>>({});
+  const placeOf = (s: Source) => places[s.id] ?? defaultPlace(s);
   const picked = library.filter((s) => sourceIds.includes(s.id));
-  const learnIds = picked.filter((s) => useOf(s) !== "show").map((s) => s.id);
-  const showItems = picked.filter((s) => useOf(s) !== "learn");
+  const learnIds = picked.map((s) => s.id);
+  const showItems = picked.filter((s) => placeOf(s) === "course");
+  const background = picked.filter((s) => placeOf(s) === "background");
+  const suggested = library.filter((s) => !sourceIds.includes(s.id) && !s.uploaded);
   const [yours, setYours] = useState<Record<string, string[]>>({});
   const hasPI = !productId || learnIds.includes(prod?.piSourceId ?? "");
 
@@ -146,6 +147,24 @@ export function NewCourseWizard() {
     setTeams(pr?.divisionId ? [pr.divisionId] : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, scope.mode]);
+
+  /* Uploads land in the section they were dropped in. */
+  function addFiles(files: File[], place: Place) {
+    const added: Source[] = files.map((f, i) => {
+      const id = `up-${Date.now().toString(36)}-${i}`;
+      rememberFile(id, f);
+      return { id, title: f.name.replace(/\.[^.]+$/, ""), type: "Uploaded file", pages: 0, productId: productId || undefined, uploaded: { fileName: f.name, format: formatOf(f.name), at: new Date().toISOString() } };
+    });
+    addUploads(added);
+    setPlaces({ ...places, ...Object.fromEntries(added.map((a) => [a.id, place])) });
+    setSourceIds([...sourceIds, ...added.map((a) => a.id)]);
+  }
+
+  /* Uploads are deleted; library documents go back to the suggestions. */
+  function unpick(s: Source) {
+    if (s.uploaded) removeUpload(s.id);
+    setSourceIds(sourceIds.filter((x) => x !== s.id));
+  }
 
   function buildOutline() {
     setOutlineLoading(true);
@@ -285,58 +304,48 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What do you already have?</Text>
-            <Text tone="subtle" size="body-lg">Add everything for this course in one place. For each piece, say whether SwishX should learn from it, show it to reps as it is, or both. SwishX writes whatever is still missing.</Text>
+            <Text tone="subtle" size="body-lg">Add your own files. SwishX builds the rest.</Text>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="squircle flex flex-col gap-0.5 rounded-panel bg-subtle px-3.5 py-2.5"><Text size="body" weight="semibold">Learn from it</Text><Text size="caption" tone="subtle">SwishX writes lessons and questions from it, and cites it by page.</Text></div>
-            <div className="squircle flex flex-col gap-0.5 rounded-panel bg-subtle px-3.5 py-2.5"><Text size="body" weight="semibold">Show to reps</Text><Text size="caption" tone="subtle">Your video, deck or PDF goes into the course as it is, in the module it fits.</Text></div>
-          </div>
-          {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">SwishX needs to learn from the Prescribing Information for any product course.</div>}
-          <div className="flex flex-col gap-2.5">
-            {library.map((s) => {
-              const on = sourceIds.includes(s.id);
-              const Icon = s.uploaded ? FORMAT_ICON[s.uploaded.format] : FileText;
-              const u = useOf(s);
-              return (
-                <div key={s.id} className={cn("squircle flex flex-wrap items-center gap-3 rounded-panel border p-3.5 transition-colors", on ? "border-brand bg-tint" : "border-hair-2 bg-card")}>
-                  <button type="button" role="checkbox" aria-checked={on} onClick={() => setSourceIds(on ? sourceIds.filter((x) => x !== s.id) : [...sourceIds, s.id])}
-                    className="flex min-w-0 flex-1 basis-[260px] items-center gap-3 text-left">
-                    <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", on ? "bg-brand text-white" : "bg-subtle text-ink-3")}>
-                      {on ? <Check className="size-4" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}
-                    </span>
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-body-lg font-semibold text-ink">{s.title}</span>
-                      <span className="truncate text-caption text-ink-3">{sourceMeta(s)}</span>
-                    </span>
-                  </button>
-                  {on && (
-                    <Segmented aria-label={`How to use ${s.title}`} className="shrink-0">
-                      {(Object.keys(USE_LABEL) as MaterialUse[]).map((k) => <SegmentedButton key={k} active={u === k} onClick={() => setUses({ ...uses, [s.id]: k })}>{USE_LABEL[k]}</SegmentedButton>)}
-                    </Segmented>
-                  )}
-                  <div className="flex shrink-0 gap-1">
-                    <IconButton aria-label={`Preview ${s.title}`} onClick={() => setPreview(s)}><Eye className="size-4" /></IconButton>
-                    {s.uploaded && <IconButton aria-label={`Remove ${s.title}`} tone="danger" onClick={() => { removeUpload(s.id); setSourceIds(sourceIds.filter((x) => x !== s.id)); }}><Trash2 className="size-4" /></IconButton>}
-                  </div>
-                </div>
-              );
+
+          <section className="flex flex-col gap-2.5" aria-label="Put in the course">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <Text as="h2" size="title" weight="bold">Put in the course</Text>
+              <Text size="body" tone="subtle">Reps watch, read or listen to these</Text>
+            </div>
+            {showItems.map((s) => <MaterialRow key={s.id} s={s} sub={howRepsGetIt(s)} move="Background only" onMove={() => setPlaces({ ...places, [s.id]: "background" })} onPreview={() => setPreview(s)} onRemove={() => unpick(s)} />)}
+            <Dropzone label="Drop files reps should see" kinds={["Video", "Audio", "PDF", "Slides", "Image"]} onFiles={(files) => addFiles(files, "course")} />
+          </section>
+
+          <section className="flex flex-col gap-2.5 border-t border-hair pt-5" aria-label="Background for SwishX">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <Text as="h2" size="title" weight="bold">Background for SwishX</Text>
+              <Text size="body" tone="subtle">SwishX writes from these. Reps don&apos;t see them.</Text>
+            </div>
+            {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">Add the Prescribing Information. SwishX needs it for any product course.</div>}
+            {background.map((s) => {
+              const pi = s.id === prod?.piSourceId;
+              return <MaterialRow key={s.id} s={s} sub={pi ? "Always included for a product course" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : "PDF"}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
+                move={pi ? undefined : "Put in the course"} onMove={() => setPlaces({ ...places, [s.id]: "course" })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
             })}
-          </div>
-          <label className="squircle flex cursor-pointer flex-col items-center justify-center gap-1 rounded-panel border border-dashed border-hair-3 px-4 py-5 text-center hover:bg-subtle">
-            <span className="flex items-center gap-2 text-body-lg font-semibold text-ink-2"><Upload className="size-4" aria-hidden="true" />Add your PDFs, decks, videos, images or documents</span>
-            <span className="text-caption text-ink-3">Videos and images start as “Show to reps”, documents as “Both”. Change any of them.</span>
-            <input type="file" className="sr-only" multiple onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              const added: Source[] = files.map((f, i) => {
-                const id = `up-${Date.now().toString(36)}-${i}`;
-                rememberFile(id, f);
-                return { id, title: f.name.replace(/\.[^.]+$/, ""), type: "Uploaded file", pages: 0, productId: productId || undefined, uploaded: { fileName: f.name, format: formatOf(f.name), at: new Date().toISOString() } };
-              });
-              addUploads(added);
-              setSourceIds([...sourceIds, ...added.map((a) => a.id)]);
-              e.target.value = "";
-            }} />
-          </label>
+            {suggested.length > 0 && (
+              <div className="flex flex-col gap-1.5 pt-1">
+                <Text size="caption" weight="bold" tone="subtle">From your product library</Text>
+                {suggested.map((s) => (
+                  <button key={s.id} type="button" onClick={() => setSourceIds([...sourceIds, s.id])}
+                    className="squircle flex items-center gap-3 rounded-panel border border-dashed border-hair-3 bg-card px-3.5 py-2.5 text-left hover:bg-subtle">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-control border border-hair-2 text-ink-3"><Plus className="size-4" aria-hidden="true" /></span>
+                    <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-body-lg font-semibold text-ink-2">{s.title}</span><span className="text-caption text-ink-3">{s.type} · {s.pages} pages</span></span>
+                    <span className="shrink-0 text-body font-semibold text-brand-deep">Add</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <Dropzone label="Add a background document" kinds={["PDF", "Doc", "Data"]} compact onFiles={(files) => addFiles(files, "background")} />
+          </section>
+
+          <Text size="caption" tone="subtle" className="flex items-start gap-1.5 border-t border-hair pt-3">
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />SwishX also reads everything in the course, so it can write questions about your videos and slides.
+          </Text>
           {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
         </Card>
       )}
@@ -402,7 +411,7 @@ export function NewCourseWizard() {
           {outlineLoading && (
             <div className="flex flex-col gap-2.5">
               {[0, 1, 2, 3].map((i) => <div key={i} className="shimmer h-[72px] rounded-panel border border-hair bg-subtle" />)}
-              <Text size="body" tone="subtle" className="dot-cycle">Reading {learnIds.length} documents and placing {showItems.length} of yours<span>.</span><span>.</span><span>.</span></Text>
+              <Text size="body" tone="subtle" className="dot-cycle">Reading {learnIds.length} files and placing {showItems.length} of yours in the course<span>.</span><span>.</span><span>.</span></Text>
             </div>
           )}
           {outline && (
@@ -475,7 +484,7 @@ export function NewCourseWizard() {
           <div className="flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float">
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
               {step === 0 && "Next: add your materials"}
-              {step === 1 && `${learnIds.length} to learn from · ${showItems.length} to show reps`}
+              {step === 1 && `${showItems.length} in the course · ${background.length} in the background`}
               {step === 2 && `${comps.length} competencies`}
               {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
             </Text>
@@ -489,3 +498,43 @@ export function NewCourseWizard() {
   );
 }
 
+
+const FORMAT_TINT: Record<string, string> = {
+  video: "bg-ink text-white", audio: "bg-ok-bg text-ok", image: "bg-info-bg text-info", slides: "bg-tint text-brand-deep", visualaid: "bg-tint text-brand-deep",
+};
+
+/** One file in the Materials step: what it is, how reps get it, and a single move to the other section. */
+function MaterialRow({ s, sub, move, onMove, onPreview, onRemove, locked }: {
+  s: Source; sub: string; move?: string; onMove: () => void; onPreview: () => void; onRemove?: () => void; locked?: boolean;
+}) {
+  const kind = s.uploaded?.format ?? (s.type === "Visual aid" ? "visualaid" : "pdf");
+  const Icon = locked ? Lock : s.uploaded ? FORMAT_ICON[s.uploaded.format] : s.type === "Visual aid" ? FORMAT_ICON.slides : FileText;
+  return (
+    <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair-2 bg-card px-3.5 py-2.5">
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", locked ? "bg-subtle text-ink-3" : FORMAT_TINT[kind] ?? "bg-subtle text-ink-2")}><Icon className="size-4" aria-hidden="true" /></span>
+      <span className="flex min-w-0 flex-1 basis-[220px] flex-col">
+        <span className="truncate text-body-lg font-semibold text-ink">{s.title}</span>
+        <span className="text-caption text-ink-3">{sub}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        {move && <button type="button" onClick={onMove} className="rounded-control px-2 py-1 text-body font-semibold text-ink-3 underline-offset-2 hover:bg-subtle hover:text-ink hover:underline">{move}</button>}
+        <IconButton aria-label={`Preview ${s.title}`} onClick={onPreview}><Eye className="size-4" /></IconButton>
+        {onRemove && <IconButton aria-label={`Remove ${s.title}`} onClick={onRemove}><X className="size-4" /></IconButton>}
+      </span>
+    </div>
+  );
+}
+
+function Dropzone({ label, kinds, compact, onFiles }: { label: string; kinds: string[]; compact?: boolean; onFiles: (files: File[]) => void }) {
+  const [over, setOver] = useState(false);
+  return (
+    <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); onFiles(Array.from(e.dataTransfer.files)); }}
+      className={cn("squircle flex cursor-pointer flex-wrap items-center gap-2.5 rounded-panel border border-dashed px-4 hover:bg-subtle", compact ? "py-2.5" : "py-3.5", over ? "border-brand bg-tint" : "border-hair-3")}>
+      <Upload className="size-4 text-ink-3" aria-hidden="true" />
+      <span className="text-body-lg font-semibold text-ink-2">{label}</span>
+      <span className="flex flex-wrap gap-1.5">{kinds.map((k) => <span key={k} className="rounded-chip border border-hair-2 px-2 py-0.5 text-caption text-ink-3">{k}</span>)}</span>
+      <input type="file" className="sr-only" multiple onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+    </label>
+  );
+}

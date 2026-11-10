@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Film, Image as ImageIcon, Presentation, Sheet, ShieldCheck, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Presentation, Sheet, ShieldCheck, ShieldAlert } from "lucide-react";
 import type { FileFormat, Source } from "@/data/types";
 import { isApproved, product } from "@/data/org";
 import { DOC_PAGES } from "@/data/media";
@@ -20,13 +20,14 @@ export function formatOf(name: string): FileFormat {
   if (["ppt", "pptx", "key"].includes(ext)) return "slides";
   if (["doc", "docx", "txt", "rtf"].includes(ext)) return "doc";
   if (["mp4", "mov", "webm", "m4v"].includes(ext)) return "video";
+  if (["mp3", "m4a", "wav", "aac", "ogg"].includes(ext)) return "audio";
   if (["csv", "tsv", "xls", "xlsx"].includes(ext)) return "data";
   if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
   return "other";
 }
 
-export const FORMAT_LABEL: Record<FileFormat, string> = { pdf: "PDF", slides: "Slides", doc: "Document", video: "Video", data: "Data", image: "Image", other: "File" };
-export const FORMAT_ICON: Record<FileFormat, typeof FileText> = { pdf: FileText, slides: Presentation, doc: FileText, video: Film, data: Sheet, image: ImageIcon, other: FileText };
+export const FORMAT_LABEL: Record<FileFormat, string> = { pdf: "PDF", slides: "Slides", doc: "Document", video: "Video", audio: "Audio", data: "Data", image: "Image", other: "File" };
+export const FORMAT_ICON: Record<FileFormat, typeof FileText> = { pdf: FileText, slides: Presentation, doc: FileText, video: Film, audio: Headphones, data: Sheet, image: ImageIcon, other: FileText };
 
 /** What a tile says about a source: its kind, size and number. */
 export function sourceMeta(s: Source) {
@@ -73,6 +74,7 @@ function UploadedFile({ s }: { s: Source }) {
   if (format === "pdf") return <iframe src={f.url} title={s.title} className="h-[65vh] w-full rounded-control border border-hair-2 bg-white" />;
   if (format === "image") return <img src={f.url} alt={s.title} className="max-h-[65vh] w-full rounded-control border border-hair-2 object-contain" />;
   if (format === "video") return <video src={f.url} controls className="max-h-[65vh] w-full rounded-control bg-ink" />;
+  if (format === "audio") return <audio src={f.url} controls className="w-full" />;
   if (format === "data" && rows) {
     return (
       <div className="max-h-[60vh] overflow-auto rounded-control border border-hair-2">

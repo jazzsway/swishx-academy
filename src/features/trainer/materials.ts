@@ -1,31 +1,44 @@
 import type { Block, Module, Source } from "@/data/types";
-import { documentBlock, videoFromModule, visualAidBlock } from "./course/media-builders";
+import { audioBlock, documentBlock, videoFromModule, visualAidBlock } from "./course/media-builders";
 
 /**
- * What the trainer brings to a course. "learn": SwishX writes from it and cites it.
- * "show": reps see it as it is, inside a module. "both": the two together.
+ * Where a piece the trainer brings goes. "course": reps watch, read or listen to it,
+ * and SwishX reads it too. "background": SwishX writes from it; reps never see it.
  */
-export type MaterialUse = "learn" | "show" | "both";
+export type Place = "course" | "background";
 
-export const USE_LABEL: Record<MaterialUse, string> = { learn: "Learn from it", show: "Show to reps", both: "Both" };
+/** Your own uploads go in the course; product-library documents start as background, except the visual aid. */
+export function defaultPlace(s: Source): Place {
+  if (s.uploaded) return s.uploaded.format === "data" || s.uploaded.format === "other" ? "background" : "course";
+  return s.type === "Visual aid" ? "course" : "background";
+}
 
-/** A sensible starting role: recordings and images are for reps to see, the label is to learn from. */
-export function defaultUse(s: Source): MaterialUse {
-  if (s.uploaded) return s.uploaded.format === "video" || s.uploaded.format === "image" ? "show" : s.uploaded.format === "data" ? "learn" : "both";
-  return s.type === "Visual aid" ? "both" : "learn";
+/** How a rep gets this piece once it's in the course, in plain words. */
+export function howRepsGetIt(s: Source): string {
+  const f = s.uploaded?.format;
+  if (f === "video") return "Video · plays inside the module it fits";
+  if (f === "audio") return "Audio · a listen block reps can play on the road";
+  if (f === "image") return "Image · shown full screen, reps can zoom";
+  if (f === "slides" || s.type === "Visual aid") return `Slides · reps walk through ${s.pages ? `the first ${Math.min(4, s.pages)} pages` : "the pages"}`;
+  if (f === "pdf" || !s.uploaded) return `PDF · reps read ${s.pages ? `pages 1–${Math.min(3, s.pages)}` : "it page by page"}`;
+  return "Document · reps read it in the app";
 }
 
 /* Where a piece belongs, from its title. */
 const PLACE: [RegExp, string][] = [
   [/objection/i, "c-objections"], [/payer|access|hub|cost|coverage|copay/i, "c-access"], [/safety|\bisi\b|risk|warning/i, "c-safety"],
-  [/dos(e|ing)|inject|administ/i, "c-dosing"], [/efficacy|trial|clinical|lumen|study|data/i, "c-efficacy"], [/disease|patient/i, "c-disease"],
+  [/dos(e|ing)|inject|administ/i, "c-dosing"], [/efficacy|trial|clinical|lumen|study|easi|results/i, "c-efficacy"], [/disease|patient/i, "c-disease"],
   [/visual aid|detailer|deck/i, "c-opening"],
 ];
 
 function blockFor(s: Source, m: Module): Block {
   const fmt = s.uploaded?.format;
   if (fmt === "video") return videoFromModule(m, "upload", s.uploaded!.fileName);
-  if (s.type === "Visual aid") return { ...visualAidBlock(m, s.id, Array.from({ length: Math.min(4, s.pages || 4) }, (_, i) => i + 1)), title: s.title };
+  if (fmt === "audio") {
+    const a = audioBlock(m);
+    if (a) return { ...a, title: `Listen: ${s.title}` };
+  }
+  if (fmt === "slides" || s.type === "Visual aid") return { ...visualAidBlock(m, s.id, Array.from({ length: Math.min(4, s.pages || 4) }, (_, i) => i + 1)), title: s.title };
   const pages = fmt === "image" ? [1] : Array.from({ length: Math.min(3, s.pages || 3) }, (_, i) => i + 1);
   return { ...documentBlock(m, s.id, pages, ""), title: `${fmt === "image" ? "View" : "Read"}: ${s.title}` };
 }
