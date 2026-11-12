@@ -21,13 +21,17 @@ export interface TemplateSpec {
   eyebrow: Record<CardRole, string>;
   /** The glow on the module cover, a theme colour. */
   accent: string;
+  /** Readable text in the same hue, for labels on white. */
+  ink: string;
+  /** The kind of course it suits, shown when picking. */
+  bestFor: string;
   /** Example cards for the picker and the sample preview. */
   sample: { title: string; cards: { role: CardRole; title?: string; body: string; say?: string; options?: string[]; answer?: number }[] };
 }
 
 export const TEMPLATES: Record<ShortTemplate, TemplateSpec> = {
   essentials: {
-    label: "Essentials", hint: "Must-know rules and basics, one per card.", accent: "var(--color-info-strong)",
+    label: "Essentials", hint: "Must-know rules and basics, one per card.", accent: "var(--color-info-strong)", ink: "var(--color-info)", bestFor: "Compliance, policies, how-tos",
     eyebrow: { idea: "Know this", point: "Remember", flip: "Quick recall", media: "See it", check: "Check yourself" },
     sample: { title: "Reporting adverse events", cards: [
       { role: "idea", title: "Any mention counts", body: "If an HCP or patient mentions a possible side effect, it's an adverse event, even if they don't think the product caused it." },
@@ -37,7 +41,7 @@ export const TEMPLATES: Record<ShortTemplate, TemplateSpec> = {
     ] },
   },
   glance: {
-    label: "Product at a glance", hint: "The product in a few swipes: who it's for, the data, dosing, safety.", accent: "var(--color-brand)",
+    label: "Product at a glance", hint: "The product in a few swipes: who it's for, the data, dosing, safety.", accent: "var(--color-brand)", ink: "var(--color-brand-deep)", bestFor: "Launches and product refreshers",
     eyebrow: { idea: "Key fact", point: "Remember", flip: "Recall", media: "See it", check: "Quick check" },
     sample: { title: "Lumora at a glance", cards: [
       { role: "idea", title: "Who it's for", body: "Adults with moderate-to-severe atopic dermatitis not controlled on topical prescription therapies." },
@@ -47,7 +51,7 @@ export const TEMPLATES: Record<ShortTemplate, TemplateSpec> = {
     ] },
   },
   objection: {
-    label: "Objection handler", hint: "What you'll hear, what's behind it, and what to say.", accent: "var(--color-accent-violet)",
+    label: "Objection handler", hint: "What you'll hear, what's behind it, and what to say.", accent: "var(--color-accent-violet)", ink: "var(--color-accent-violet)", bestFor: "Access, cost and field pushback",
     eyebrow: { idea: "What's behind it", point: "Say this", flip: "They say · You say", media: "Show this", check: "Your move" },
     sample: { title: "\"It's too expensive\"", cards: [
       { role: "idea", title: "What you'll hear", body: "\"My patients can't afford another biologic.\" It's usually about prior auth and out-of-pocket cost, not price." },
@@ -57,7 +61,7 @@ export const TEMPLATES: Record<ShortTemplate, TemplateSpec> = {
     ] },
   },
   label: {
-    label: "Label update", hint: "What changed, why it matters, what to say now.", accent: "var(--color-warn-on-dark)",
+    label: "Label update", hint: "What changed, why it matters, what to say now.", accent: "var(--color-warn-on-dark)", ink: "var(--color-warn)", bestFor: "Label and safety changes",
     eyebrow: { idea: "What changed", point: "Say it now", flip: "Before · After", media: "On the label", check: "Got it?" },
     sample: { title: "Cardexa October 2026 label", cards: [
       { role: "idea", title: "New contraindication", body: "Don't start Cardexa if eGFR is below 20. It was below 15 in the old label." },
@@ -67,7 +71,7 @@ export const TEMPLATES: Record<ShortTemplate, TemplateSpec> = {
     ] },
   },
   myth: {
-    label: "Myth vs fact", hint: "Common misconceptions, each answered with the source.", accent: "var(--color-ok-on-dark)",
+    label: "Myth vs fact", hint: "Common misconceptions, each answered with the source.", accent: "var(--color-ok-on-dark)", ink: "var(--color-ok)", bestFor: "Disease and category education",
     eyebrow: { idea: "The facts", point: "Fact", flip: "Myth or fact?", media: "See it", check: "Myth or fact?" },
     sample: { title: "Atopic dermatitis myths", cards: [
       { role: "idea", title: "Myth: it's just dry skin", body: "Fact: AD is a chronic, type 2 inflammatory disease. Dry skin is a symptom, not the cause." },

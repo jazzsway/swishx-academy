@@ -31,18 +31,85 @@ function Eyebrow({ role, template, extra }: { role: CardRole; template: ShortTem
   );
 }
 
-/** The dark first card of a module or a sample. */
-export function CoverFace({ template, kicker, title, meta, children }: { template: ShortTemplate; kicker: string; title: string; meta?: string; children?: ReactNode }) {
-  return (
-    <div className="squircle relative flex h-full flex-col overflow-hidden rounded-[28px] bg-ink p-6 text-white">
-      <div className="pointer-events-none absolute inset-0 opacity-80" style={{ background: `radial-gradient(circle at 85% 8%, ${TEMPLATES[template].accent} 0, transparent 55%), radial-gradient(circle at 0% 100%, var(--color-brand-2) 0, transparent 45%)` }} />
-      <div className="relative flex flex-1 flex-col gap-3">
-        <span className="self-start rounded-chip bg-white/15 px-2.5 py-1 text-micro font-bold uppercase tracking-wider text-white/90">{kicker}</span>
-        <div className="mt-auto flex flex-col gap-2">
-          <Text as="h2" size="hero" weight="extrabold" tone="inverse" tracking="tight" className="leading-[1.05]">{title}</Text>
-          {meta && <Text size="body-lg" tone="inverse" className="opacity-75">{meta}</Text>}
+/**
+ * The cover of a short-form course or module, designed per template, around the real title:
+ * Essentials is a checklist, At a glance has quick-fact tiles, Objection handler is a conversation,
+ * Label update carries an "Updated" tape, Myth vs fact is split in two. `mini` shrinks it for pickers.
+ */
+export function CoverFace({ template, kicker, title, meta, children, mini }: { template: ShortTemplate; kicker: string; title: string; meta?: string; children?: ReactNode; mini?: boolean }) {
+  const t = TEMPLATES[template];
+  const z = mini
+    ? { pad: "p-2.5 gap-1.5", kick: "text-[7px] px-1.5 py-0.5", title: "text-[13px] leading-[1.1]", small: "text-[7px]", icon: "size-2.5", dot: "size-3", radius: "rounded-[14px]", grid: "9px" }
+    : { pad: "p-6 gap-3", kick: "text-micro px-2.5 py-1", title: "text-hero leading-[1.05]", small: "text-caption", icon: "size-3.5", dot: "size-5", radius: "rounded-[28px]", grid: "22px" };
+  const Kicker = <span className={cn("self-start rounded-chip bg-white/15 font-bold uppercase tracking-wider text-white/90", z.kick)}>{kicker}</span>;
+  const Title = <h2 className={cn("font-extrabold tracking-tight text-white", z.title, mini ? "line-clamp-4" : "")}>{title}</h2>;
+  const Meta = !mini && meta ? <Text size="body-lg" tone="inverse" className="opacity-75">{meta}</Text> : null;
+  const bar = (w: string, cls = "bg-white/25") => <span className={cn("block h-[3px] rounded-full", mini ? "h-[2px]" : "h-1", cls)} style={{ width: w }} />;
+
+  let body: ReactNode;
+  switch (template) {
+    case "essentials":
+      body = (<>
+        {Kicker}{Title}{Meta}
+        <ul className={cn("mt-auto flex flex-col", mini ? "gap-1" : "gap-2.5")} aria-hidden="true">
+          {["78%", "62%", "70%"].map((w, i) => (
+            <li key={i} className="flex items-center gap-2">
+              <span className={cn("grid shrink-0 place-items-center rounded-full", z.dot)} style={{ background: t.accent }}><Check className={cn("text-white", z.icon)} /></span>{bar(w)}
+            </li>
+          ))}
+        </ul>
+      </>);
+      break;
+    case "glance":
+      body = (<>
+        <span className={cn("absolute rounded-full border-white/25", mini ? "-right-4 -top-4 size-16 border-[6px]" : "-right-10 -top-10 size-44 border-[18px]")} style={{ borderColor: t.accent, opacity: 0.55 }} aria-hidden="true" />
+        {Kicker}<div className="mt-auto flex flex-col gap-1.5">{Title}{Meta}</div>
+        <div className={cn("grid grid-cols-3", mini ? "gap-1" : "gap-2")} aria-hidden="true">
+          {["Who", "Data", "Dose"].map((x) => <span key={x} className={cn("rounded-[6px] bg-white/10 font-bold text-white/80", mini ? "px-1 py-1 text-[7px]" : "rounded-control px-2.5 py-2 text-caption")}>{x}</span>)}
         </div>
-        {children}
+      </>);
+      break;
+    case "objection":
+      body = (<>
+        {Kicker}
+        <div className={cn("relative mt-auto self-start bg-white text-ink", mini ? "max-w-[92%] rounded-[10px] rounded-bl-[3px] p-2" : "max-w-[90%] rounded-[22px] rounded-bl-[6px] p-5")}>
+          <Quote className={cn("mb-1", mini ? "size-2.5" : "size-5")} style={{ color: t.ink }} aria-hidden="true" />
+          <h2 className={cn("font-extrabold tracking-tight", mini ? "line-clamp-3 text-[11px] leading-[1.15]" : "text-display-lg leading-tight")}>{title}</h2>
+        </div>
+        <span className={cn("self-end font-bold text-white", mini ? "rounded-[10px] rounded-br-[3px] px-2 py-1 text-[7px]" : "rounded-[18px] rounded-br-[6px] px-4 py-2.5 text-body")} style={{ background: t.accent }}>Here&apos;s what to say</span>
+        {Meta}
+      </>);
+      break;
+    case "label":
+      body = (<>
+        <span className={cn("absolute rotate-[35deg] text-center font-black uppercase tracking-widest text-ink", mini ? "-right-7 top-3 w-24 py-0.5 text-[7px]" : "-right-16 top-8 w-64 py-1.5 text-caption")} style={{ background: t.accent }} aria-hidden="true">Updated</span>
+        {Kicker}<div className="mt-auto flex flex-col gap-1.5">{Title}{Meta}</div>
+        <div className={cn("flex flex-col", mini ? "gap-1" : "gap-2")} aria-hidden="true">
+          <span className="flex items-center gap-2"><span className={cn("w-9 shrink-0 font-bold text-white/45", z.small)}>Before</span><span className="relative flex-1">{bar("85%", "bg-white/20")}<span className="absolute inset-x-0 top-1/2 h-px bg-white/50" /></span></span>
+          <span className="flex items-center gap-2"><span className={cn("w-9 shrink-0 font-bold", z.small)} style={{ color: t.accent }}>Now</span><span className="flex-1"><span className={cn("block rounded-full", mini ? "h-[2px]" : "h-1")} style={{ width: "70%", background: t.accent }} /></span></span>
+        </div>
+      </>);
+      break;
+    case "myth":
+      body = (<>
+        <div className={cn("flex items-center gap-1.5 bg-white/[0.08] font-bold uppercase tracking-wider text-white/55", mini ? "rounded-[8px] px-2 py-1 text-[7px]" : "rounded-panel px-4 py-3 text-caption")}>
+          <X className={z.icon} aria-hidden="true" /><span className="line-through">Myth</span>
+        </div>
+        <div className="flex flex-1 flex-col justify-center gap-1.5">{Kicker}{Title}{Meta}</div>
+        <div className={cn("flex items-center gap-1.5 font-bold uppercase tracking-wider text-ink", mini ? "rounded-[8px] px-2 py-1 text-[7px]" : "rounded-panel px-4 py-3 text-caption")} style={{ background: t.accent }}>
+          <Check className={z.icon} aria-hidden="true" />Fact
+        </div>
+      </>);
+      break;
+  }
+
+  return (
+    <div className={cn("squircle relative flex h-full flex-col overflow-hidden bg-ink text-white", z.radius, z.pad)}>
+      <div className="pointer-events-none absolute inset-0 opacity-80" style={{ background: `radial-gradient(circle at 85% 8%, ${t.accent} 0, transparent 55%), radial-gradient(circle at 0% 100%, var(--color-brand-2) 0, transparent 45%)` }} />
+      {template === "essentials" && <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)", backgroundSize: `${z.grid} ${z.grid}` }} />}
+      <div className={cn("relative flex flex-1 flex-col", z.pad.split(" ")[1])}>
+        {body}
+        {!mini && children}
       </div>
     </div>
   );
@@ -196,12 +263,12 @@ export function DeckProgress({ index, total, className }: { index: number; total
 }
 
 /** A template's example cards, swipeable, for the course builder's previews. */
-export function SampleDeck({ template, startAt = 0 }: { template: ShortTemplate; startAt?: number }) {
+export function SampleDeck({ template, startAt = 0, title }: { template: ShortTemplate; startAt?: number; title?: string }) {
   const t = TEMPLATES[template];
   const cards: ShortCard[] = t.sample.cards.map((c, i) => c.role === "check"
     ? { id: `s${i}`, blockId: "sample", role: "check", question: c.body, options: c.options ?? [], answer: c.answer ?? 0, rationale: "" }
     : c.role === "idea" || c.role === "point" ? { id: `s${i}`, blockId: "sample", role: c.role, title: c.title, body: c.body, say: c.say } : { id: `s${i}`, blockId: "sample", role: "idea", body: c.body });
-  return <PreviewDeck template={template} kicker={t.label} title={t.sample.title} meta={`${cards.length} cards · about 2 min`} cards={cards} startAt={startAt} />;
+  return <PreviewDeck template={template} kicker={t.label} title={title || t.sample.title} meta={`${cards.length} cards · about 2 min`} cards={cards} startAt={startAt} />;
 }
 
 /** Any cards as a swipeable deck behind a cover, for previews. Nothing is recorded. */

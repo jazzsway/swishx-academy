@@ -245,9 +245,9 @@ export function NewCourseWizard() {
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Type of content</Text>
-            <ContentTypePicker value={form} onChange={setForm} template={template} />
+            <ContentTypePicker value={form} onChange={setForm} template={template} title={title} />
           </div>
-          {form === "short" && <TemplatePicker value={template} onChange={setTemplate} />}
+          {form === "short" && <TemplatePicker value={template} onChange={setTemplate} title={title} />}
           {/* v1-hidden: course type (Personalised / Same for everyone) and "Who is it written for".
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">How do reps go through it?</Text>
