@@ -793,3 +793,16 @@ mark.cite-missing { background: transparent; color: inherit; text-decoration: un
 @media (prefers-reduced-motion: reduce) {
   .sheet-up { animation: none; }
 }
+
+/* Short-form cards slide in from the side they came from. */
+@keyframes card-next {
+  from { opacity: 0; transform: translateX(28px) rotate(1.2deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-prev {
+  from { opacity: 0; transform: translateX(-28px) rotate(-1.2deg); }
+  to { opacity: 1; transform: none; }
+}
+.card-next { animation: card-next 260ms cubic-bezier(.2,.8,.2,1) both; }
+.card-prev { animation: card-prev 260ms cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .card-next, .card-prev { animation: none; } }

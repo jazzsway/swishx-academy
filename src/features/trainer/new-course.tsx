@@ -13,9 +13,11 @@ import { ProductPicker, type ProductScope } from "./product-picker";
 import { LUMORA_ITEMS } from "@/data/courses/lumora-items";
 import { CARDEXA_ITEMS, CARDEXA_V2_MODULES, depthModules, generatedAccessModules, genericProductItems, genericProductModules } from "@/data/courses/other-courses";
 import { LUMORA_LAUNCH_MODULES } from "@/data/courses/lumora-launch";
-import { DURATION, fitsTarget, fmtMinutes, lengthOf, shapeOutline } from "@/lib/outline";
+import { shapeOutline } from "@/lib/outline";
+import { courseCardCount, moduleCards, templateFor } from "@/lib/short-form";
+import { ContentTypePicker, TemplatePicker, VisibilityPicker, type Form } from "./content-type";
 import { suggestCompetencies } from "@/lib/suggest-competencies";
-import type { Module, Source } from "@/data/types";
+import type { Module, ShortTemplate, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -23,15 +25,8 @@ import { Field } from "@/components/ui/field";
 import { Card } from "@/components/patterns/academy";
 import { Portal } from "@/components/ui/portal";
 
-const DURATION_PRESETS = [10, 15, 20, 30, 45, 60, 90];
-
-/** What the picked length means for the course SwishX drafts. */
-function durationHint(m: number) {
-  if (m <= 15) return "A quick refresher reps finish in one sitting. Essentials only, plus safety.";
-  if (m <= 25) return "One sitting. Long recordings and reinforcement are left out to keep it tight.";
-  if (m <= 60) return "SwishX adds deeper modules from the same sources. Reps can stop between modules.";
-  return "A full program. Reps work through it over a few days, module by module.";
-}
+/* The outline is drafted from the same material either way; short form then breaks it into cards. */
+const TARGET_MINUTES = 60;
 
 const STEPS = ["Goal", "Materials", "Competencies", "Outline", "Generate"];
 /* v1-hidden: Competencies is no longer its own step; it sits at the top of Outline. Step numbers stay the same inside. */
@@ -87,10 +82,14 @@ export function NewCourseWizard() {
   const [objective, setObjective] = useState("");
   const [scope, setScope] = useState<ProductScope>({ mode: "product", productId: startProduct, variants: [], indications: [], therapyAreas: [] });
   const productId = scope.mode === "product" ? scope.productId ?? "" : "";
-  const [minutes, setMinutes] = useState(20);
-  const format = lengthOf(minutes);
-  /* v1-hidden: every new course is personalised and written for field reps; the pickers are commented out below. */
-  const [type] = useState<"personalised" | "linear">("personalised");
+  const [form, setForm] = useState<Form>("long");
+  const minutes = TARGET_MINUTES;
+  /* The template follows the title until the trainer picks one. */
+  const [pickedTemplate, setTemplate] = useState<ShortTemplate | null>(null);
+  const template = pickedTemplate ?? templateFor(title);
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  /* Long form is personalised (screening, final assessment, call); short form is the same cards for everyone. v1-hidden: the type and audience pickers are commented out below. */
+  const type: "personalised" | "linear" = form === "short" ? "linear" : "personalised";
   const [writtenFor] = useState<"reps" | "new_hires" | "managers">("reps");
   const [teams, setTeams] = useState<string[]>(["div-imm"]);
   const users = useApp((s) => s.users);
@@ -113,9 +112,8 @@ export function NewCourseWizard() {
   const [outline, setOutline] = useState<Module[] | null>(null);
   const [outlineLoading, setOutlineLoading] = useState(false);
   const [shapeNote, setShapeNote] = useState<{ left: string[]; added: string[] }>({ left: [], added: [] });
-  /* A drafted outline is fitted to the duration, so changing the duration means drafting again. */
-  /* The outline is drafted for the competencies too, so changing them means drafting again. */
-  useEffect(() => { setOutline(null); }, [minutes, comps.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* The outline is drafted for the form and the competencies, so changing either means drafting again. */
+  useEffect(() => { setOutline(null); }, [form, comps.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const [genIndex, setGenIndex] = useState(-1);
 
   const prod = product(productId);
@@ -180,7 +178,8 @@ export function NewCourseWizard() {
       const shaped = shapeOutline(mods, minutes, depthModules(prefix, pr, launch));
       /* Your own pieces go in after shaping, so trimming never drops them. */
       const placed = placeMaterials(shaped.modules, showItems);
-      setOutline(placed.modules);
+      /* Short form has no roleplay call, so practice-call blocks (and modules left empty) go. */
+      setOutline(form === "short" ? placed.modules.map((m) => ({ ...m, blocks: m.blocks.filter((b) => b.type !== "scenario") })).filter((m) => m.blocks.length) : placed.modules);
       setYours(placed.yours);
       setShapeNote({ left: shaped.left, added: shaped.added });
       setOutlineLoading(false);
@@ -190,11 +189,11 @@ export function NewCourseWizard() {
   function generate() {
     if (!outline) return;
     setStep(4);
-    const id = createCourse({ title, productId: productId || undefined, format, type, objective, audience: `${WRITTEN_FOR[writtenFor].label} · ${teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" + ") : "everyone"}`, writtenFor, teams, sourceIds, competencyIds: comps,
+    const id = createCourse({ title, productId: productId || undefined, format: form, template: form === "short" ? template : undefined, visibility: visibility === "public" ? "audience" : "assigned", type, objective, audience: `${WRITTEN_FOR[writtenFor].label} · ${teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" + ") : "everyone"}`, writtenFor, teams, sourceIds, competencyIds: comps,
       scope: { variants: scope.variants, indications: scope.indications, therapyAreas: scope.therapyAreas } });
     const pr = product(productId);
     const items = (productId === "p-cardexa" ? CARDEXA_ITEMS : productId === "p-lumora" || !pr ? LUMORA_ITEMS.filter((it) => comps.includes(it.competency)) : genericProductItems(id, pr)).map((it) => ({ ...it, id: `${id}-${it.id}` }));
-    const hasCall = type === "personalised" && productId === "p-lumora";
+    const hasCall = form === "long" && productId === "p-lumora";
     updateCourse(id, { items, settings: { ...useApp.getState().courses.find((c) => c.id === id)!.settings, screeningCall: false, assessmentCall: hasCall, assessmentScenarioId: hasCall ? "sc-kim" : undefined } });
     let i = 0;
     setGenIndex(0);
@@ -244,19 +243,11 @@ export function NewCourseWizard() {
             <Wand2 className="size-4" aria-hidden="true" />Make it measurable
           </button>
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-baseline justify-between gap-3">
-              <Text size="label" weight="semibold" tone="muted">Rough course duration</Text>
-              <Text size="body-lg" weight="bold" tabular>About {fmtMinutes(minutes)}</Text>
-            </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Duration presets">
-              {DURATION_PRESETS.map((m) => <Chip key={m} size="md" selected={minutes === m} onClick={() => setMinutes(m)}>{fmtMinutes(m)}</Chip>)}
-            </div>
-            <input type="range" aria-label="Rough course duration in minutes" min={DURATION.min} max={DURATION.max} step={DURATION.step} value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))} className="w-full cursor-grab accent-brand active:cursor-grabbing" />
-            <div className="-mt-1.5 flex justify-between text-caption text-ink-4" aria-hidden="true"><span>{fmtMinutes(DURATION.min)}</span><span>{fmtMinutes(DURATION.max)}</span></div>
-            <Text size="caption" tone="subtle">{durationHint(minutes)}</Text>
+          <div className="flex flex-col gap-2">
+            <Text size="label" weight="semibold" tone="muted">Type of content</Text>
+            <ContentTypePicker value={form} onChange={setForm} template={template} />
           </div>
+          {form === "short" && <TemplatePicker value={template} onChange={setTemplate} />}
           {/* v1-hidden: course type (Personalised / Same for everyone) and "Who is it written for".
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">How do reps go through it?</Text>
@@ -295,9 +286,10 @@ export function NewCourseWizard() {
             </div>
             <Text size="caption" tone="subtle">
               {prod && teams.length === 1 && teams[0] === prod.divisionId ? `Matched to ${prod.brand}'s team. ` : ""}
-              About {reach} {writtenFor === "managers" ? "managers" : "reps"}.{/* v1-hidden: They'll find it in the Library. */} You choose exactly who must take it, and by when, when you assign it after MLR approval.
+              About {reach} {writtenFor === "managers" ? "managers" : "reps"}. You choose exactly who must take it, and by when, when you assign it after MLR approval.
             </Text>
           </div>
+          <VisibilityPicker value={visibility} onChange={setVisibility} teams={teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" and ") : "everyone"} />
         </Card>
       )}
 
@@ -433,7 +425,7 @@ export function NewCourseWizard() {
                       {yours[m.id]?.map((t) => <Chip key={t} size="xs" tone="brand">Yours · {t}</Chip>)}
                       {!yours[m.id] && <Chip size="xs" tone="ok">SwishX writes</Chip>}
                       <Chip size="xs">{competency(m.competency).name}</Chip>
-                      <Chip size="xs">{m.minutes} min</Chip>
+                      <Chip size="xs">{form === "short" ? `${moduleCards(m).length} cards` : `${m.minutes} min`}</Chip>
                       {m.required && <Chip size="xs" tone="warn">Required for everyone</Chip>}
                     </div>
                   </div>
@@ -449,11 +441,10 @@ export function NewCourseWizard() {
           )}
           {outline && (() => {
             const mins = outline.reduce((a, m) => a + m.minutes, 0);
-            const fits = fitsTarget(mins, minutes);
             return (
               <div className="flex flex-col gap-2">
-                <Text size="body" tone={fits ? "subtle" : "warn"} weight={fits ? undefined : "semibold"}>
-                  {outline.length} modules · {mins} min · {showItems.length ? `${showItems.length} of your pieces placed, SwishX writes the rest` : "all written by SwishX"} · {fits ? `close to your ${fmtMinutes(minutes)}` : mins < minutes ? `short of your ${fmtMinutes(minutes)}. Add sources to give SwishX more to build from.` : showItems.length ? `over your ${fmtMinutes(minutes)} with your own pieces in it. Remove a module or pick a longer course.` : `over your ${fmtMinutes(minutes)}; the required modules alone take this long`}
+                <Text size="body" tone="subtle">
+                  {outline.length} modules · {form === "short" ? `${courseCardCount(outline)} cards, about ${Math.max(2, Math.round(courseCardCount(outline) * 0.35))} min` : `about ${mins} min`} · {showItems.length ? `${showItems.length} of your pieces placed, SwishX writes the rest` : "all written by SwishX"}
                 </Text>
                 {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}.{/* v1-hidden: Add them to the Library if reps should still find them. */}</Text>}
                 {shapeNote.added.length > 0 && <Text size="caption" tone="subtle">Added for depth, from the same sources: {shapeNote.added.join(", ")}.</Text>}
@@ -466,7 +457,7 @@ export function NewCourseWizard() {
       {step === 4 && outline && (
         <Card>
           <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Writing your course</Text>
-          <Text tone="subtle" size="body-lg">Every sentence is cited to a source page. Questions and the roleplay rubric come next.</Text>
+          <Text tone="subtle" size="body-lg">{form === "short" ? "Breaking every module into cards, each one cited to a source page. Quick checks come next." : "Every sentence is cited to a source page. Questions and the roleplay rubric come next."}</Text>
           <ol className="flex flex-col gap-2">
             {outline.map((m, i) => (
               <li key={m.id} className={cn("squircle flex items-center gap-3 rounded-panel border p-3.5 transition-colors", i < genIndex ? "border-ok-line bg-ok-bg" : i === genIndex ? "shimmer border-tint-line bg-tint" : "border-hair bg-card")}>
@@ -474,12 +465,12 @@ export function NewCourseWizard() {
                   {i < genIndex ? <Check className="size-4" aria-hidden="true" /> : <span className="text-micro font-bold">{i + 1}</span>}
                 </span>
                 <Text size="body-lg" weight="semibold" className="flex-1">{m.title}</Text>
-                <Text size="caption" tone="subtle">{i < genIndex ? `${m.blocks.length} blocks · cited` : i === genIndex ? "Writing…" : "Queued"}</Text>
+                <Text size="caption" tone="subtle">{i < genIndex ? (form === "short" ? `${moduleCards(m).length} cards · cited` : `${m.blocks.length} blocks · cited`) : i === genIndex ? "Writing…" : "Queued"}</Text>
               </li>
             ))}
             <li className={cn("squircle flex items-center gap-3 rounded-panel border p-3.5", genIndex >= outline.length ? "shimmer border-tint-line bg-tint" : "border-hair")}>
               <span className="grid size-7 place-items-center rounded-full bg-black/[0.06] text-micro font-bold text-ink-3">+</span>
-              <Text size="body-lg" weight="semibold" className="flex-1">Question bank and roleplay rubric</Text>
+              <Text size="body-lg" weight="semibold" className="flex-1">{form === "short" ? "Quick checks" : "Question bank and roleplay rubric"}</Text>
             </li>
           </ol>
         </Card>

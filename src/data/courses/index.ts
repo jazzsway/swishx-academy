@@ -1,4 +1,5 @@
 import type { Course, CourseSettings, CourseVersion, Module } from "../types";
+import { templateFor } from "@/lib/short-form";
 import { LUMORA_LAUNCH_MODULES } from "./lumora-launch";
 import { LUMORA_ITEMS } from "./lumora-items";
 import {
@@ -58,7 +59,7 @@ const launch = (...ids: string[]) => LUMORA_LAUNCH_MODULES.filter((m) => ids.inc
 /** Open courses reps can pick up themselves: nobody is assigned them. */
 function libraryCourse(id: string, title: string, objective: string, mods: Module[], scope: { productId?: string; divisionId?: string; everyone?: boolean }, publishedAt: string): Course {
   return {
-    id, title, format: "short", type: "linear", objective, productId: scope.productId, divisionId: scope.divisionId,
+    id, title, format: "short", template: templateFor(title), type: "linear", objective, productId: scope.productId, divisionId: scope.divisionId,
     audience: scope.everyone ? "Everyone" : "Immunology division", sourceIds: scope.productId ? ["src-lum-pi", "src-lum-obj"] : ["src-code"],
     competencyIds: [...new Set(mods.map((m) => m.competency))], modules: mods, items: [], scenarioIds: [],
     settings: defaultSettings("linear", { recertMonths: 24 }),
@@ -70,7 +71,7 @@ function libraryCourse(id: string, title: string, objective: string, mods: Modul
 export function seedCourses(): Course[] {
   const list: Course[] = [
     {
-      id: "c-compliance", title: "Compliance essentials", format: "short", type: "linear",
+      id: "c-compliance", title: "Compliance essentials", format: "short", template: "essentials", type: "linear",
       objective: "Every rep knows the rules for on-label promotion, medical information requests and adverse event reporting.",
       audience: "All field roles", sourceIds: ["src-code"], competencyIds: ["c-compliance"],
       modules: COMPLIANCE_MODULES, items: [], scenarioIds: [],
@@ -86,7 +87,7 @@ export function seedCourses(): Course[] {
       visibility: "everyone", prerequisites: [], allowExplore: true,
     },
     {
-      id: "c-ad101", title: "Atopic dermatitis 101", format: "short", type: "linear",
+      id: "c-ad101", title: "Atopic dermatitis 101", format: "short", template: "myth", type: "linear",
       objective: "New and transferring reps understand atopic dermatitis, how severity is measured, and today's care pathway.",
       audience: "Immunology division", sourceIds: ["src-ad-guide"], competencyIds: ["c-disease", "c-competitive"],
       modules: AD101_MODULES, items: [], scenarioIds: [],
@@ -120,7 +121,7 @@ export function seedCourses(): Course[] {
       visibility: "audience", prerequisites: ["c-compliance", "c-ad101"], allowExplore: true,
     },
     {
-      id: "c-lumora-np", title: "Lumora for nurse practitioners", productId: "p-lumora", format: "short", type: "linear",
+      id: "c-lumora-np", title: "Lumora for nurse practitioners", productId: "p-lumora", format: "short", template: "glance", type: "linear",
       objective: "Reps can support NP-led follow-up visits and the first injection.",
       audience: "Immunology reps", sourceIds: ["src-lum-pi", "src-lum-va", "src-ad-guide"], competencyIds: ["c-opening", "c-dosing"],
       modules: NP_MODULES, items: [], scenarioIds: [],
@@ -135,7 +136,7 @@ export function seedCourses(): Course[] {
       visibility: "audience", prerequisites: [], allowExplore: true,
     },
     {
-      id: "c-cardexa", title: "Cardexa label update 2026", productId: "p-cardexa", format: "short", type: "linear",
+      id: "c-cardexa", title: "Cardexa label update 2026", productId: "p-cardexa", format: "short", template: "label", type: "linear",
       objective: "Every Cardiometabolic rep knows what changed in the October 2026 Cardexa label and delivers the updated safety information.",
       audience: "Cardiometabolic division", sourceIds: ["src-cdx-pi", "src-cdx-va", "src-code"], competencyIds: ["c-safety", "c-dosing", "c-compliance"],
       modules: CARDEXA_V2_MODULES, items: CARDEXA_ITEMS, scenarioIds: [],
@@ -173,6 +174,19 @@ export function seedCourses(): Course[] {
       settings: defaultSettings("personalised", { screeningCall: false, assessmentCall: false, screeningScenarioId: undefined, assessmentScenarioId: undefined, criticalCompetencies: ["c-safety", "c-objections"] }),
       versions: [version("c-skills", 1, clone(launch("lm13", "lm14", "lm11", "lm9"), "skl"), { state: "published", publishedAt: "2026-04-28", history: [{ at: "2026-04-28", by: "Maya Chen", action: "Published" }] })],
       ownerId: MAYA, updatedAt: "2026-04-28", visibility: "assigned", prerequisites: [], allowExplore: false,
+    },
+    /* The flagship's own content as short form: the same approved modules, broken into cards. */
+    {
+      id: "c-lumora-short", title: "Lumora essentials, card by card", productId: "p-lumora", format: "short", template: "glance", type: "linear",
+      objective: "Reps can explain who Lumora is for, how it works, the week-16 data, dosing and the safety information, in a few minutes a day.",
+      audience: "Immunology division", divisionId: "div-imm", sourceIds: ["src-lum-pi", "src-lum-va", "src-lum-p3", "src-ad-guide"],
+      competencyIds: ["c-disease", "c-moa", "c-efficacy", "c-dosing", "c-safety"],
+      modules: clone(launch("lm1", "lm3", "lm4", "lm6", "lm8"), "lsf"), items: [], scenarioIds: [],
+      settings: defaultSettings("linear"),
+      versions: [version("c-lumora-short", 1, clone(launch("lm1", "lm3", "lm4", "lm6", "lm8"), "lsf"), {
+        state: "published", docNumber: "LUM-US-0241", approvedAt: "2026-10-16", expiresAt: "2027-10-16", publishedAt: "2026-10-20",
+        history: [{ at: "2026-10-16", by: "Maya Chen", action: "Recorded approval", note: "LUM-US-0241" }, { at: "2026-10-20", by: "Maya Chen", action: "Published" }] })],
+      ownerId: MAYA, updatedAt: "2026-10-20", visibility: "audience", prerequisites: [], allowExplore: true,
     },
     libraryCourse("c-lib-objections", "Handling the top Lumora objections", "Reps answer the five objections dermatologists raise most, from the approved objection handler.",
       clone(launch("lm14", "lm12"), "lob"), { productId: "p-lumora" }, "2026-09-22"),

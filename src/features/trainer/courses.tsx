@@ -15,6 +15,7 @@ import { Field } from "@/components/ui/field";
 import { Text } from "@/components/ui/text";
 import { VersionChip } from "@/components/patterns/academy";
 import type { Course } from "@/data/types";
+import { courseCardCount } from "@/lib/short-form";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -57,7 +58,7 @@ export function CourseCatalogue() {
           { key: "title", header: "Course", cell: (c) => (
             <div className="flex flex-col gap-0.5 py-1">
               <Text size="body-lg" weight="semibold">{c.title}</Text>
-              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "long" ? "Long" : "Short"} · {c.type === "personalised" ? "Personalised" : "Same for everyone"} · {courseMinutes(c)} min</Text>
+              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "short" ? `Short form · ${courseCardCount(c.modules)} cards` : `Long form · ${c.type === "personalised" ? "Personalised" : "Same for everyone"} · ${courseMinutes(c)} min`}</Text>
             </div>) },
           { key: "state", header: "Current version", cell: (c) => {
             const v = current(c);

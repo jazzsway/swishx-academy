@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
@@ -17,6 +17,11 @@ import { Ring, EmptyState } from "@/components/patterns/academy";
 import { modulesOf, nextStepFor, pathDone, pathModules, pathProgress } from "./use-rep";
 import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { MediaSummary } from "./watch";
+import { moduleCards } from "@/lib/short-form";
+import type { Course as CourseT, Module as ModuleT } from "@/data/types";
+
+/** How big a module is: cards for short form, minutes for long. */
+const span = (c: CourseT, m: ModuleT) => (c.format === "short" ? `${moduleCards(m).length} cards` : `${m.minutes} min`);
 
 const TAG: Record<Progress["assignType"], { label: string; tone: "brand" | "default" | "ok" | "warn" }> = {
   default: { label: "Start here", tone: "brand" }, required: { label: "Required", tone: "warn" }, recommended: { label: "Recommended", tone: "default" }, self: { label: "You chose", tone: "ok" },
@@ -103,7 +108,7 @@ export function RepLearn() {
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Chip size="xs" tone={about === "Company" ? "default" : "brand"}>{about}</Chip>
                   {p && <Chip size="xs" tone="ok">In progress</Chip>}
-                  <Text size="caption" tone="subtle">{mods.reduce((a, m) => a + m.minutes, 0)} min · {mods.length} module{mods.length === 1 ? "" : "s"} · {everyone ? "for everyone" : `for ${team}`}</Text>
+                  <Text size="caption" tone="subtle">{c.format === "short" ? `Short form · ${mods.reduce((a, m) => a + moduleCards(m).length, 0)} cards` : `${mods.reduce((a, m) => a + m.minutes, 0)} min`} · {mods.length} module{mods.length === 1 ? "" : "s"} · {everyone ? "for everyone" : `for ${team}`}</Text>
                 </span>
               </div>
               <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
@@ -167,6 +172,7 @@ export function RepCourse() {
     <div className="flex flex-1 flex-col gap-5 px-4 pt-4">
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
+        {c.format === "short" && <span className="flex items-center gap-1.5 self-start rounded-chip bg-tint px-2.5 py-1 text-caption font-bold text-brand-deep"><Layers className="size-3.5" aria-hidden="true" />Quick · {modulesOf(c).reduce((a, m) => a + moduleCards(m).length, 0)} cards</span>}
         <Text size="body" tone="subtle">v{p.version} · {ASSIGN_LABEL[p.assignType]}{p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}{p.dueAt && p.state !== "certified" && isOverdue(p) ? " · overdue" : ""}</Text>
         {/* v1-hidden: campaigns aren't in v1, so `campaign` is always undefined. */}
         {campaign && p.state !== "certified" && (
@@ -260,7 +266,7 @@ export function RepCourse() {
           </button>
           {showOut && mods.map((m) => (
             <Link key={m.id} href={`/rep/course/${c.id}/learn?module=${m.id}&optional=1`} className="squircle flex items-center justify-between gap-3 rounded-panel border border-hair bg-card px-4 py-3">
-              <Text size="body-lg" weight="semibold">{m.title}</Text><Text size="caption" tone="subtle">{m.minutes} min</Text>
+              <Text size="body-lg" weight="semibold">{m.title}</Text><Text size="caption" tone="subtle">{span(c, m)}</Text>
             </Link>
           ))}
         </section>
@@ -284,8 +290,8 @@ export function RepCourse() {
                       <Text size="body-lg" weight="semibold">{m.title}</Text>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Chip size="xs" tone={reason?.startsWith("Required") ? "warn" : reason?.startsWith("Coaching") ? "brand" : "default"} iconLeft={reason?.startsWith("Required") ? <Lock className="size-2.5" aria-hidden="true" /> : undefined}>{reason}</Chip>
-                        <Text size="micro" tone="subtle">{m.minutes} min</Text>
-                        <MediaSummary module={m} />
+                        <Text size="micro" tone="subtle">{span(c, m)}</Text>
+                        {c.format !== "short" && <MediaSummary module={m} />}
                       </div>
                     </div>
                   </Link>
@@ -381,7 +387,7 @@ export function ExploreModules({ courseId }: { courseId: string }) {
                 <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-caption font-bold", seen === m.blocks.length ? "bg-ok text-white" : "bg-black/[0.06] text-ink-2")}>{seen === m.blocks.length ? <Check className="size-4" aria-hidden="true" /> : i + 1}</span>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <Text size="body-lg" weight="semibold">{m.title}</Text>
-                  <div className="flex flex-wrap items-center gap-2"><Text size="micro" tone="subtle">{m.minutes} min{seen ? ` · ${seen}/${m.blocks.length} seen` : ""}</Text><MediaSummary module={m} /></div>
+                  <div className="flex flex-wrap items-center gap-2"><Text size="micro" tone="subtle">{span(c, m)}{seen ? ` · ${seen}/${m.blocks.length} seen` : ""}</Text>{c.format !== "short" && <MediaSummary module={m} />}</div>
                 </div>
               </Link>
             </li>
@@ -421,7 +427,7 @@ function CourseExplore({ courseId }: { courseId: string }) {
           <div key={m.id} className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-subtle text-micro font-bold text-ink-3">{i + 1}</span>
             <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">{m.title}</Text><Text size="caption" tone="subtle">{m.summary}</Text></span>
-            <Text size="caption" tone="subtle" tabular className="shrink-0">{m.minutes} min</Text>
+            <Text size="caption" tone="subtle" tabular className="shrink-0">{span(c, m)}</Text>
           </div>
         ))}
       </section>

@@ -37,7 +37,9 @@ export function BlockPlayer() {
   const optional = search.get("optional") === "1";
   /* Explore: open anything, not for credit. Also the mode for Library courses the rep hasn't started. */
   const explore = search.get("explore") === "1" || !p || (p.state === "not_started" && !!c?.settings.screening);
-  const moduleId = search.get("module") ?? (p && c ? nextBlock(p, c)?.module.id : undefined);
+  /* Held once the rep earns credit here, so finishing the module doesn't jump to the next one underneath them. */
+  const [pinned, setPinned] = useState<string>();
+  const moduleId = pinned ?? search.get("module") ?? (p && c ? nextBlock(p, c)?.module.id : undefined);
   const mod = useMemo(() => (c ? modulesOf(c).find((m) => m.id === moduleId) ?? (p ? pathModules(p, c)[0] : undefined) : undefined), [c, p, moduleId]);
 
   const material = mod?.blocks.filter((b) => b.type !== "check") ?? [];
@@ -49,6 +51,7 @@ export function BlockPlayer() {
   const [screen, setScreen] = useState<Screen>({ kind: "intro" });
   const [mediaDone, setMediaDone] = useState<Record<string, boolean>>({});
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [retakes, setRetakes] = useState(0);
 
   if (!c || !mod) return <div className="p-4"><EmptyState title="Nothing to learn here" /></div>;
   const path = explore || !p ? modulesOf(c) : pathModules(p, c);
@@ -60,6 +63,7 @@ export function BlockPlayer() {
 
   function credit(b: Block) {
     if (!c || !mod) return;
+    setPinned(mod.id);
     if (explore) {
       s.markExplored(me.id, b.id);
       /* Already learning for credit and this module is in the path: it counts straight away. */
@@ -74,10 +78,17 @@ export function BlockPlayer() {
     s.touchStreak(me.id);
     if (i < material.length - 1) setScreen({ kind: "step", i: i + 1 });
     else if (checks.length) { setAnswers({}); setScreen({ kind: "check", q: 0 }); }
-    else setScreen({ kind: "done" });
+    else { earnModule(); setScreen({ kind: "done" }); }
+  }
+  /* Points count once per module, and only when learning for credit. */
+  function earnModule(checkScore?: number) {
+    if (!p || explore || !c || !mod) return;
+    s.earn(me.id, "module", `Finished ${c.title} · ${mod.title}`, { key: `mod-${p.id}-${mod.id}` });
+    if (checkScore !== undefined) s.earn(me.id, "check", retakes ? "Passed the quick check" : "Passed the quick check, first try", { points: retakes ? 10 : 15, key: `chk-${p.id}-${mod.id}` });
   }
   function goModule(m: Module) {
     setScreen({ kind: "intro" });
+    setPinned(undefined);
     router.replace(`/rep/course/${c!.id}/learn?module=${m.id}${explore ? "&explore=1" : ""}`);
   }
 
@@ -271,11 +282,11 @@ export function BlockPlayer() {
         </div>
         <Footer>
           {passed ? (
-            <Button size="lg" className="flex-1" onClick={() => { checks.forEach(credit); s.touchStreak(me.id); setScreen({ kind: "done" }); }}>Finish module<ArrowRight className="size-4" aria-hidden="true" /></Button>
+            <Button size="lg" className="flex-1" onClick={() => { checks.forEach(credit); s.touchStreak(me.id); earnModule(score); setScreen({ kind: "done" }); }}>Finish module<ArrowRight className="size-4" aria-hidden="true" /></Button>
           ) : (
             <>
               <Button size="lg" variant="secondary" onClick={() => setScreen({ kind: "step", i: 0 })}>Review</Button>
-              <Button size="lg" className="flex-1" onClick={() => { setAnswers({}); setScreen({ kind: "check", q: 0 }); }}><RotateCcw className="size-4" aria-hidden="true" />Retake the check</Button>
+              <Button size="lg" className="flex-1" onClick={() => { setAnswers({}); setRetakes(retakes + 1); setScreen({ kind: "check", q: 0 }); }}><RotateCcw className="size-4" aria-hidden="true" />Retake the check</Button>
             </>
           )}
         </Footer>
@@ -284,7 +295,7 @@ export function BlockPlayer() {
   }
 
   /* ── Module finished ── */
-  return <ModuleDone c={c} mod={mod} explore={explore} optional={optional} nextModule={nextModule} onNext={goModule} />;
+  return <ModuleDone c={c} mod={mod} explore={explore} optional={optional} nextModule={nextModule} onNext={goModule} earned={!p || explore ? 0 : 20 + (checks.length ? (retakes ? 10 : 15) : 0)} />;
 }
 
 function Footer({ children }: { children: React.ReactNode }) {
@@ -313,7 +324,7 @@ function revisitFor(check: Block, material: Block[]) {
   return Math.max(0, k);
 }
 
-function ModuleDone({ c, mod, explore, optional, nextModule, onNext }: { c: Course; mod: Module; explore: boolean; optional: boolean; nextModule?: Module; onNext: (m: Module) => void }) {
+export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earned }: { c: Course; mod: Module; explore: boolean; optional: boolean; nextModule?: Module; onNext: (m: Module) => void; earned: number }) {
   const router = useRouter();
   const me = useMe();
   const p = useApp((s) => s.progress.find((x) => x.userId === me.id && x.courseId === c.id));
@@ -324,7 +335,7 @@ function ModuleDone({ c, mod, explore, optional, nextModule, onNext }: { c: Cour
       <div className={cn("success-pop grid size-20 place-items-center rounded-full text-white", explore ? "bg-ink" : "bg-brand shadow-brand-lift")}><Trophy className="size-9" aria-hidden="true" /></div>
       <Text as="h1" size="hero" weight="extrabold" tracking="tight">{explore ? "Module explored" : allDone ? "Path complete" : "Module done"}</Text>
       <Text size="subhead" tone="muted">{mod.title}{explore ? " · not for credit. It's ticked off if you get certified later." : optional ? " · optional review" : ""}</Text>
-      <span className="rounded-chip bg-tint px-3 py-1 text-body font-bold text-brand-deep">+{mod.blocks.length * 5 + (explore ? 0 : 20)} XP</span>
+      {earned > 0 && <Link href="/rep/leaderboard" className="rounded-chip bg-tint px-3 py-1 text-body font-bold text-brand-deep hover:underline">+{earned} points this month</Link>}
       <div className="mt-auto flex w-full flex-col gap-2">
         {allDone ? (
           linear

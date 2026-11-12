@@ -43,6 +43,7 @@ function detailOf(pathname: string) {
   if (course?.[2]) return { back: `/rep/course/${course[1]}`, label: "Course" };
   if (course) return { back: "/rep/learn", label: "My learning" };
   if (pathname.startsWith("/rep/me/")) return { back: "/rep/me", label: "Me" };
+  if (pathname === "/rep/leaderboard") return { back: "/rep", label: "Home" };
   if (pathname.startsWith("/rep/practice/")) return { back: "/rep/practice", label: "Practice" };
   if (pathname.startsWith("/rep/library") || pathname.startsWith("/rep/watch")) return { back: "/rep/learn", label: "My learning" };
   return { back: "/rep", label: "Home" };

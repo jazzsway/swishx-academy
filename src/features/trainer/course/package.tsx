@@ -12,6 +12,7 @@ import { BlockView, SourceList, BLOCK_META } from "@/features/shared/block-view"
 import { fmtTime } from "@/data/media";
 import type { Block } from "@/data/types";
 import { useCourse } from "./use-course";
+import { courseCardCount } from "@/lib/short-form";
 
 /** ML-2: the review package the trainer submits to PromoMats. Prints to PDF. */
 export function MlrPackage() {
@@ -38,7 +39,7 @@ export function MlrPackage() {
               ["Company", ORG.name], ["Product", product(course.productId) ? `${product(course.productId)!.brand} (${product(course.productId)!.generic})` : "Company training"],
               ["Version", `v${cur.version}`], ["Version ID", cur.versionId],
               ["Prepared", fmtDate(cur.packageAt ?? new Date().toISOString(), true)], ["Owner", "Maya Chen, Commercial Training Lead"],
-              ["Audience", course.audience], ["Duration & type", `${course.format === "long" ? "Long" : "Short"} · ${course.type === "personalised" ? "Personalised" : "Same for everyone"}`],
+              ["Audience", course.audience], ["Format", course.format === "short" ? `Short form · ${courseCardCount(course.modules)} cards` : `Long form · ${course.type === "personalised" ? "Personalised" : "Same for everyone"}`],
             ].map(([k, v]) => <div key={k} className="flex flex-col"><span className="text-caption text-ink-3">{k}</span><span className="font-semibold">{v}</span></div>)}
           </div>
           <div className="rounded-panel border border-warn-line bg-warn-bg px-4 py-3 text-body font-semibold text-warn">For internal training use only. Not for distribution to healthcare professionals.</div>

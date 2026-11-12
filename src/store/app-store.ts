@@ -4,12 +4,13 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   Attempt, AudienceRules, Campaign, Course, CourseSettings, CourseVersion, District, LibraryVisibility, Material, MlrComment,
-  Module, Notification, PracticeSession, Progress, RoleplayResult, Source, User,
+  Module, Notification, PointEvent, PointKind, PracticeSession, Progress, RoleplayResult, Source, User,
 } from "@/data/types";
 import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/library";
 import { seed } from "@/data/seed";
 import { TODAY, registerUploads } from "@/data/org";
 import { buildPath } from "@/lib/learning";
+import { POINTS, seedPoints } from "@/lib/points";
 
 /** The field structure is set up by the SwishX team; clients ask for changes rather than edit it. */
 export interface StructureRequest {
@@ -44,6 +45,8 @@ export interface AppState extends Seeded {
   voiceConsent: Record<string, boolean>;
   streaks: Record<string, { days: number; last: string }>;
   xpBase: Record<string, number>;
+  /** Points reps earned, for the monthly leaderboard. */
+  points: PointEvent[];
   settings: OrgSettings;
   nudges: Record<string, string>;
   materials: Material[];
@@ -68,11 +71,13 @@ export interface AppState extends Seeded {
   completeOnboarding: (userId: string) => void;
   setVoiceConsent: (userId: string, v: boolean) => void;
   touchStreak: (userId: string) => void;
+  /** Adds points. With a key, only once: finishing the same module twice earns once. */
+  earn: (userId: string, kind: PointKind, label: string, opts?: { points?: number; key?: string }) => void;
   notify: (n: Omit<Notification, "id" | "at" | "read">) => void;
   markRead: (userId: string, id?: string) => void;
 
   /* Trainer: courses */
-  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams">) => string;
+  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "template" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams"> & { visibility?: LibraryVisibility }) => string;
   setModules: (courseId: string, modules: Module[]) => void;
   updateCourse: (courseId: string, patch: Partial<Course>) => void;
   updateSettings: (courseId: string, patch: Partial<CourseSettings>) => void;
@@ -146,6 +151,7 @@ function initial() {
     voiceConsent: { "u-david": true } as Record<string, boolean>,
     streaks: { "u-priya": { days: 6, last: "2026-11-05" } } as Record<string, { days: number; last: string }>,
     xpBase: { "u-priya": 940, "u-david": 1320 } as Record<string, number>,
+    points: seedPoints(s.users),
     settings: DEFAULT_SETTINGS,
     nudges: {} as Record<string, string>,
     materials: SEED_MATERIALS,
@@ -223,7 +229,15 @@ export const useApp = create<AppState>()(
           if (cur?.last === today) return {};
           const yesterday = addDays(TODAY.toISOString(), -1);
           const days = cur && cur.last === yesterday ? cur.days + 1 : 1;
-          return { streaks: { ...s.streaks, [userId]: { days, last: today } } };
+          const bonus: PointEvent[] = days > 1 ? [{ id: uid("pt"), userId, at: nowIso(), kind: "streak", points: POINTS.streak.points, label: `Day ${days} of your streak` }] : [];
+          return { streaks: { ...s.streaks, [userId]: { days, last: today } }, points: [...s.points, ...bonus] };
+        }),
+
+      earn: (userId, kind, label, opts) =>
+        set((s) => {
+          const id = opts?.key ? `pt-${opts.key}` : uid("pt");
+          if (opts?.key && s.points.some((e) => e.id === id)) return {};
+          return { points: [...s.points, { id, userId, at: nowIso(), kind, points: opts?.points ?? POINTS[kind].points, label }] };
         }),
 
       notify: (n) =>
@@ -250,7 +264,7 @@ export const useApp = create<AppState>()(
           versions: [{ version: 1, versionId: `NEW-v1-${id.slice(-4)}`, state: "draft", comments: [], acknowledged: [], modules: [],
             history: [{ at: dayStr(nowIso()), by: "Maya Chen", action: "Created with AI" }] }],
           ownerId: "u-maya", updatedAt: dayStr(nowIso()),
-          visibility: "audience", prerequisites: [], allowExplore: true,
+          visibility: c.visibility ?? "audience", prerequisites: [], allowExplore: true,
         };
         set((s) => ({ courses: [course, ...s.courses] }));
         return id;
@@ -436,7 +450,7 @@ export const useApp = create<AppState>()(
           ),
         })),
 
-      submitAssessment: (progressId, attempt) =>
+      submitAssessment: (progressId, attempt) => {
         set((s) => ({
           progress: s.progress.map((p) => {
             if (p.id !== progressId) return p;
@@ -451,7 +465,11 @@ export const useApp = create<AppState>()(
             const redo = new Set(mods.filter((m) => path.moduleIds.includes(m.id)).flatMap((m) => m.blocks.map((b) => b.id)));
             return { ...p, attempts, state: "remediation", path, completedBlocks: p.completedBlocks.filter((b) => !redo.has(b)) };
           }),
-        })),
+        }));
+        const p = get().progress.find((x) => x.id === progressId);
+        const course = get().courses.find((c) => c.id === p?.courseId);
+        if (attempt.passed && p) get().earn(p.userId, "assessment", `Passed the ${course?.title ?? ""} assessment`, { key: `as-${progressId}` });
+      },
 
       attest: (progressId, name) => {
         const s = get();
@@ -468,6 +486,7 @@ export const useApp = create<AppState>()(
                 : { ...x, attestedAt: at, attestName: name, state: "certified", certifiedAt: dayStr(at), certExpiresAt: addDays(at, course.settings.recertMonths * 30) },
           ),
         }));
+        if (!needsManager) get().earn(user.id, "certified", `Certified · ${course.title}`, { key: `cert-${progressId}` });
         if (needsManager && user.managerId) {
           get().notify({ userId: user.managerId, title: "Waiting for your sign-off", body: `${user.name} passed ${course.title}. Review the recorded call.`, href: `/manager/verify/${progressId}` });
         }
@@ -477,6 +496,8 @@ export const useApp = create<AppState>()(
         const id = uid("ps");
         const deletesAt = addDays(nowIso(), get().settings.practiceRetentionDays);
         set((s) => ({ practice: [{ ...sess, id, deletesAt }, ...s.practice] }));
+        /* Points only: what happened in the session stays private to the rep. */
+        get().earn(sess.userId, "practice", sess.kind === "roleplay" ? "Practice call" : "Practice quiz", { points: sess.kind === "roleplay" ? 15 : 10, key: `ps-${id}` });
         return id;
       },
       setPracticeShared: (id, shared) => {
@@ -508,6 +529,7 @@ export const useApp = create<AppState>()(
             return { ...x, verify, coachingNotes: notes, state: "needs_coaching", path, completedBlocks: x.completedBlocks.filter((b) => !redo.has(b)) };
           }),
         }));
+        if (d.approve) get().earn(p.userId, "certified", `Certified · ${course.title}`, { key: `cert-${progressId}` });
         get().notify({
           userId: p.userId,
           title: d.approve ? `You're certified on ${course.title}` : "Your manager left coaching notes",
@@ -571,7 +593,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 22,
+      version: 23,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

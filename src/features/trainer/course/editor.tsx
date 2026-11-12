@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { ChevronRight, ListChecks, Lock, PencilLine, MessageSquareText, FileText } from "lucide-react"; // v1-hidden: Trash2, Scissors
+import { ChevronRight, ListChecks, Lock, PencilLine, MessageSquareText, FileText, Smartphone } from "lucide-react"; // v1-hidden: Trash2, Scissors
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { revealTop } from "@/lib/scroll";
@@ -17,6 +17,8 @@ import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 // v1-hidden: import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view";
+import { blockCards, moduleCards, TEMPLATES } from "@/lib/short-form";
+import { MiniCard, PreviewDeck } from "@/features/shortform/card-deck";
 import { useCourse } from "./use-course";
 import { applyChanges, respond, SUGGESTIONS, type ChatTurn } from "./chat";
 import { runChecks } from "./checks";
@@ -41,6 +43,8 @@ export function CourseEditor() {
   /* Switching module shows the new one from its top; the index pane stays where it is. */
   const pick = (mid: string) => { setSelected(mid); revealTop(paneTop.current); };
   const [editing, setEditing] = useState<{ moduleId: string; block: Block } | null>(null);
+  /* Short form: the module as reps see it, opened at a card. */
+  const [deckAt, setDeckAt] = useState<number | null>(null);
   const { message, open } = useToast();
   const copilotOpen = useCopilot((s) => s.open);
   const setCopilotOpen = useCopilot((s) => s.setOpen);
@@ -99,11 +103,14 @@ export function CourseEditor() {
                   <Text as="h2" size="display" weight="bold" tracking="tight">{mod.title}</Text>
                   <Text size="body-lg" tone="subtle">{mod.summary}</Text>
                 </div>
-                {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
+                <div className="flex flex-wrap gap-2">
+                  {course.format === "short" && <Button variant="secondary" size="sm" onClick={() => setDeckAt(0)}><Smartphone className="size-4" aria-hidden="true" />Preview as rep</Button>}
+                  {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>
-                <Chip size="md">{mod.minutes} min</Chip>
+                <Chip size="md">{course.format === "short" ? `${moduleCards(mod).length} cards · ${TEMPLATES[course.template ?? "essentials"].label}` : `${mod.minutes} min`}</Chip>
                 {course.type === "personalised" && <Chip size="md" iconLeft={mod.required ? <Lock className="size-3.5" aria-hidden="true" /> : undefined}>{mod.required ? "Required for everyone" : `Personalisable · ${mod.tier === "core" ? "core" : "extra practice"}`}</Chip>}
                 {/* v1-hidden: the Required / Personalisable toggle. Ask the agent: "Make this module required".
                 {course.type === "personalised" && (
@@ -151,7 +158,23 @@ export function CourseEditor() {
                     )}
                     */}
                   </header>
-                  <BlockView block={b} sourceIds={course.sourceIds} flag siblings={mod.blocks} />
+                  {course.format === "short" ? (() => {
+                    const all = moduleCards(mod);
+                    const mine = blockCards(b).filter((x) => x.role !== "check");
+                    return (
+                      <>
+                        {mine.length > 0 && (
+                          <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-2">
+                            {mine.map((x) => <MiniCard key={x.id} card={x} template={course.template ?? "essentials"} onClick={() => setDeckAt(all.findIndex((y) => y.id === x.id) + 1)} />)}
+                          </div>
+                        )}
+                        <details className="group">
+                          <summary className="cursor-pointer text-caption font-semibold text-ink-3 hover:text-ink">Source material these {mine.length} cards come from</summary>
+                          <div className="pt-3"><BlockView block={b} sourceIds={course.sourceIds} flag siblings={mod.blocks} /></div>
+                        </details>
+                      </>
+                    );
+                  })() : <BlockView block={b} sourceIds={course.sourceIds} flag siblings={mod.blocks} />}
                   {blockIssues.length > 0 && (
                     <div className="flex flex-col gap-1.5 border-t border-hair pt-3">
                       {blockIssues.map((f) => (
@@ -200,6 +223,14 @@ export function CourseEditor() {
         <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={fresh} issues={issues.length} onApply={apply} />
       </CopilotOverride>}
 
+      {deckAt !== null && mod && (
+        <Modal open onClose={() => setDeckAt(null)} size="md" title={`Preview as rep · ${mod.title}`} description={`${moduleCards(mod).length} cards in the ${TEMPLATES[course.template ?? "essentials"].label} template. Nothing is recorded.`}>
+          <div className="mx-auto flex h-[min(600px,66vh)] w-full max-w-[380px] flex-col overflow-hidden rounded-[32px] border-[6px] border-ink bg-canvas p-4">
+            <PreviewDeck template={course.template ?? "essentials"} kicker={`${TEMPLATES[course.template ?? "essentials"].label} · ${mod.title}`} title={mod.title}
+              meta={`${moduleCards(mod).length} cards · ${competency(mod.competency)?.name}`} cards={moduleCards(mod)} sourceIds={course.sourceIds} startAt={deckAt} />
+          </div>
+        </Modal>
+      )}
       {editing && <EditBlockModal editing={editing} onClose={() => setEditing(null)} onSave={(block) => {
         const m = modules.find((x) => x.id === editing.moduleId)!;
         patchModule(m.id, { blocks: m.blocks.map((b) => (b.id === block.id ? block : b)) });

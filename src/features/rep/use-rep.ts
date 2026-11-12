@@ -6,6 +6,11 @@ import type { Course, Module, Progress } from "@/data/types";
 import { competency } from "@/data/org";
 import { pathMinutes } from "@/lib/learning";
 import { unmetPrereqs } from "@/features/library/library-data";
+import { blockCards } from "@/lib/short-form";
+
+/** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
+const blockMinutes = (c: Course, b: Module["blocks"][number]) => (c.format === "short" ? blockCards(b).length / 3 : b.minutes);
+export const moduleMinutes = (c: Course, m: Module) => Math.max(1, Math.round(m.blocks.reduce((a, b) => a + blockMinutes(c, b), 0)));
 
 export const modulesOf = (c: Course) => (live(c) ?? current(c)).modules;
 
@@ -32,8 +37,9 @@ export function pathProgress(p: Progress, c: Course) {
   const total = mods.reduce((a, m) => a + m.blocks.length, 0);
   const done = mods.reduce((a, m) => a + m.blocks.filter((b) => p.completedBlocks.includes(b.id)).length, 0);
   const modulesDone = mods.filter((m) => m.blocks.every((b) => p.completedBlocks.includes(b.id))).length;
-  const minutesLeft = mods.reduce((a, m) => a + m.blocks.filter((b) => !p.completedBlocks.includes(b.id)).reduce((x, b) => x + b.minutes, 0), 0);
-  return { total, done, pct: total ? Math.round((done / total) * 100) : 0, modulesDone, modules: mods.length, minutesLeft, fullMinutes: pathMinutes(modulesOf(c), modulesOf(c).map((m) => m.id)) };
+  const minutesLeft = Math.round(mods.reduce((a, m) => a + m.blocks.filter((b) => !p.completedBlocks.includes(b.id)).reduce((x, b) => x + blockMinutes(c, b), 0), 0));
+  const fullMinutes = c.format === "short" ? modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) : pathMinutes(modulesOf(c), modulesOf(c).map((m) => m.id));
+  return { total, done, pct: total ? Math.round((done / total) * 100) : 0, modulesDone, modules: mods.length, minutesLeft, fullMinutes };
 }
 
 export interface NextStep {
@@ -54,7 +60,7 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
   if (p.state === "not_started")
     return c.settings.screening
       ? { progress: p, course: c, eyebrow: c.title, title: "Take your screening", why: "About 15 minutes. It skips what you already know.", cta: "Start screening", href: `${base}/screening`, minutes: 15 }
-      : { progress: p, course: c, eyebrow: c.title, title: "Start the course", why: `${modulesOf(c).length} short modules`, cta: "Start", href: `${base}/learn`, minutes: modulesOf(c).reduce((a, m) => a + m.minutes, 0) };
+      : { progress: p, course: c, eyebrow: c.title, title: "Start the course", why: c.format === "short" ? `${modulesOf(c).length} modules of swipeable cards` : `${modulesOf(c).length} short modules`, cta: "Start", href: `${base}/learn`, minutes: modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) };
   if (p.state === "screening") return { progress: p, course: c, eyebrow: c.title, title: "Finish your screening", why: "Pick up where you left off.", cta: "Continue screening", href: `${base}/screening`, minutes: 10 };
   const nb = nextBlock(p, c);
   if (nb) {

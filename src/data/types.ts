@@ -279,7 +279,10 @@ export interface Course {
   id: string;
   title: string;
   productId?: string;
+  /** long: modules of videos, documents and decks. short: the same content broken into swipeable cards. */
   format: "long" | "short";
+  /** Short form only: the card template SwishX writes to. */
+  template?: ShortTemplate;
   type: "personalised" | "linear";
   objective: string;
   audience: string;
@@ -311,6 +314,13 @@ export interface Course {
 }
 
 export type LibraryVisibility = "assigned" | "audience" | "everyone";
+
+export type ShortTemplate = "essentials" | "glance" | "objection" | "label" | "myth";
+
+export type PointKind = "module" | "check" | "practice" | "assessment" | "certified" | "streak";
+
+/** Points a rep earned, for the monthly leaderboard. */
+export interface PointEvent { id: string; userId: string; at: string; kind: PointKind; points: number; label: string }
 
 /** A standalone Library item: an approved piece published on its own, or a playlist of approved blocks. */
 export interface Material {

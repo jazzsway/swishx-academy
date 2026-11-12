@@ -228,6 +228,13 @@ export function seed(): SeedState {
     completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
   });
 
+  /* And the short-form version, recommended alongside it for a few minutes a day. */
+  progress.push({
+    id: "p-u-priya-lumshort", userId: "u-priya", courseId: "c-lumora-short", version: 1, state: "not_started",
+    assignedAt: "2026-11-05", dueAt: "2026-11-20", assignType: "recommended",
+    completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
+  });
+
   /* Priya's first months: a personalised skills course she was screened on, failed once, then passed. Her record shows the whole arc. */
   const skills = courses.find((c) => c.id === "c-skills")!;
   const pScreen = { "c-opening": 62, "c-objections": 41, "c-access": 38, "c-safety": 66, "c-compliance": 72 };

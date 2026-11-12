@@ -13,6 +13,7 @@ import { Text } from "@/components/ui/text";
 import { Ring, FictionalNote } from "@/components/patterns/academy";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useRep, pathProgress, pathModules } from "./use-rep";
+import { RankCard } from "./leaderboard";
 // v1-hidden: import { QuickWatchRail } from "./watch";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
@@ -109,6 +110,8 @@ export function RepHome() {
           <Text size="body-lg" tone="inverse">You&apos;re all caught up. Rehearse your next meeting?</Text>
         </section>
       )}
+
+      <RankCard />
 
       {active.length > 0 && (
         <section className="flex flex-col gap-2.5">

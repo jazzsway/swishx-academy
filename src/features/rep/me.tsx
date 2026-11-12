@@ -16,6 +16,7 @@ import { Ring, Avatar } from "@/components/patterns/academy";
 import { Field } from "@/components/ui/field";
 import { BottomActions } from "@/features/shell/bottom-actions";
 import { BrandMark } from "@/features/shell/brand";
+import { RankCard } from "./leaderboard";
 
 export function RepMe() {
   const me = useMe();
@@ -52,6 +53,8 @@ export function RepMe() {
         <div className="flex gap-1.5">{LEVELS.map((l, i) => <div key={l.name} className="flex flex-1 flex-col gap-1"><div className={cn("h-1.5 rounded-full", i < xp.level ? "bg-brand" : "bg-white/15")} /><span className="text-micro text-white/60">{l.name}</span></div>)}</div>
         <Text size="caption" tone="inverse" className="opacity-60">XP comes from learning and practice. Attestations and safety acknowledgements never earn XP.</Text>
       </section>
+
+      <RankCard />
 
       {/* v1-hidden: badges.
       <section className="flex flex-col gap-2.5">

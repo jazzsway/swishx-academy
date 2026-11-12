@@ -14,6 +14,7 @@ import { TabNav } from "@/components/patterns/tab-nav";
 import { VersionChip } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
 import { questionCount } from "./question-index";
+import { courseCardCount } from "@/lib/short-form";
 
 export function CourseFrame({ children }: { children: ReactNode }) {
   const { id } = useParams<{ id: string }>();
@@ -60,7 +61,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
             <span className="font-semibold text-ink">v{cur.version}</span>
             <VersionChip state={cur.state} />
             {lv && lv.version !== cur.version && <span>· v{lv.version} live</span>}
-            <span>· {product(course.productId)?.brand ?? "Company"}{course.scope?.indications.length ? ` (${course.scope.indications.join(" + ")})` : course.scope?.variants.length ? ` (${course.scope.variants.join(", ")})` : ""} · {course.format === "long" ? "Long" : "Short"} · {course.type === "personalised" ? "Personalised" : "Same for everyone"} · {courseMinutes(course)} min</span>
+            <span>· {product(course.productId)?.brand ?? "Company"}{course.scope?.indications.length ? ` (${course.scope.indications.join(" + ")})` : course.scope?.variants.length ? ` (${course.scope.variants.join(", ")})` : ""} · {course.format === "short" ? `Short form · ${courseCardCount(course.modules)} cards` : `Long form · ${course.type === "personalised" ? "Personalised" : "Same for everyone"} · ${courseMinutes(course)} min`}</span>
             <span>· updated {fmtDate(course.updatedAt)}</span>
           </div>
         </div>
