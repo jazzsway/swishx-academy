@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   /* Admin became the trainer's Settings; keep old links working. */
   async redirects() {
     return [
+      { source: "/trainer/leaderboard", destination: "/trainer/analytics#leaderboard", permanent: false },
       { source: "/admin", destination: "/trainer/settings", permanent: true },
       { source: "/admin/settings", destination: "/trainer/settings/compliance", permanent: true },
       { source: "/admin/:path*", destination: "/trainer/settings/:path*", permanent: true },

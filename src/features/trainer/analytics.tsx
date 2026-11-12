@@ -16,6 +16,7 @@ import { PageHeading } from "@/components/patterns/page-heading";
 import { Avatar, Card, Dot, Meter, Stat, bandCellClass } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { COMPARATIVE_HINTS, OFF_LABEL_HINTS } from "@/features/library/library-data";
+import { LeaderboardSection } from "./leaderboard";
 
 const finalScore = (p: Progress) => p.attempts.filter((a) => a.passed).at(-1)?.overall ?? p.attempts.at(-1)?.overall;
 const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
@@ -90,7 +91,7 @@ export function TrainerAnalytics() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Analytics" description="Is training working, who's getting through, and where to act. Filter by course or region; open a person in Teams."
+      <PageHeading title="Analytics" description="Is training working, who's getting through, who's learning most this month, and where to act. Filter by course or region; open a person in Teams."
         actions={<>
           <select aria-label="Course" value={scope} onChange={(e) => setScope(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
             <option value="all">All courses</option>
@@ -227,7 +228,10 @@ export function TrainerAnalytics() {
           rows={improved.map(({ p, u, c, gain }) => ({ id: p.id, href: `/trainer/people/${u.id}?course=${c.id}`, initials: u.initials, name: u.name, sub: `${c.title} · ${p.screening!.overall} → ${finalScore(p)}`, badge: `+${gain}`, tone: "ok" as const }))} />
       </div>
 
-      {/* 6 · Content */}
+      {/* 6 · Leaderboard */}
+      <LeaderboardSection region={region} />
+
+      {/* 7 · Content */}
       <div className="grid gap-5 lg:grid-cols-3">
         <Card title="Content signals" eyebrow="Worth a look this week">
           <Link href="/trainer/courses/c-lumora-launch?module=lm4" className="group flex items-start gap-3">

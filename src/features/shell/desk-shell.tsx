@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, LineChart, Home, PanelLeftClose, PanelLeftOpen, Trophy } from "lucide-react";
+import { BarChart3, BookOpen, Users, ShieldCheck, Settings2, GraduationCap, Menu, X, LineChart, Home, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
@@ -36,7 +36,6 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
       { label: "Insights", items: [
         { label: "Analytics", href: "/trainer/analytics", icon: <LineChart {...I} /> },
         { label: "Teams", href: "/trainer/records", icon: <Users {...I} /> },
-        { label: "Leaderboard", href: "/trainer/leaderboard", icon: <Trophy {...I} /> },
       ] },
       { label: "Workspace", items: [{ label: "Settings", href: "/trainer/settings", icon: <Settings2 {...I} /> }] },
     ];
