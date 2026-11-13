@@ -18,10 +18,11 @@ import { CopilotOverride } from "@/features/copilot/copilot-panel";
 import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
+import { SourcePreview } from "../source-preview";
 
 type Role = "screening" | "final";
 const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind === "config" ? "config" : f.kind);
-const PART_LABEL = { knows: "What she knows", behaves: "How she behaves", settings: "Call settings", brief: "The rep's brief" } as const;
+const PART_LABEL = { knows: "What she knows", behaves: "How she behaves", settings: "Call settings" } as const;
 const initials = (name: string) => name.replace(/^(Dr|NP)\.?\s*/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
 const DOCTORS = ["Dr. Lena Kim", "Dr. Elena Ruiz", "Dr. Marcus Hale", "NP Ana Ruiz", "Dr. Priya Raman", "Dr. Owen Brooks", "Dr. Sofia Alvarez"];
 
@@ -57,7 +58,7 @@ function label(f: CallFocus, sc: Scenario, obs: Objection[]) {
   if (f.kind === "opening") return "The opening";
   if (f.kind === "close") return "The close";
   if (f.kind === "rubric") return "The scorecard";
-  if (f.kind === "config") return PART_LABEL[f.part];
+  if (f.kind === "config") return f.part === "brief" ? "Call settings" : PART_LABEL[f.part];
   if (f.kind === "objection") { const i = obs.findIndex((o) => o.id === f.id); return `Objection ${i + 1} · ${obs[i]?.label ?? ""}`; }
   return `Never say · ${prohibited(f.id)?.label ?? ""}`;
 }
@@ -82,6 +83,8 @@ export function RoleplaySetup() {
   const [attached, setAttached] = useState<CallFocus | null>(null);
   const [flash, setFlash] = useState<{ keys: string[]; n: number }>({ keys: [], n: 0 });
   const [confirmRemove, setConfirmRemove] = useState(false);
+  /* A document opened from the doctor's tile. */
+  const [preview, setPreview] = useState<string | null>(null);
   const course = data?.course;
   const scs = useMemo(() => (course ? allScenarios().filter((x) => course.scenarioIds.includes(x.id)) : []), [course, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const sc = scs.find((x) => x.id === search.get("sc")) ?? scs[0];
@@ -164,7 +167,7 @@ export function RoleplaySetup() {
             <Text size="body-lg" tone="muted">{sc.persona.specialty} · {sc.persona.setting} · about {sc.durationMin} min</Text>
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
               {sc.persona.traits.map((t) => <Chip key={t} size="sm">{t}</Chip>)}
-              {sc.custom?.sourceIds.map((sid) => <span key={sid} className="inline-flex items-center gap-1 rounded-glyph bg-info-bg px-1.5 py-0.5 text-micro font-bold text-info"><FileText className="size-3" aria-hidden="true" />{source(sid)?.title ?? "Your document"}{sid === sc.custom!.sellingModelId ? " · scoring" : ""}</span>)}
+              {sc.custom?.sourceIds.map((sid) => <button key={sid} type="button" onClick={() => setPreview(sid)} title="Preview" className="inline-flex items-center gap-1 rounded-glyph bg-info-bg px-1.5 py-0.5 text-micro font-bold text-info transition-colors hover:bg-info hover:text-white"><FileText className="size-3" aria-hidden="true" />{source(sid)?.title ?? "Your document"}{sid === sc.custom!.sellingModelId ? " · scoring" : ""}</button>)}
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
@@ -174,7 +177,7 @@ export function RoleplaySetup() {
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
         </div>
-        <HowItWorks sc={sc} course={course} roles={roles} canEdit={canEdit} flash={flashing({ kind: "config", part: "knows" }) ? flash.n : 0} onChat={(part) => addToChat({ kind: "config", part })} />
+        <HowItWorks sc={sc} course={course} roles={roles} canEdit={canEdit} flash={flashing({ kind: "config", part: "knows" }) ? flash.n : 0} onChat={(part) => addToChat({ kind: "config", part })} onPreview={setPreview} />
       </section>
 
       {!sc.custom && editable && (
@@ -206,6 +209,7 @@ export function RoleplaySetup() {
           : <button type="button" onClick={() => setConfirmRemove(true)} className="flex items-center gap-1.5 self-start px-1 text-caption font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Remove this actor</button>
       )}
       {chat}
+      {preview && source(preview) && <SourcePreview s={source(preview)!} onClose={() => setPreview(null)} />}
     </div>
   );
 }
@@ -600,8 +604,8 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
  * How this doctor works, in the doctor's tile: what she knows (her materials), how she behaves (her
  * rules), the call settings, and the brief reps see before the call. Read-only: change it through chat.
  */
-function HowItWorks({ sc, course, roles, canEdit, flash, onChat }: {
-  sc: Scenario; course: Course; roles: { screening: boolean; final: boolean; practice: boolean }; canEdit: boolean; flash: number; onChat: (part: keyof typeof PART_LABEL) => void;
+function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
+  sc: Scenario; course: Course; roles: { screening: boolean; final: boolean; practice: boolean }; canEdit: boolean; flash: number; onChat: (part: keyof typeof PART_LABEL) => void; onPreview: (sourceId: string) => void;
 }) {
   const [part, setPart] = useState<keyof typeof PART_LABEL>("knows");
   const cfg = configOf(sc);
@@ -647,9 +651,12 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat }: {
         {part === "knows" && (
           <ul className="flex flex-col divide-y divide-hair rounded-panel border border-hair">
             {cfg.materials.map((m) => (
-              <li key={m.sourceId} className="flex flex-wrap items-start gap-x-3 gap-y-0.5 px-3 py-2">
-                <span className="flex min-w-[220px] items-center gap-1.5 text-body font-semibold text-ink"><FileText className="size-4 shrink-0 text-info" aria-hidden="true" />{source(m.sourceId)?.title ?? "Your document"}{m.pages ? `, pages ${m.pages}` : ""}</span>
-                <span className="min-w-0 flex-1 text-body text-ink-3">{m.use}</span>
+              <li key={m.sourceId}>
+                <button type="button" onClick={() => onPreview(m.sourceId)} className="group flex w-full flex-wrap items-start gap-x-3 gap-y-0.5 px-3 py-2 text-left transition-colors hover:bg-subtle">
+                  <span className="flex min-w-[220px] items-center gap-1.5 text-body font-semibold text-ink group-hover:text-info"><FileText className="size-4 shrink-0 text-info" aria-hidden="true" />{source(m.sourceId)?.title ?? "Your document"}{m.pages ? `, pages ${m.pages}` : ""}</span>
+                  <span className="min-w-0 flex-1 text-body text-ink-3">{m.use}</span>
+                  <span className="hidden shrink-0 text-caption font-semibold text-info group-hover:inline">Preview</span>
+                </button>
               </li>
             ))}
             <li className="flex items-start gap-2 px-3 py-2 text-body text-ink-3"><Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Nothing else: {she} won&apos;t invent data, prices or comparisons, and challenges claims that aren&apos;t in these.</li>
@@ -665,13 +672,13 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat }: {
           </ul>
         )}
         {part === "settings" && (
+          <div className="flex flex-col gap-4">
           <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
             {settings.map(([k, v]) => (
               <div key={k} className="flex gap-3 text-body"><dt className="w-20 shrink-0 font-semibold text-ink-3">{k}</dt><dd className="text-ink">{v}</dd></div>
             ))}
           </dl>
-        )}
-        {part === "brief" && (
+          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="border-t border-hair pt-3">What reps see before the call</Text>
           <div className="flex flex-wrap items-start gap-4">
             <div className="squircle flex w-full max-w-[340px] flex-col gap-2.5 rounded-[22px] bg-ink p-4 text-white shadow-float">
               <span className="text-micro font-bold uppercase tracking-wider text-white/60">{roles.screening ? "Screening call · not graded" : "Before your call"}</span>
@@ -680,7 +687,8 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat }: {
               <span className="text-body">{sc.objective}</span>
               <span className="text-caption text-white/80">About {sc.durationMin} min{va && cfg.showPages ? ` · you can show ${va.title}, pages ${cfg.showPages.pages.join(", ")}` : ""}</span>
             </div>
-            <Text size="body" tone="muted" className="max-w-[320px]">This is exactly what reps see on their phone before the call. Who they&apos;re meeting, the goal, the time and what they may show. Not {her} objections, never-say rules or the scorecard.</Text>
+            <Text size="body" tone="muted" className="max-w-[320px]">Exactly what reps see on their phone before the call: who they&apos;re meeting, the goal, the time and what they may show. Not {her} objections, moments, never-say rules or the scorecard.</Text>
+          </div>
           </div>
         )}
       </div>
