@@ -18,6 +18,7 @@ import { BLOCK_META } from "@/features/shared/block-view";
 import { KIND_LABEL } from "@/features/library/library-data";
 import { ApprovalChip, FORMAT_ICON, SourcePreview, sourceMeta } from "./source-preview";
 import { productClaims, type ClaimCategory } from "./product-claims";
+import { NewCourseModal } from "./course-start";
 
 type Tab = "overview" | "claims" | "sources" | "courses" | "media";
 
@@ -47,6 +48,7 @@ const MEDIA_TYPES = ["video", "document", "visualaid", "audio", "graphic"] as co
  * built on it, and the media around it. Modelled on SwishX for Business's product detail.
  */
 export function ProductDetail() {
+  const [creating, setCreating] = useState(false);
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const s = useApp();
@@ -241,7 +243,7 @@ export function ProductDetail() {
 
       {tab === "courses" && (
         <Section title="Courses" sub="What your team is learning about this product, and how far they've got."
-          actions={<Button onClick={() => router.push(`/trainer/courses/new?product=${p.id}`)}><Plus className="size-4" aria-hidden="true" />New course</Button>}>
+          actions={<><Button onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />New course</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} productId={p.id} /></>}>
           {courses.length === 0 ? <EmptyState title="No courses yet" body={`Build the first ${p.brand} course from its Prescribing Information.`} /> : (
             <div className="flex flex-col gap-2">
               {courses.map((c) => {

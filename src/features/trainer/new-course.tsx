@@ -211,7 +211,7 @@ export function NewCourseWizard() {
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => (step === 0 ? router.push("/trainer/courses/new") : setStep(prevStep(step)))} disabled={step === 4}>
+        <Button variant="ghost" size="sm" onClick={() => (step === 0 ? router.push("/trainer/courses") : setStep(prevStep(step)))} disabled={step === 4}>
           <ArrowLeft className="size-4" aria-hidden="true" />Back
         </Button>
         <ol className="ml-auto flex items-center gap-1.5" aria-label="Steps">

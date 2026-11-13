@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronUp, Eye, GripVertical, Lock, Mic, Plus, Trash2, Upload, Waypoints } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
@@ -11,7 +11,6 @@ import type { Source } from "@/data/types";
 import { draftScenario } from "@/lib/roleplay-draft";
 import { FORMAT_ICON, SourcePreview, fileUrl, formatOf, rememberFile } from "./source-preview";
 import { directKind, directModules } from "./materials";
-import { ProductPicker, type ProductScope } from "./product-picker";
 import { VisibilityPicker } from "./content-type";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
@@ -42,13 +41,13 @@ const lengthOf = (s: Source) => {
  */
 export function DirectCourseWizard() {
   const router = useRouter();
+  /* Started from a product page, the course is about that product: it sets the roleplay doctor's specialty. */
+  const productId = product(useSearchParams().get("product") ?? undefined)?.id;
   const s = useApp();
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
-  const [scope, setScope] = useState<ProductScope>({ mode: "product", variants: [], indications: [], therapyAreas: [] });
-  const productId = scope.mode === "product" ? scope.productId : undefined;
   const prod = product(productId);
-  const [teams, setTeams] = useState<string[]>([]);
+  const teams = prod ? [prod.divisionId] : [];
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [repIds, setRepIds] = useState<string[]>([]);
   const [rpIds, setRpIds] = useState<string[]>([]);
@@ -65,7 +64,6 @@ export function DirectCourseWizard() {
   const repSuggest = library.filter((x) => FOR_REPS.has(x.type) && !repIds.includes(x.id) && (!!productId || !x.productId));
   const rpSuggest = library.filter((x) => FOR_ROLEPLAY.has(x.type) && !rpIds.includes(x.id) && (!!productId || !x.productId));
   const minutes = directModules(repFiles, "x").reduce((a, m) => a + m.minutes, 0);
-  const fieldTeams = DIVISIONS.filter((d) => s.users.some((u) => u.divisionId === d.id));
 
   function upload(files: File[], side: "rep" | "rp") {
     const added: Source[] = files.map((f, i) => {
@@ -104,7 +102,7 @@ export function DirectCourseWizard() {
       objective: `Reps go through ${repFiles.length} of your own files, as they are, then practise the call.`,
       audience: `Field reps · ${teamNames}`, writtenFor: "reps", teams, sourceIds: [...repIds, ...rpIds],
       competencyIds: [...new Set(mods.map((m) => m.competency))],
-      scope: { variants: scope.variants, indications: scope.indications, therapyAreas: scope.therapyAreas },
+      scope: { variants: [], indications: [], therapyAreas: [] },
       visibility: visibility === "public" ? "audience" : "assigned",
     });
     let i = 0;
@@ -129,7 +127,7 @@ export function DirectCourseWizard() {
   return (
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 pb-24">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" disabled={step === 2} onClick={() => (step === 0 ? router.push("/trainer/courses/new") : setStep(step - 1))}>
+        <Button variant="ghost" size="sm" disabled={step === 2} onClick={() => (step === 0 ? router.push("/trainer/courses") : setStep(step - 1))}>
           <ArrowLeft className="size-4" aria-hidden="true" />Back
         </Button>
         <span className="hidden text-caption font-bold uppercase tracking-wider text-ink-3 sm:inline">Direct from your materials</span>
@@ -150,25 +148,10 @@ export function DirectCourseWizard() {
         <Card className="mx-auto w-full max-w-[860px]">
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Name your course</Text>
-            <Text tone="subtle" size="body-lg">Reps will see your files exactly as you upload them. Nothing is rewritten.</Text>
+            <Text tone="subtle" size="body-lg">{prod ? `A ${prod.brand} course. ` : ""}Reps will see your files exactly as you upload them. Nothing is rewritten.</Text>
           </div>
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora field kit" autoFocus />
-          <div className="flex flex-col gap-2">
-            <Text size="label" weight="semibold" tone="muted">What is it about?</Text>
-            <ProductPicker value={scope} onChange={setScope} />
-            <Text size="caption" tone="subtle">Sets the doctor&apos;s specialty in the roleplay, and suggests documents from the product library.</Text>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Text size="label" weight="semibold" tone="muted">Which field teams?</Text>
-            <div className="flex flex-wrap gap-2">
-              <Chip size="lg" selected={teams.length === 0} onClick={() => setTeams([])}>Everyone</Chip>
-              {fieldTeams.map((d) => {
-                const on = teams.includes(d.id);
-                return <Chip key={d.id} size="lg" selected={on} onClick={() => setTeams(on ? teams.filter((x) => x !== d.id) : [...teams, d.id])}>{d.name}</Chip>;
-              })}
-            </div>
-          </div>
-          <VisibilityPicker value={visibility} onChange={setVisibility} teams={teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" and ") : "everyone"} />
+          <VisibilityPicker value={visibility} onChange={setVisibility} teams={prod ? `${prod.brand}'s field team` : "everyone"} />
         </Card>
       )}
 

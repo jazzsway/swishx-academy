@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, ArrowRight, ChevronRight, PencilLine } from "lucide-react";
@@ -17,6 +17,7 @@ import { Avatar, Card, Dot } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { runChecks } from "./course/checks";
 import { rollouts, STATUS_LABEL, type Rollout } from "./rollouts";
+import { NewCourseModal } from "./course-start";
 
 const STATUS_TONE = { behind: "danger", at_risk: "warn", on_track: "ok", scheduled: "default" } as const;
 const WEEK = 7;
@@ -27,6 +28,7 @@ const WEEK = 7;
  */
 export function TrainerHome() {
   const router = useRouter();
+  const [creating, setCreating] = useState(false);
   const s = useApp();
   const { message, open, showToast } = useToast();
   const users = useMemo(() => new Map(s.users.map((u) => [u.id, u])), [s.users]);
@@ -91,7 +93,8 @@ export function TrainerHome() {
           <Text as="h1" size="hero" weight="extrabold" tracking="tight">Good morning, Maya</Text>
           <Text as="p" size="subhead" tone="muted">{summary}.</Text>
         </div>
-        <Button size="lg" onClick={() => router.push("/trainer/courses/new")}><Plus className="size-4" aria-hidden="true" />Create course</Button>
+        <Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create course</Button>
+        <NewCourseModal open={creating} onClose={() => setCreating(false)} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">

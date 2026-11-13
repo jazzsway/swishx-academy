@@ -16,6 +16,7 @@ import { Text } from "@/components/ui/text";
 import { VersionChip } from "@/components/patterns/academy";
 import type { Course } from "@/data/types";
 import { courseCardCount } from "@/lib/short-form";
+import { NewCourseModal } from "./course-start";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -26,6 +27,7 @@ const FILTERS = [
 
 export function CourseCatalogue() {
   const router = useRouter();
+  const [creating, setCreating] = useState(false);
   const courses = useApp((s) => s.courses);
   const progress = useApp((s) => s.progress);
   const [q, setQ] = useState("");
@@ -42,7 +44,7 @@ export function CourseCatalogue() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeading title="Courses" description="Everything you've built, whether it's live, and how many reps are certified on it."
-        actions={<Button size="lg" onClick={() => router.push("/trainer/courses/new")}><Plus className="size-4" aria-hidden="true" />Create course</Button>} />
+        actions={<><Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create course</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} /></>} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[320px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search courses" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search courses" /></div>
         <div className="flex flex-wrap gap-2">

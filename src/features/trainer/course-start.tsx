@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, FileText, Film, Lock, Mic, Presentation, 
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { Text } from "@/components/ui/text";
+import { Modal } from "@/components/ui/modal";
 import { NewCourseWizard } from "./new-course";
 import { DirectCourseWizard } from "./direct-course";
 
@@ -15,7 +16,7 @@ import { DirectCourseWizard } from "./direct-course";
  */
 export function NewCourseStart() {
   const search = useSearchParams();
-  const path = search.get("path") ?? (search.get("product") ? "swishx" : null);
+  const path = search.get("path");
   if (path === "swishx") return <NewCourseWizard />;
   if (path === "direct") return <DirectCourseWizard />;
   return <PathChooser />;
@@ -44,9 +45,20 @@ const PATHS = [
   },
 ] as const;
 
+/** "Create course" anywhere opens this: pick how to build it, then the wizard for that path. */
+export function NewCourseModal({ open, onClose, productId }: { open: boolean; onClose: () => void; productId?: string }) {
+  const router = useRouter();
+  return (
+    <Modal open={open} onClose={onClose} size="xl" title="How do you want to build it?" description="You can add AI roleplay either way. You can't switch once it's created.">
+      <PathCards onPick={(id) => { onClose(); router.push(`/trainer/courses/new?path=${id}${productId ? `&product=${productId}` : ""}`); }} />
+    </Modal>
+  );
+}
+
+/** A direct link to /trainer/courses/new without a path: the same choice, as a page. */
 function PathChooser() {
   const router = useRouter();
-  const go = (id: string) => router.push(`/trainer/courses/new?path=${id}`);
+  const product = useSearchParams().get("product");
   return (
     <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-7">
       <Link href="/trainer/courses" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Courses</Link>
@@ -55,6 +67,15 @@ function PathChooser() {
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">How do you want to build it?</Text>
         <Text size="body-lg" tone="subtle">You can add AI roleplay either way. You can&apos;t switch once it&apos;s created.</Text>
       </div>
+      <PathCards onPick={(id) => router.push(`/trainer/courses/new?path=${id}${product ? `&product=${product}` : ""}`)} />
+    </div>
+  );
+}
+
+function PathCards({ onPick }: { onPick: (id: string) => void }) {
+  const go = onPick;
+  return (
+    <div className="flex flex-col gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         {PATHS.map((p) => {
           const direct = p.id === "direct";
