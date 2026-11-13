@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, CircleDot, Keyboard, Lightbulb, Mic, MessageSquareQuote, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { allScenarios, objection, prohibited, scenario as getScenario } from "@/data/scenarios";
@@ -34,7 +34,9 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
   const course = useApp((s) => s.courses.find((c) => c.id === sc.courseId));
   const others = allScenarios().filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
   const voice = useVoice();
-  const [stage, setStage] = useState<"brief" | "call" | "result">("brief");
+  /* In the workspace the call tree already shows everything the brief would, so the call starts straight away. */
+  const [stage, setStage] = useState<"brief" | "call" | "result">(embedded ? "call" : "brief");
+  const router = useRouter();
   /* Until the trainer picks, talk if this browser can. */
   const [mic, setUseMic] = useState<boolean | null>(null);
   const useMic = mic ?? voice.supported;
@@ -51,7 +53,12 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
       <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? "Call tree" : "AI roleplay"}</Link>
       <span className="text-ink-4">/</span>
       <Text size="body" weight="semibold" className="text-ink-2">{embedded ? sc.persona.name : course?.title}</Text>
-      <Chip size="sm" className="ml-auto">Test call · nothing is saved</Chip>
+      {embedded && stage !== "brief" && (
+        <label className="ml-auto flex cursor-pointer items-center gap-2 text-caption font-semibold text-ink-2" title="Tap an approved answer, a vague one, or one that breaks the rules">
+          <input type="checkbox" checked={hints} onChange={(e) => setHints(e.target.checked)} className="size-4 accent-[var(--color-brand)]" />Sample answers
+        </label>
+      )}
+      <Chip size="sm" className={embedded && stage !== "brief" ? undefined : "ml-auto"}>Test call · nothing is saved</Chip>
     </div>
   );
 
@@ -147,7 +154,7 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
         <div className="grid gap-5 @[680px]:grid-cols-[minmax(0,1fr)_320px] @[900px]:grid-cols-[minmax(0,1fr)_360px]">
           <div className={cn("min-h-[520px] overflow-hidden rounded-card shadow-float", embedded ? "h-[calc(100dvh-170px)]" : "h-[calc(100dvh-210px)]")}>
             <CallScreen key={run} scenario={sc} mode="test" voiceAllowed={useMic} skipPrep showSamples={hints}
-              onChange={onChange} onExit={() => setStage("brief")} onComplete={(r) => { setResult(r); setStage("result"); }} />
+              onChange={onChange} onExit={() => (embedded ? router.push(back) : setStage("brief"))} onComplete={(r) => { setResult(r); setStage("result"); }} />
           </div>
           <LivePanel live={live} sc={sc} />
         </div>
@@ -188,7 +195,7 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
           </Card>
           <div className="flex flex-col gap-2">
             <Button size="lg" onClick={start}><RotateCcw className="size-4" aria-hidden="true" />Call again</Button>
-            <Button size="lg" variant="secondary" onClick={() => setStage("brief")}>Change how you test</Button>
+            {!embedded && <Button size="lg" variant="secondary" onClick={() => setStage("brief")}>Change how you test</Button>}
             {others.map((o) => <Link key={o.id} href={otherHref(o.id)} className="py-1 text-center text-body font-semibold text-brand-deep hover:underline">Test {o.persona.name} next</Link>)}
             <Link href={back} className="py-1 text-center text-body font-semibold text-ink-3 hover:text-ink">{embedded ? "Back to the call tree" : "Back to AI roleplay"}</Link>
           </div>
