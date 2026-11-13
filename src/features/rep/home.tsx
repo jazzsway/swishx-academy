@@ -8,7 +8,7 @@ import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { xpFor, fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
 import { competency, TODAY } from "@/data/org";
-import { SCENARIOS } from "@/data/scenarios";
+import { allScenarios } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
 import { Ring, FictionalNote } from "@/components/patterns/academy";
 import { useCopilot } from "@/features/copilot/copilot-store";
@@ -31,7 +31,7 @@ export function RepHome() {
   const xp = xpFor(s, me.id);
   const streak = s.streaks[me.id]?.days ?? 0;
   const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId);
-  const practiceDoctor = SCENARIOS.find((x) => x.use.includes("practice") && assigned.includes(x.courseId));
+  const practiceDoctor = allScenarios().find((x) => x.use.includes("practice") && assigned.includes(x.courseId));
   /* Something to listen to on the road: the first audio in a module still ahead of the rep. */
   const listen = active.flatMap((p) => (p.path || !courseOf(p).settings.screening ? pathModules(p, courseOf(p)).map((m) => ({ p, m })) : []))
     .find(({ p, m }) => m.blocks.some((b) => b.type === "audio" && !p.completedBlocks.includes(b.id)));

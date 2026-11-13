@@ -83,7 +83,8 @@ function courseHealth(c: Course): CoReply {
   /* Question coverage gets its own line below, so warnings here are about wording and media. */
   const warnings = f.filter((x) => x.severity === "orange" && !x.id.startsWith("cov-"));
   const orange = warnings.length;
-  const thin = c.competencyIds.filter((id) => c.items.filter((i) => i.competency === id).length < 6);
+  /* A direct course has no question bank by design, so there's nothing to call thin. */
+  const thin = c.origin === "direct" ? [] : c.competencyIds.filter((id) => c.items.filter((i) => i.competency === id).length < 6);
   const next: Record<string, string> = {
     /* v1: no MLR; every unpublished state is a draft. */
     draft: red ? "Fix the red findings, then publish it." : "Checks are clean. You can publish it.",
@@ -96,7 +97,7 @@ function courseHealth(c: Course): CoReply {
   return {
     text: `${c.title} v${v.version} is ${v.state === "published" ? "published" : "a draft"}. ${next[v.state] ?? ""}`,
     items: [
-      { tone: red ? "danger" : "ok", title: red ? `${plural(red, "blocking finding")}` : "No blocking findings", sub: red ? "Uncited or off-indication sentences" : "Every sentence is cited" },
+      { tone: red ? "danger" : "ok", title: red ? `${plural(red, "blocking finding")}` : "No blocking findings", sub: red ? "Uncited or off-indication sentences" : c.origin === "direct" ? "Your files go in as they are" : "Every sentence is cited" },
       ...(orange ? [{ tone: "warn" as Tone, title: `${plural(orange, "warning")}`, sub: [...new Set(warnings.map((w) => w.title))].slice(0, 2).join(" · ") }] : []),
       ...(thin.length ? [{ tone: "warn" as Tone, title: `Thin question bank on ${thin.slice(0, 3).map((id) => competency(id)?.name.toLowerCase()).join(", ")}${thin.length > 3 ? ` and ${thin.length - 3} more` : ""}`, sub: "Fewer than 6 questions each" }] : []),
     ],

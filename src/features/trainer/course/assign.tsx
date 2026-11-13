@@ -28,6 +28,7 @@ export function AssignCourse() {
   const { message, open, showToast } = useToast();
   const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, roles: ["rep"], /* v1: reps only */ divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
   const [type, setType] = useState<Progress["assignType"]>("required");
+  const [mode, setMode] = useState<"learn" | "practice">("learn");
   const [due, setDue] = useState(in30);
   const [start, setStart] = useState(today);
   const badDates = type !== "recommended" && !!due && due < start;
@@ -46,6 +47,22 @@ export function AssignCourse() {
       <div className="flex min-w-0 flex-col gap-5">
         <Card title="Who" eyebrow={`Assign v${lv.version}`}>
           <AudienceBuilder rules={rules} onChange={setRules} />
+        </Card>
+        <Card title="What they do">
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="What they do">
+            {([
+              { v: "learn", label: "Learn + practice", hint: "The modules, then practice calls and the final test. For new hires and anyone new to the product." },
+              { v: "practice", label: "Practice only", hint: "No modules. Straight to practice calls and the final test. For experienced reps." },
+            ] as const).map((o) => (
+              <button key={o.v} type="button" role="radio" aria-checked={mode === o.v} onClick={() => setMode(o.v)}
+                className={`squircle flex flex-col gap-1 rounded-panel border p-4 text-left transition-colors ${mode === o.v ? "border-brand bg-tint/60 ring-1 ring-brand" : "border-hair-2 bg-card hover:bg-subtle"}`}>
+                <span className="text-body-lg font-bold text-ink">{o.label}</span>
+                <span className="text-caption text-ink-3">{o.hint}</span>
+              </button>
+            ))}
+          </div>
+          {mode === "practice" && !course.scenarioIds.length && <Text size="body" tone="danger">This course has no roleplay yet. Add one in the course before assigning practice only.</Text>}
+          <Text size="caption" tone="subtle">Different groups need different modes? Assign once per group.</Text>
         </Card>
         <Card title="How">
           <Segmented aria-label="Assignment type">
@@ -85,11 +102,11 @@ export function AssignCourse() {
             {fresh.length > 8 && <Text size="caption" tone="subtle">and {fresh.length - 8} more</Text>}
           </ul>
           {start > today && <Text size="body" weight="semibold" className="text-brand-deep">Opens {new Date(start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{type !== "recommended" && due ? ` · due ${new Date(due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}</Text>}
-          <Button size="lg" fullWidth disabled={!fresh.length || badDates} onClick={() => {
-            const n = assign(course.id, targetRules(rules), type, type === "recommended" ? undefined : due, campaignId || undefined, start);
-            showToast(`Assigned to ${n} ${n === 1 ? "person" : "people"}`);
+          <Button size="lg" fullWidth disabled={!fresh.length || badDates || (mode === "practice" && !course.scenarioIds.length)} onClick={() => {
+            const n = assign(course.id, targetRules(rules), type, type === "recommended" ? undefined : due, campaignId || undefined, start, mode);
+            showToast(`Assigned ${mode === "practice" ? "practice only " : ""}to ${n} ${n === 1 ? "person" : "people"}`);
             window.setTimeout(() => router.push(campaignId ? `/trainer/campaigns/${campaignId}` : "/trainer/records"), 900);
-          }}>Assign to {fresh.length}</Button>
+          }}>{mode === "practice" ? "Assign practice to" : "Assign to"} {fresh.length}</Button>
         </Card>
       </aside>
       <Toast message={message} open={open} />

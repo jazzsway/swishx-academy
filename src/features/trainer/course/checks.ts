@@ -87,6 +87,11 @@ export function runChecks(course: Course): Finding[] {
     }
     f.push({ id: "cov-ok", severity: "green", title: "Question bank coverage", detail: `${course.items.length} questions across ${new Set(course.items.map((i) => i.competency)).size} competencies` });
   }
+  /* Direct courses carry no generated text, so there's nothing to grade for reading level or citations. */
+  if (course.origin === "direct") {
+    f.push({ id: "as-is", severity: "green", title: "Your files, as they are", detail: `${course.modules.length} file${course.modules.length === 1 ? "" : "s"}, unchanged. SwishX wrote nothing and added no questions.` });
+    return f;
+  }
   f.push({ id: "read", severity: "green", title: "Readability", detail: "Grade 9 average. Good for field reading on a phone." });
   f.push({ id: "cite-ok", severity: "green", title: "Citations", detail: `${all.filter((t) => t.cited && !t.missing).length} of ${all.length} sentences cited to a source page` });
   return f;

@@ -60,14 +60,15 @@ export function Assessment() {
   function grade(call?: CallOutcome, ans: Record<string, number | string | null> = answers) {
     const quiz = resubmit ? { overall: p!.attempts.at(-1)?.quiz ?? 0, scores: p!.attempts.at(-1)?.competencyScores ?? {} } : scoreItems(items, ans);
     const scores = blendScores(quiz.scores, call?.competencyScores);
-    const overall = call ? Math.round(quiz.overall * 0.6 + call.score * 0.4) : quiz.overall;
+    /* With no questions in the course (a direct course), the call is the whole assessment. */
+    const overall = call ? (items.length ? Math.round(quiz.overall * 0.6 + call.score * 0.4) : call.score) : quiz.overall;
     const critFlags = call?.flags.filter((f) => f.critical) ?? [];
     const failed = new Set<string>();
     for (const k of st.criticalCompetencies) if (scores[k] !== undefined && scores[k] < st.passCritical) failed.add(k);
     for (const [k, v] of Object.entries(scores)) if (v < 50) failed.add(k);
     for (const f of critFlags) { const m = modulesOf(c!).find((x) => x.id === prohibited(f.ruleId).approvedRef?.moduleId); if (m) failed.add(m.competency); }
     const reasons: string[] = [];
-    if (overall < st.passOverall) reasons.push(`Overall ${overall}% (needs ${st.passOverall}%)`);
+    if (items.length && overall < st.passOverall) reasons.push(`Overall ${overall}% (needs ${st.passOverall}%)`);
     for (const k of st.criticalCompetencies) if (scores[k] !== undefined && scores[k] < st.passCritical) reasons.push(`${competency(k)?.name} ${scores[k]}% (needs ${st.passCritical}%)`);
     if (call && call.score < st.passRoleplay) reasons.push(`Roleplay ${call.score}% (needs ${st.passRoleplay}%)`);
     if (critFlags.length) reasons.push("Critical compliance flag");
@@ -155,9 +156,9 @@ export function Assessment() {
   if (phase === "bridge")
     return (
       <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-8">
-        <Chip tone="ok" size="md" className="self-start">Quiz done</Chip>
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">Last part: the call</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">{sc?.persona.name} is cost-focused and sceptical. This call is recorded{st.verify === "manager" ? " and your manager will review it" : ""}. An off-label or risk-minimising statement fails the assessment.</Text>
+        {items.length > 0 && <Chip tone="ok" size="md" className="self-start">Quiz done</Chip>}
+        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{items.length ? "Last part: the call" : `Your call with ${sc?.persona.name ?? "the doctor"}`}</Text>
+        <Text size="subhead" tone="muted" className="leading-relaxed">{sc?.persona.name} is {sc?.persona.traits.slice(0, 2).join(" and ").toLowerCase() ?? "sceptical"}. This call is recorded{st.verify === "manager" ? " and your manager will review it" : ""}. An off-label or risk-minimising statement fails the assessment.</Text>
         <Button size="lg" fullWidth className="mt-auto" onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
       </div>
     );
@@ -168,15 +169,16 @@ export function Assessment() {
         <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{resubmit ? "Resubmit your roleplay" : "Final assessment"}</Text>
         <div className="squircle flex flex-col gap-2.5 rounded-panel border border-hair bg-card p-4">
-          {!resubmit && <Text size="body-lg">· {items.length} questions{nWritten ? `, ${nWritten} of them written in your own words` : ""}, no feedback until the end</Text>}
+          {!resubmit && items.length > 0 && <Text size="body-lg">· {items.length} questions{nWritten ? `, ${nWritten} of them written in your own words` : ""}, no feedback until the end</Text>}
+          {st.finalNoHints && <Text size="body-lg">· No hints and no prompts: this is the real thing</Text>}
           {st.assessmentCall && <Text size="body-lg">· A ~{sc?.durationMin}-minute call with {sc?.persona.name}, recorded</Text>}
-          <Text size="body-lg">· Pass: {st.passOverall}% overall, {st.passCritical}% on {st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}{st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}</Text>
+          <Text size="body-lg">· Pass: {items.length ? `${st.passOverall}% overall, ${st.passCritical}% on ${st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}${st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}` : `${st.passRoleplay}% on the call`}</Text>
           <Text size="body-lg">· Any critical compliance flag is an automatic fail</Text>
           <Text size="body-lg">· Attempt {attemptNo} of {st.attempts}</Text>
         </div>
         {resubmit && <Text size="body" tone="muted">Your quiz score carries over. Only the call is redone, with your manager&apos;s focus areas in mind.</Text>}
         {coolingDown && retakeAt && <Text size="body" tone="muted">You can retake from {retakeAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}, {st.cooldownHours} hours after your last attempt.</Text>}
-        <Button size="lg" fullWidth className="mt-auto" disabled={coolingDown} onClick={() => setPhase(resubmit ? "bridge" : "quiz")}>Begin</Button>
+        <Button size="lg" fullWidth className="mt-auto" disabled={coolingDown} onClick={() => setPhase(resubmit || !items.length ? "bridge" : "quiz")}>Begin</Button>
       </div>
     );
 

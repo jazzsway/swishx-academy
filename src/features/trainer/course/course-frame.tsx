@@ -39,6 +39,7 @@ export function CourseFrame({ children }: { children: ReactNode }) {
 
 function Workspace({ children }: { children: ReactNode }) {
   const { id } = useParams<{ id: string }>();
+  const pathname = usePathname();
   const data = useCourse(id);
   const open = useCopilot((s) => s.open);
   const setOpen = useCopilot((s) => s.setOpen);
@@ -80,7 +81,7 @@ function Workspace({ children }: { children: ReactNode }) {
         <Rail course={data.course} editable={data.editable} />
         <main className="min-w-0 flex-1 overflow-y-auto bg-subtle/60 [scrollbar-width:thin]" id="workspace-canvas">
           <div className="page-enter mx-auto flex w-full max-w-[980px] flex-col gap-4 px-5 py-6 lg:px-8">
-            {!data.editable && (
+            {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay")) && (
               <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
                 <Lock className="size-4 text-ink-3" aria-hidden="true" />
                 <Text size="body" tone="muted" className="flex-1">v{data.cur.version} is live and locked. Editing creates v{data.cur.version + 1} as a draft; v{data.cur.version} stays live until you publish it.</Text>

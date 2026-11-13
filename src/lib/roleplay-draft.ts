@@ -208,3 +208,31 @@ export function editCall(sc: Scenario, prompt: string, focus?: CallFocus): CallE
     changed: [],
   };
 }
+
+/* What a rep's situation is about, and how the doctor says it. */
+const THEMES: { re: RegExp; line: string; keywords: string[]; label: string }[] = [
+  { re: /time|minute|door|busy|rush|quick/, line: "I've only got a minute.", keywords: ["one patient", "minute", "quick", "which patients"], label: "No time" },
+  { re: /happy|current|prescrib|already use|loyal|switch/, line: "Honestly, I'm happy with what I prescribe now.", keywords: ["still", "not controlled", "which patients", "struggle", "not at goal"], label: "Happy with current treatment" },
+  { re: /cost|price|insur|cover|payer|prior auth|afford/, line: "And my patients can't get these things covered.", keywords: ["support", "hub", "prior auth", "benefits", "copay", "coverage"], label: "Cost and coverage" },
+  { re: /data|evidence|study|trial|proof|convinc/, line: "I haven't seen data that convinces me.", keywords: ["trial", "study", "week", "%", "data", "results"], label: "Not convinced by the data" },
+  { re: /side effect|safety|risk|worr/, line: "And I worry about side effects.", keywords: ["side effect", "safety", "report", "risk", "most common"], label: "Safety worries" },
+  { re: /rep|sales|another|competitor|seen .* already/, line: "I've already heard from three reps this week.", keywords: ["one thing", "different", "patient", "quick"], label: "Rep fatigue" },
+];
+
+/**
+ * A rep's own situation ("she only gives me two minutes and is happy with what she uses") as an
+ * objection the AI doctor raises first, in the doctor's voice. Lives for this one call only.
+ */
+export function situationObjection(text: string): Objection {
+  const t = text.toLowerCase();
+  const hits = THEMES.filter((x) => x.re.test(t));
+  const use = hits.length ? hits : [{ line: "", keywords: ["understand", "patient", "?"], label: "Your situation", re: /./ }];
+  return {
+    id: "ob-own", label: hits.length ? hits.map((h) => h.label).slice(0, 2).join(" + ") : "Your situation", competency: "c-objections",
+    line: hits.length ? use.map((h) => h.line).join(" ") : `Before you start: ${text.trim().replace(/[.]$/, "")}. So?`,
+    pushback: "That's not what I asked. Try again, briefly.",
+    handled: "Okay. That's fair, I'll give you that.",
+    keywords: [...new Set(use.flatMap((h) => h.keywords))],
+    answer: "I hear you, and I'll be quick. Which of your patients still aren't where you'd like them? That's the one patient I'd like to talk about.",
+  };
+}

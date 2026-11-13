@@ -15,6 +15,8 @@ export const moduleMinutes = (c: Course, m: Module) => Math.max(1, Math.round(m.
 export const modulesOf = (c: Course) => (live(c) ?? current(c)).modules;
 
 export function pathModules(p: Progress, c: Course): Module[] {
+  /* Practice only: experienced reps skip the modules and go straight to the calls and the final test. */
+  if (p.mode === "practice") return [];
   const mods = modulesOf(c);
   if (!p.path) return mods;
   return p.path.moduleIds.map((id) => mods.find((m) => m.id === id)).filter(Boolean) as Module[];
@@ -57,6 +59,10 @@ export interface NextStep {
 export function nextStepFor(p: Progress, c: Course): NextStep | null {
   const base = `/rep/course/${c.id}`;
   if (p.state === "certified" || p.state === "awaiting_verify") return null;
+  if (p.mode === "practice" && !p.attempts.at(-1)?.passed)
+    return c.settings.completion.assessment
+      ? { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Take the final assessment", why: "You're assigned practice only. Rehearse the call first, as often as you like.", cta: "Start assessment", href: `${base}/assessment`, minutes: 10 }
+      : { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Practise the call", why: "You're assigned practice only. It's private and unlimited.", cta: "Practise", href: "/rep/practice", minutes: 5 };
   if (p.state === "not_started")
     return c.settings.screening
       ? { progress: p, course: c, eyebrow: c.title, title: "Take your screening", why: "About 15 minutes. It skips what you already know.", cta: "Start screening", href: `${base}/screening`, minutes: 15 }
@@ -76,7 +82,7 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
   const last = p.attempts.at(-1);
   if (p.state === "assessment" && last?.passed) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "One last step before certification.", cta: "Sign", href: `${base}/attest` };
   if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "You've finished every module.", cta: "Sign", href: `${base}/attest` };
-  return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: "Your path is done. Quiz plus a short call.", cta: "Start assessment", href: `${base}/assessment`, minutes: 15 };
+  return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: c.items.some((i) => i.pool === "assessment") ? "Your path is done. Quiz plus a short call." : "Your path is done. One scored call.", cta: "Start assessment", href: `${base}/assessment`, minutes: 15 };
 }
 
 export function useRep() {

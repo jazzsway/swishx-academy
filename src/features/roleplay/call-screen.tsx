@@ -6,7 +6,7 @@ import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import type { Scenario } from "@/data/types";
-import { objection } from "@/data/scenarios";
+import { objection, prohibited } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { startCall, repSays, sampleAnswers, scoreCall, type CallState } from "./engine";
@@ -22,9 +22,11 @@ const MODE: Record<CallMode, { label: string; tone: string }> = {
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
 };
 
-export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange }: {
+export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted }: {
   scenario: Scenario; objectionIds?: string[]; mode: CallMode; voiceAllowed: boolean;
-  onComplete: (r: CallOutcome) => void; onExit: () => void; personaOverride?: Partial<Scenario["persona"]>;
+  onComplete: (r: CallOutcome, meta: { assisted: boolean }) => void;
+  /** Practice only: start with live prompts on. The rep can switch before the call starts. */
+  assisted?: boolean; onExit: () => void; personaOverride?: Partial<Scenario["persona"]>;
   /** The page did its own briefing: go straight into the call. */
   skipPrep?: boolean;
   /** Offer tap-to-answer lines (always in presenter mode). */
@@ -40,6 +42,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [usedTyping, setUsedTyping] = useState(!voiceAllowed);
+  const [assist, setAssist] = useState(!!assisted && mode === "practice");
   const voice = useVoice();
   const endRef = useRef<HTMLDivElement>(null);
   const initials = sc.persona.name.replace("Dr. ", "").split(" ").map((x) => x[0]).join("");
@@ -94,6 +97,20 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           <div className="flex flex-wrap gap-1.5">{(objectionIds?.length ? objectionIds : sc.objectionIds).map((o) => <span key={o} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{objection(o).label}</span>)}</div>
           <Text size="caption" tone="inverse" className="opacity-60">About {sc.durationMin} minutes. Speak naturally; the doctor answers out loud.{mode === "assessment" ? " This call is recorded and scored. Off-label statements fail the assessment." : mode === "screening" ? " Nothing here counts against you." : ""}</Text>
         </div>
+        {mode === "practice" && (
+          <div className="flex flex-col gap-2">
+            <Text size="caption" weight="bold" tone="inverse" className="opacity-60">HOW MUCH HELP?</Text>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Assisted or unassisted">
+              {[{ on: true, label: "Assisted", hint: "Prompts while you talk" }, { on: false, label: "Unassisted", hint: "A clean call, like the real one" }].map((o) => (
+                <button key={o.label} type="button" role="radio" aria-checked={assist === o.on} onClick={() => setAssist(o.on)}
+                  className={cn("squircle flex flex-col gap-0.5 rounded-panel border p-3 text-left transition-colors", assist === o.on ? "border-brand bg-brand/20" : "border-white/15 bg-white/[0.04] hover:bg-white/[0.08]")}>
+                  <span className="text-body-lg font-bold text-white">{o.label}</span>
+                  <span className="text-caption text-white/60">{o.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-auto flex flex-col gap-2">
           <Button size="lg" fullWidth onClick={() => { setStage("call"); hcpSpeak(state.turns[0].text); }}>
             <Mic className="size-5" aria-hidden="true" />Start call
@@ -136,7 +153,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           <div className="squircle mt-2 flex flex-col items-center gap-3 rounded-panel bg-white/[0.06] p-5 text-center">
             <Text size="title" weight="bold" tone="inverse">Call ended</Text>
             <Text size="body" tone="inverse" className="opacity-70">{state.turns.filter((t) => t.speaker === "rep").length} turns · {mmss(elapsed)}</Text>
-            <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping)); }}>
+            <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping), { assisted: assist }); }}>
               <AgentIcon className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
             </Button>
           </div>
@@ -146,6 +163,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 
       {stage === "call" && (
         <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
+          {assist && <AssistPanel state={state} />}
           {samples.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Text size="micro" weight="bold" tone="inverse" className="opacity-50">{presenter ? "PRESENTER · TAP TO ANSWER" : "TAP A LINE TO ANSWER, OR SAY YOUR OWN"}</Text>
@@ -184,6 +202,24 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           {canVoice && <Text size="caption" tone="inverse" className="text-center opacity-50">{voice.speaking ? `${sc.persona.name.split(" ")[1]} is talking…` : voice.listening ? "Listening. Tap again when you're done." : "Tap the mic and talk"}</Text>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Assisted practice: what to do right now, said the approved way, and what to stay away from. */
+function AssistPanel({ state }: { state: CallState }) {
+  if (state.done) return null;
+  const cur = state.idx >= 0 ? state.queue[state.idx] : undefined;
+  const say = sampleAnswers(state).find((x) => !x.label.includes("try it"))?.text;
+  const avoid = state.scenario.prohibitedIds.map((id) => prohibited(id)).find((r) => r?.critical);
+  const stage = cur ? `Objection · ${cur.label}` : "Opening";
+  const tip = cur ? "Acknowledge it, answer it with the approved facts, then move to a next step." : "Open on a patient type and ask one question before you talk about the product.";
+  return (
+    <div className="squircle flex flex-col gap-1.5 rounded-panel border border-ok/40 bg-ok/15 p-3" aria-live="polite">
+      <span className="flex items-center justify-between gap-2 text-micro font-bold uppercase tracking-wider text-[#7ee2b0]"><span>Try this · {stage}</span><span className="text-white/50">Assisted</span></span>
+      <Text size="body" tone="inverse" className="opacity-90">{tip}</Text>
+      {say && <Text size="body" tone="inverse" className="opacity-75">Say: “{say.length > 170 ? `${say.slice(0, 168)}…` : say}”</Text>}
+      {avoid && <span className="self-start rounded-chip bg-danger/25 px-2 py-0.5 text-caption font-semibold text-[#ffb3b0]">Avoid: {avoid.label.toLowerCase()}</span>}
     </div>
   );
 }

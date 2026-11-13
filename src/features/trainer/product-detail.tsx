@@ -85,7 +85,7 @@ export function ProductDetail() {
 
   const TABS: DetailTab<Tab>[] = [
     { key: "overview", label: "Overview", icon: LayoutGrid },
-    { key: "claims", label: "Claims", icon: ListChecks, count: claims.length },
+    { key: "claims", label: "Scientific claims", icon: ListChecks, count: claims.length },
     { key: "sources", label: "Sources", icon: FileText, count: sources.length },
     { key: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { key: "media", label: "Media", icon: Film, count: media.length + materials.length },
@@ -110,7 +110,7 @@ export function ProductDetail() {
           </div>
           <div className="flex items-center gap-5">
             <Stat value={courses.length} label="Courses" />
-            <Stat value={claims.length ? `${taughtCount}/${claims.length}` : "—"} label="Claims taught" />
+            <Stat value={claims.length ? `${taughtCount}/${claims.length}` : "—"} label="Scientific claims taught" />
             <Stat value={ps.length ? `${pct(k.certified, k.total)}%` : "—"} label="Reps certified" />
           </div>
         </div>
@@ -163,21 +163,21 @@ export function ProductDetail() {
               ) : <Text size="body" tone="subtle">Nobody is assigned a course on {p.brand} yet.</Text>}
             </div>
             <button type="button" onClick={() => setTab("claims")} className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4 text-left shadow-hair hover:shadow-soft">
-              <Text size="subhead" weight="bold">Claims coverage</Text>
+              <Text size="subhead" weight="bold">Scientific claims coverage</Text>
               {claims.length ? (
                 <>
                   <Text size="body" tone="muted">{taughtCount} of {claims.length} approved claims are taught in a course.</Text>
-                  <Meter value={pct(taughtCount, claims.length)} height={6} tone={taughtCount === claims.length ? "ok" : "brand"} label="Claims taught" />
+                  <Meter value={pct(taughtCount, claims.length)} height={6} tone={taughtCount === claims.length ? "ok" : "brand"} label="Scientific claims taught" />
                   {claims.length > taughtCount && <Text size="caption" weight="semibold" tone="warn">{claims.length - taughtCount} not in any course yet</Text>}
                 </>
-              ) : <Text size="body" tone="subtle">No approved claims on file yet.</Text>}
+              ) : <Text size="body" tone="subtle">No approved scientific claims on file yet.</Text>}
             </button>
           </div>
         </div>
       )}
 
       {tab === "sources" && (
-        <Section title="Sources" sub="The documents SwishX may cite when it writes about this product, including anything you've uploaded. Claims come from these.">
+        <Section title="Sources" sub="The documents SwishX may cite when it writes about this product, including anything you've uploaded. Scientific claims come from these.">
           {sources.length === 0 ? <EmptyState title="No sources yet" body="Upload the Prescribing Information when you create the first course." /> : (
             <div className="flex flex-col gap-2">
               {sources.map((x) => {
@@ -198,8 +198,8 @@ export function ProductDetail() {
       )}
 
       {tab === "claims" && (
-        <Section title="Claims" sub={`Every statement in ${p.brand}'s product documents, and whether your courses teach and test it.`}>
-          {claims.length === 0 ? <EmptyState title="No approved claims on file" body="They come from the product's approved documents. Add them under Sources." /> : (
+        <Section title="Scientific claims" sub={`Every statement in ${p.brand}'s product documents, and whether your courses teach and test it.`}>
+          {claims.length === 0 ? <EmptyState title="No approved scientific claims on file" body="They come from the product's approved documents. Add them under Sources." /> : (
             <>
               <div className="squircle flex flex-wrap items-center gap-x-6 gap-y-2 rounded-panel border border-hair bg-card px-4 py-3 shadow-hair">
                 <Text size="body-lg"><strong className="tabular-nums">{taughtCount}</strong> of {claims.length} taught</Text>
@@ -207,13 +207,13 @@ export function ProductDetail() {
                 <Text size="body-lg" tone="subtle"><strong className="tabular-nums text-ink">{claims.filter((c) => c.tested).length}</strong> tested by questions</Text>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="w-full max-w-[300px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search claims" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search claims" /></div>
+                <div className="w-full max-w-[300px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search scientific claims" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search claims" /></div>
                 <Chip size="md" selected={cat === "all"} onClick={() => setCat("all")}>All</Chip>
                 {cats.map((x) => <Chip key={x} size="md" selected={cat === x} onClick={() => setCat(x)}>{x}</Chip>)}
                 <Chip size="md" tone={gapsOnly ? "warn" : "default"} selected={gapsOnly} onClick={() => setGapsOnly(!gapsOnly)}>Not taught</Chip>
               </div>
               <div className="flex flex-col gap-2">
-                {shownClaims.length === 0 && <Text tone="subtle">No claims match.</Text>}
+                {shownClaims.length === 0 && <Text tone="subtle">No scientific claims match.</Text>}
                 {shownClaims.map((c) => {
                   const src = source(c.sourceId);
                   return (

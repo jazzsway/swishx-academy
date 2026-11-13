@@ -13,6 +13,7 @@ import { Field } from "@/components/ui/field";
 // v1-hidden: import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
+import { allScenarios } from "@/data/scenarios";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -82,9 +83,23 @@ export function CourseSettingsTab() {
             */}
             {personalised
               ? <Row label="Pass mark" hint="Overall assessment score. A critical compliance violation always fails."><Num label="Pass overall" value={s.passOverall} suffix="%" disabled={d} onChange={(n) => set({ passOverall: n })} /></Row>
-              : <Row label="Knowledge checks" hint="Minimum share answered correctly first time."><Num label="Knowledge checks" value={s.completion.checks} suffix="%" disabled={d} onChange={(n) => set({ completion: { ...s.completion, checks: n } })} /></Row>}
-            {personalised && <Row label="Attempts"><Num label="Attempts" value={s.attempts} disabled={d} onChange={(n) => set({ attempts: n })} /></Row>}
+              : course.origin === "direct" ? null : <Row label="Knowledge checks" hint="Minimum share answered correctly first time."><Num label="Knowledge checks" value={s.completion.checks} suffix="%" disabled={d} onChange={(n) => set({ completion: { ...s.completion, checks: n } })} /></Row>}
             <Row label="Recertify every"><Num label="Recertify months" value={s.recertMonths} suffix="months" disabled={d} onChange={(n) => set({ recertMonths: n })} /></Row>
+          </div>
+        </Card>
+
+        <Card title="Final assessment" eyebrow="How reps prove it">
+          <div className="-mt-2 flex flex-col">
+            <Row label="Final assessment" hint={s.completion.assessment ? `${course.items.some((i) => i.pool === "assessment") ? `${s.assessmentItems} questions` : "No questions"}${s.assessmentCall ? `${course.items.some((i) => i.pool === "assessment") ? " plus" : ","} a scored call with ${allScenarios().find((x) => x.id === s.assessmentScenarioId)?.persona.name ?? "the AI doctor"}` : ""}.` : "Not set. Turn on “Final assessment call” on a roleplay to add one."}>
+              <Chip size="md" tone={s.completion.assessment ? "ok" : "default"}>{s.completion.assessment ? "On" : "Off"}</Chip>
+            </Row>
+            <Row label="Baseline from screening" hint={s.screening ? "Each rep's screening score is their starting point. Reps and analytics show progress from it." : "Needs screening. Turn screening on to set a baseline."}>
+              <Toggle label="Baseline from screening" on={!!s.baseline && s.screening} disabled={d || !s.screening} onChange={(v) => set({ baseline: v })} />
+            </Row>
+            <Row label="Final test without hints" hint="No prompts, no tap-to-answer lines and no going back to the content mid-test."><Toggle label="Final test without hints" on={!!s.finalNoHints} disabled={d || !s.completion.assessment} onChange={(v) => set({ finalNoHints: v })} /></Row>
+            <Row label="Attempts"><Num label="Attempts" value={s.attempts} disabled={d || !s.completion.assessment} onChange={(n) => set({ attempts: Math.max(1, n) })} /></Row>
+            <Row label="Wait between attempts" hint="Time to practise before trying again."><Num label="Cooldown" value={s.cooldownHours} suffix="hours" disabled={d || !s.completion.assessment} onChange={(n) => set({ cooldownHours: Math.max(0, n) })} /></Row>
+            {s.assessmentCall && <Row label="Pass mark on the call"><Num label="Pass on the call" value={s.passRoleplay} suffix="%" disabled={d} onChange={(n) => set({ passRoleplay: n })} /></Row>}
           </div>
         </Card>
 

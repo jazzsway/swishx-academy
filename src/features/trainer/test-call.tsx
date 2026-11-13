@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, CircleDot, Keyboard, Lightbulb, Mic, MessageSquareQuote, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { SCENARIOS, objection, prohibited, scenario as getScenario } from "@/data/scenarios";
+import { allScenarios, objection, prohibited, scenario as getScenario } from "@/data/scenarios";
 import { competency } from "@/data/org";
 import { useApp } from "@/store/app-store";
 import { Text } from "@/components/ui/text";
@@ -30,7 +30,7 @@ export function TestCall() {
   const sc = getScenario(search.get("scenario") ?? "sc-kim");
   const back = search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
   const course = useApp((s) => s.courses.find((c) => c.id === sc.courseId));
-  const others = SCENARIOS.filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
+  const others = allScenarios().filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
   const voice = useVoice();
   const [stage, setStage] = useState<"brief" | "call" | "result">("brief");
   /* Until the trainer picks, talk if this browser can. */

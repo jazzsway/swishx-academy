@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Lock, Mic, ChevronRight, Trash2, RotateCcw, Flame, X, Check } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
 import { cn } from "@/lib/cn";
 import { nowIso, useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday } from "@/store/selectors";
-import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, SCENARIOS, scenario as getScenario } from "@/data/scenarios";
+import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, allScenarios, registerExtraObjections, scenario as getScenario } from "@/data/scenarios";
+import { situationObjection } from "@/lib/roleplay-draft";
 import type { Item, PracticeSession } from "@/data/types";
 import { competency } from "@/data/org";
 import { Text } from "@/components/ui/text";
@@ -35,7 +36,7 @@ export function PracticeHub() {
   const s = useApp();
   const mine = s.practice.filter((x) => x.userId === me.id);
   const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId);
-  const library = SCENARIOS.filter((x) => x.use.includes("practice") && assigned.includes(x.courseId));
+  const library = allScenarios().filter((x) => x.use.includes("practice") && assigned.includes(x.courseId));
   const calls = mine.filter((x) => x.kind === "roleplay"); // v1-hidden: quiz sessions (no quiz in v1)
   const scored = calls.filter((x) => x.result);
   const weekAgo = new Date(new Date(nowIso()).getTime() - 7 * 86400_000).toISOString();
@@ -180,15 +181,22 @@ export function PrepMeeting() {
   const [specialty, setSpecialty] = useState(start?.specialty ?? PREP_SPECIALTIES[0]);
   const [traits, setTraits] = useState<string[]>(start?.traits ?? ["Sceptical", "Cost-focused"]);
   const [callType, setCallType] = useState(start?.callType ?? PREP_CALL_TYPES[1]);
-  const [objs, setObjs] = useState<string[]>(start?.objectionIds ?? ["ob-cost", "ob-eyes"]);
+  const [objs, setObjs] = useState<string[]>(start?.objectionIds.filter((x) => x !== "ob-own") ?? ["ob-cost", "ob-eyes"]);
+  const [situation, setSituation] = useState(start?.situation ?? "");
+  const [assisted, setAssisted] = useState(start?.assisted ?? true);
   const [live, setLive] = useState(!!start);
-  const setup = { specialty, traits, objectionIds: objs, callType };
+  /* The rep's own situation becomes the doctor's first objection, for this call only. */
+  const own = situation.trim().length > 8 ? situationObjection(situation) : undefined;
+  useEffect(() => { registerExtraObjections(own ? [own] : []); }, [own?.line]); // eslint-disable-line react-hooks/exhaustive-deps
+  const callObjs = own ? ["ob-own", ...objs.slice(0, 2)] : objs;
+  const setup = { specialty, traits, objectionIds: callObjs, callType, assisted, situation: own ? situation.trim() : undefined };
   const base = getScenario("sc-kim");
 
   if (live)
-    return <CallScreen scenario={{ ...base, objective: "Practise the conversation you're expecting. Nothing is graded.", durationMin: 6 }} objectionIds={objs} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]}
-      personaOverride={personaFor(setup)} onExit={() => setLive(false)}
-      onComplete={(r) => {
+    return <CallScreen scenario={{ ...base, objective: own ? "Practise the conversation you described. Nothing is graded." : "Practise the conversation you're expecting. Nothing is graded.", durationMin: 6 }} objectionIds={callObjs} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]}
+      personaOverride={personaFor(setup)} onExit={() => setLive(false)} assisted={assisted}
+      onComplete={(r, meta) => {
+        setup.assisted = meta.assisted;
         const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `Prep · ${traits.join(", ").toLowerCase()} ${specialty.toLowerCase()}`, setup, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
         s.touchStreak(me.id);
         router.replace(`/rep/practice/session/${id}`);
@@ -205,10 +213,28 @@ export function PrepMeeting() {
       <Group label="Specialty">{PREP_SPECIALTIES.map((x) => <Chip key={x} size="lg" selected={specialty === x} onClick={() => setSpecialty(x)}>{x}</Chip>)}</Group>
       <Group label="What are they like?">{PREP_TRAITS.map((x) => <Chip key={x} size="lg" selected={traits.includes(x)} onClick={() => setTraits(traits.includes(x) ? traits.filter((t) => t !== x) : [...traits, x])}>{x}</Chip>)}</Group>
       <Group label="Call">{PREP_CALL_TYPES.map((x) => <Chip key={x} size="lg" selected={callType === x} onClick={() => setCallType(x)}>{x}</Chip>)}</Group>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="own-situation" className="text-label font-semibold text-ink-2">Bring your own situation <span className="font-normal text-ink-3">(optional)</span></label>
+        <textarea id="own-situation" rows={3} value={situation} onChange={(e) => setSituation(e.target.value)}
+          placeholder="e.g. She only gives me two minutes at the door and says she's happy with what she prescribes."
+          className="squircle min-h-[84px] resize-none rounded-control border border-hair-2 bg-card px-3.5 py-3 text-body-lg outline-none transition-colors placeholder:text-ink-4 focus:border-brand" />
+        {own && <Text size="caption" tone="brand-deep" weight="semibold">The doctor opens with this: “{own.line}”</Text>}
+      </div>
       <Group label={`Objections you expect (${objs.length}/3)`}>
         {OBJECTIONS.map((o) => <Chip key={o.id} size="lg" selected={objs.includes(o.id)} onClick={() => setObjs(objs.includes(o.id) ? objs.filter((x) => x !== o.id) : objs.length < 3 ? [...objs, o.id] : objs)}>{o.label}</Chip>)}
       </Group>
-      <Button size="lg" fullWidth className="mt-auto" disabled={!objs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start practice call</Button>
+      <div className="flex flex-col gap-2">
+        <Text size="label" weight="semibold" tone="muted">How much help?</Text>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Assisted or unassisted">
+          {[{ on: true, label: "Assisted", hint: "Prompts while you talk" }, { on: false, label: "Unassisted", hint: "A clean call, scored after" }].map((o) => (
+            <button key={o.label} type="button" role="radio" aria-checked={assisted === o.on} onClick={() => setAssisted(o.on)}
+              className={cn("squircle flex flex-col gap-0.5 rounded-panel border p-3 text-left transition-colors", assisted === o.on ? "border-brand bg-tint ring-1 ring-brand" : "border-hair-2 bg-card hover:bg-subtle")}>
+              <span className="text-body-lg font-bold text-ink">{o.label}</span><span className="text-caption text-ink-3">{o.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <Button size="lg" fullWidth className="mt-auto" disabled={!callObjs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start practice call</Button>
     </div>
   );
 }
@@ -223,9 +249,9 @@ export function LibraryCall() {
   const me = useMe();
   const s = useApp();
   const sc = getScenario(search.get("scenario") ?? "sc-kim");
-  return <CallScreen scenario={sc} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push("/rep/practice")}
-    onComplete={(r) => {
-      const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: sc.title, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
+  return <CallScreen scenario={sc} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push("/rep/practice")} assisted
+    onComplete={(r, meta) => {
+      const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `${sc.title}${meta.assisted ? " · assisted" : ""}`, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context, assisted: meta.assisted }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
       s.touchStreak(me.id);
       router.replace(`/rep/practice/session/${id}`);
     }} />;

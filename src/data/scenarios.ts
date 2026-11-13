@@ -43,11 +43,14 @@ export const OBJECTIONS: Objection[] = [
 
 /* Scenarios trainers build live in the store; the store registers them here so lookups find them. */
 let CUSTOM: Scenario[] = [];
+/* One-off objections for a single practice call (a rep's own situation), never saved. */
+let EXTRA: Objection[] = [];
+export function registerExtraObjections(list: Objection[]) { EXTRA = list; }
 export function registerScenarios(list: Scenario[]) { CUSTOM = list; }
 /** Every scenario: the approved ones we ship, then the ones trainers built. */
 export const allScenarios = (): Scenario[] => [...SCENARIOS, ...CUSTOM];
 
-export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id) ?? CUSTOM.flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id)!;
+export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id) ?? EXTRA.find((o) => o.id === id) ?? CUSTOM.flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id)!;
 
 export const PROHIBITED: ProhibitedRule[] = [
   {

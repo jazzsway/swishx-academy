@@ -6,7 +6,7 @@ import { ArrowRight, ChevronRight, FileDown, Lock, SearchX } from "lucide-react"
 import { cn } from "@/lib/cn";
 import { useApp, live } from "@/store/app-store";
 import { counts, daysFromToday, firstTry, fmtDate, heatmap, isOverdue, lift, minutesSaved, opensLater, pct, timeToCertified } from "@/store/selectors";
-import { COMPETENCIES, DOMAINS, REGIONS, TODAY, competency } from "@/data/org";
+import { COMPETENCIES, DIVISIONS, DOMAINS, REGIONS, TODAY, competency } from "@/data/org";
 import { PRACTICE_AGGREGATE } from "@/data/seed";
 import type { Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -85,6 +85,13 @@ export function TrainerAnalytics() {
   const notStarted = ps.filter((p) => p.state === "not_started" && !opensLater(p) && -daysFromToday(p.assignedAt) >= 7)
     .sort((a, b) => (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9")).slice(0, 5).map(person);
   const improved = measured.map((p) => ({ ...person(p), gain: finalScore(p)! - p.screening!.overall })).sort((a, b) => b.gain - a.gain).slice(0, 5);
+
+  /* 3b · Baseline to final, by field team: where each team started and where it is now. */
+  const teams = DIVISIONS.map((d) => {
+    const m = measured.filter((p) => users.get(p.userId)?.divisionId === d.id);
+    return m.length ? { id: d.id, name: d.name, n: m.length, before: avg(m.map((p) => p.screening!.overall)), now: avg(m.map((p) => finalScore(p)!)) } : null;
+  }).filter(Boolean) as { id: string; name: string; n: number; before: number; now: number }[];
+  const practiceOnly = ps.filter((p) => p.mode === "practice").length;
 
   /* 6 · Content. */
   const gaps = s.searches.filter((x) => x.results === 0).sort((a, b) => b.count - a.count);
@@ -181,6 +188,31 @@ export function TrainerAnalytics() {
         </Card>
       </div>
 
+      {teams.length > 0 && (
+        <Card title="Baseline to final, by team" eyebrow={`Screening score against the latest final score · ${measured.length} reps with both`}>
+          <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+            {teams.map((t) => (
+              <div key={t.id} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <Text size="body-lg" weight="semibold" truncate>{t.name}</Text>
+                  <span className="flex items-center gap-2">
+                    <Text size="caption" tone="subtle" tabular>{t.before} →</Text>
+                    <Text size="body-lg" weight="bold" tabular>{t.now}</Text>
+                    <Chip size="xs" tone={t.now >= t.before ? "ok" : "danger"}>{t.now >= t.before ? "+" : ""}{t.now - t.before}</Chip>
+                  </span>
+                </div>
+                <span className="relative block h-3 rounded-full bg-black/[0.06]">
+                  <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand-2 to-brand" style={{ width: `${t.now}%` }} />
+                  <span className="absolute -top-1 h-5 w-0.5 rounded-full bg-ink" style={{ left: `${t.before}%` }} title={`Baseline ${t.before}`} />
+                </span>
+                <Text size="caption" tone="subtle">{t.n} rep{t.n === 1 ? "" : "s"} · the dark mark is the baseline</Text>
+              </div>
+            ))}
+          </div>
+          {practiceOnly > 0 && <Text size="caption" tone="subtle">{practiceOnly} assignment{practiceOnly === 1 ? " is" : "s are"} practice only: those reps skip the modules, so their gain comes from practice calls alone.</Text>}
+        </Card>
+      )}
+
       {/* 4 · Courses */}
       <Card title="Courses" eyebrow="Lowest certification first">
         <div className="overflow-x-auto">
@@ -246,7 +278,7 @@ export function TrainerAnalytics() {
           </Link>
         </Card>
         <Card title="Practice" eyebrow="Private calls, as a group" actions={<span className="flex items-center gap-1 text-caption text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Groups of 5+</span>}>
-          <div className="flex gap-6"><Stat label="Sessions this week" value={PRACTICE_AGGREGATE.sessionsThisWeek} /><Stat label="Reps practising" value={PRACTICE_AGGREGATE.practisingReps} /></div>
+          <div className="flex flex-wrap gap-6"><Stat label="Sessions this week" value={PRACTICE_AGGREGATE.sessionsThisWeek} /><Stat label="Reps practising" value={PRACTICE_AGGREGATE.practisingReps} /><Stat label="Assisted" value={`${PRACTICE_AGGREGATE.assistedShare}%`} sub="of calls used prompts" /></div>
           <div className="flex flex-col gap-2.5">
             <Text size="caption" weight="semibold" tone="subtle">Most missed on practice calls</Text>
             {PRACTICE_AGGREGATE.missed.slice(0, 3).map((m) => (

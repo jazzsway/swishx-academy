@@ -347,6 +347,8 @@ function mkAttempt(at: string, overall: number, passed: boolean, scores: Record<
 export const PRACTICE_AGGREGATE = {
   sessionsThisWeek: 412,
   practisingReps: 96,
+  /* Share of practice calls taken with live prompts on (assisted mode). */
+  assistedShare: 58,
   weekly: [118, 164, 201, 247, 290, 338, 371, 412],
   missed: [
     { criterion: "Handles the cost & access objection", hit: 41 },

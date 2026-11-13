@@ -17,6 +17,7 @@ import { Ring, EmptyState } from "@/components/patterns/academy";
 import { modulesOf, nextStepFor, pathDone, pathModules, pathProgress } from "./use-rep";
 import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { MediaSummary } from "./watch";
+import { BaselineCard, PracticeCalls, PracticeOnlyNote } from "./course-extras";
 import { moduleCards } from "@/lib/short-form";
 import type { Course as CourseT, Module as ModuleT } from "@/data/types";
 
@@ -252,12 +253,17 @@ export function RepCourse() {
 
       {/* v1-hidden: {p.state === "not_started" && c.allowExplore && <ExploreModules courseId={c.id} />} */}
 
+      {p.mode === "practice" && p.state !== "certified" && <PracticeOnlyNote />}
+      <BaselineCard c={c} p={p} />
+
       {pathDone(p, c) && c.settings.completion.assessment && ["learning", "remediation", "needs_coaching"].includes(p.state) && (
         <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">
           <Text size="subhead" weight="bold">Final assessment</Text>
           <Text size="body" tone="muted">{c.settings.assessmentItems} questions{c.settings.assessmentCall ? " plus a short call" : ""}. Pass: {c.settings.passOverall}% overall, {c.settings.passCritical}% on {c.settings.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}, and no critical compliance flag. {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} left.</Text>
         </div>
       )}
+
+      {p.state !== "not_started" || p.mode === "practice" || !c.settings.screening ? <PracticeCalls c={c} p={p} /> : null}
 
       {p.state === "certified" && (
         <section className="flex flex-col gap-2">
@@ -333,7 +339,7 @@ export function RepCourse() {
         p.state === "not_started" && c.settings.screening
           ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(`/rep/course/${c.id}/screening`); }}>Start with screening</Button></BottomActions>
           : p.state === "not_started" && step
-            ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>Start the course · {pr.fullMinutes} min</Button></BottomActions>
+            ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>{p.mode === "practice" ? step.cta : `Start the course · ${pr.fullMinutes} min`}</Button></BottomActions>
             : p.state === "certified"
               ? <BottomActions><Button size="lg" fullWidth variant="secondary" onClick={() => router.push("/rep/me")}><Award className="size-4" aria-hidden="true" />View certificate</Button></BottomActions>
               : step && <BottomActions><Button size="lg" fullWidth onClick={() => router.push(step.href)}><span className="truncate">{step.cta === "Continue" ? `Continue: ${step.title}` : step.cta}</span></Button></BottomActions>

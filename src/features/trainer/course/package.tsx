@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { ORG, competency, product, source } from "@/data/org";
-import { SCENARIOS, objection, prohibited } from "@/data/scenarios";
+import { allScenarios, objection, prohibited } from "@/data/scenarios";
 import { fmtDate } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export function MlrPackage() {
   if (!data) return null;
   const { course, cur } = data;
   const prev = course.versions.length > 1 ? course.versions[course.versions.length - 2] : undefined;
-  const scs = SCENARIOS.filter((s) => course.scenarioIds.includes(s.id));
+  const scs = allScenarios().filter((s) => course.scenarioIds.includes(s.id));
   const footer = <div className="mt-6 flex justify-between border-t border-hair pt-2 font-mono text-micro text-ink-4"><span>Version ID {cur.versionId}</span><span>For internal training use only · not for distribution to HCPs</span></div>;
 
   return (
