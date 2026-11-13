@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Archive, ChevronDown, Eye, FileText, ListChecks, Lock, PanelRight, PencilLine, Plus, Rocket, Save, Settings2, Trash2, Users, X } from "lucide-react";
+import { Archive, ChevronDown, Eye, FileText, Hammer, ListChecks, Lock, PanelRight, PencilLine, Plus, Rocket, Save, Settings2, Trash2, Users, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -78,7 +78,7 @@ function Workspace({ children }: { children: ReactNode }) {
     <div className={cn("flex h-dvh flex-col bg-canvas", resizing && "select-none")}>
       <TopBar />
       <div className="flex min-h-0 flex-1">
-        <Rail course={data.course} editable={data.editable} />
+        {sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
         <main className="min-w-0 flex-1 overflow-y-auto bg-subtle/60 [scrollbar-width:thin]" id="workspace-canvas">
           <div className="page-enter mx-auto flex w-full max-w-[980px] flex-col gap-4 px-5 py-6 lg:px-8">
             {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay")) && (
@@ -109,18 +109,19 @@ function TopBar() {
   const startNewVersion = useApp((s) => s.startNewVersion);
   const open = useCopilot((s) => s.open);
   const toggle = useCopilot((s) => s.toggle);
-  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const pathname = usePathname();
   const [leaving, setLeaving] = useState(false);
   const { course, cur, lv } = data;
   const base = `/trainer/courses/${id}`;
   const direct = course.origin === "direct";
   const length = course.format === "short" ? `${courseCardCount(course.modules)} cards` : `${courseMinutes(course)} min`;
-  const items = [
-    { href: `${base}/settings`, label: "Settings", icon: Settings2 },
-    { href: `${base}/people`, label: "People & progress", icon: Users },
-    { href: `${base}/review`, label: "Publish & versions", icon: Rocket },
-    ...(lv ? [{ href: `${base}/assign`, label: `Assign v${lv.version}`, icon: Users }] : []),
-  ];
+  const section = sectionOf(pathname, base);
+  const tabs = [
+    { id: "build", href: base, label: "Build", icon: Hammer },
+    { id: "settings", href: `${base}/settings`, label: "Settings", icon: Settings2 },
+    { id: "people", href: `${base}/people`, label: "People", icon: Users },
+    { id: "versions", href: `${base}/review`, label: "Versions", icon: Rocket },
+  ] as const;
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-hair bg-card px-3 sm:px-4">
       <span className="grid size-8 shrink-0 place-items-center rounded-control border border-tint-line bg-gradient-to-br from-tint to-white"><LogoMark size={17} className="text-brand" /></span>
@@ -134,12 +135,20 @@ function TopBar() {
           <span className={cn("rounded-glyph px-1.5 py-px", direct ? "bg-info-bg text-info" : "bg-tint text-brand-deep")}>{direct ? "Direct from your materials" : "Created with SwishX"}</span>
         </span>
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button type="button" aria-haspopup="menu" aria-expanded={!!menu}
-          onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setMenu(menu ? null : { top: r.bottom + 6, right: window.innerWidth - r.right }); }}
-          className="hidden h-9 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-3 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle sm:flex">
-          Course<ChevronDown className="size-4 text-ink-3" aria-hidden="true" />
-        </button>
+      {/* The course's sections, as tabs: Build is the workspace; the rest are full-width pages. */}
+      <nav aria-label="Course sections" className="mx-auto hidden h-full items-stretch gap-1 md:flex">
+        {tabs.map((t) => {
+          const on = section === t.id;
+          return (
+            <Link key={t.id} href={t.href} aria-current={on ? "page" : undefined}
+              className={cn("relative flex items-center gap-1.5 px-3 text-body font-semibold transition-colors", on ? "text-ink" : "text-ink-3 hover:text-ink")}>
+              <t.icon className={cn("size-4", on ? "text-brand" : "text-ink-4")} aria-hidden="true" />{t.label}
+              {on && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand" aria-hidden="true" />}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
         <button type="button" onClick={toggle} aria-pressed={open} title={open ? "Hide the agent (⌘\\)" : "Show the agent (⌘\\)"} aria-label="Toggle the agent panel"
           className={cn("grid size-9 place-items-center rounded-control border transition-colors", open ? "border-hair-2 bg-black/5 text-ink" : "border-tint-line bg-tint text-brand-deep hover:bg-tint/70")}>
           {open ? <PanelRight className="size-4" /> : <AgentIcon className="size-4" />}
@@ -154,20 +163,17 @@ function TopBar() {
           className="grid size-9 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><X className="size-4.5" /></button>
       </div>
       {leaving && <LeaveDialog course={course} hasLive={!!lv} draftVersion={cur.version} onCancel={() => setLeaving(false)} />}
-      {menu && (
-        <Portal>
-          <div className="fixed inset-0 z-[60]" onClick={() => setMenu(null)} aria-hidden="true" />
-          <div role="menu" style={{ top: menu.top, right: menu.right }} className="select-pop fixed z-[61] w-[240px] rounded-panel border border-hair bg-card p-1.5 shadow-float">
-            {items.map((it) => (
-              <Link key={it.href} role="menuitem" href={it.href} onClick={() => setMenu(null)} className="flex items-center gap-2.5 rounded-control px-2.5 py-2 text-body font-semibold text-ink-2 hover:bg-subtle">
-                <it.icon className="size-4 text-ink-3" aria-hidden="true" />{it.label}
-              </Link>
-            ))}
-          </div>
-        </Portal>
-      )}
     </header>
   );
+}
+
+/** Which header tab a course page belongs to. Content, roleplays and questions are all Build. */
+function sectionOf(pathname: string, base: string): "build" | "settings" | "people" | "versions" | "assign" {
+  if (pathname.startsWith(`${base}/settings`)) return "settings";
+  if (pathname.startsWith(`${base}/people`)) return "people";
+  if (pathname.startsWith(`${base}/review`)) return "versions";
+  if (pathname.startsWith(`${base}/assign`)) return "assign";
+  return "build";
 }
 
 /** The course down the left: its modules, then its roleplays, then the rest. */
@@ -286,18 +292,6 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
         </>
       )}
 
-      <div className="mt-auto flex flex-col gap-0.5 border-t border-hair pt-2">
-        {[
-          { href: `${base}/settings`, label: "Settings", icon: Settings2 },
-          { href: `${base}/people`, label: "People & progress", icon: Users },
-          { href: `${base}/review`, label: "Publish & versions", icon: Rocket },
-        ].map((it) => (
-          <Link key={it.href} href={it.href} aria-current={pathname.startsWith(it.href) ? "page" : undefined}
-            className={cn("flex items-center gap-2.5 rounded-control px-2 py-1.5 text-body font-semibold transition-colors", pathname.startsWith(it.href) ? "bg-tint text-ink" : "text-ink-3 hover:bg-subtle hover:text-ink")}>
-            <it.icon className="size-4" aria-hidden="true" />{it.label}
-          </Link>
-        ))}
-      </div>
     </nav>
   );
 }
