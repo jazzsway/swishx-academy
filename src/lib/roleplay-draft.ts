@@ -78,11 +78,11 @@ const closer = (brand: string) => `Alright. Leave me the information, and I'll t
  * Drafts a course's first roleplay from its roleplay documents. The scenario document sets the doctor,
  * objections and never-say list; a selling model, when there is one, sets the rubric.
  */
-export function draftScenario(o: { courseId: string; productId?: string; sources: Source[]; sellingModelId?: string }): Scenario {
+export function draftScenario(o: { courseId: string; productId?: string; sources: Source[]; sellingModelId?: string; id?: string; name?: string; createdAt?: string }): Scenario {
   const p = product(o.productId);
   const brand = p?.brand ?? "our product";
-  const prefix = `sc-${rid()}`;
-  const name = DOCTORS[hash(o.courseId) % DOCTORS.length];
+  const prefix = o.id ?? `sc-${rid()}`;
+  const name = o.name ?? DOCTORS[hash(o.courseId) % DOCTORS.length];
   const scenarioDoc = o.sources.find((s) => s.id !== o.sellingModelId) ?? o.sources[0];
   const at = (page: number, id = scenarioDoc?.id): Citation | undefined => (id ? { sourceId: id, page } : undefined);
   const selling = !!o.sellingModelId;
@@ -106,7 +106,7 @@ export function draftScenario(o: { courseId: string; productId?: string; sources
     custom: {
       objections: obs, prohibited: prs, sourceIds: o.sources.map((s) => s.id), sellingModelId: o.sellingModelId,
       cites: { persona: at(1), opening: at(2), objections: at(3), prohibited: at(4), rubric: selling ? at(2, o.sellingModelId) : at(5) },
-      createdAt: new Date().toISOString(),
+      createdAt: o.createdAt ?? new Date().toISOString(),
     },
   };
 }

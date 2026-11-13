@@ -5,6 +5,7 @@ import { LUMORA_ITEMS } from "./lumora-items";
 import {
   AD101_MODULES, CARDEXA_ITEMS, CARDEXA_V1_MODULES, CARDEXA_V2_MODULES, COMPLIANCE_MODULES, NP_MODULES,
 } from "./other-courses";
+import { fieldKitCourse } from "./field-kit";
 
 export function defaultSettings(type: Course["type"], over: Partial<CourseSettings> = {}): CourseSettings {
   const personalised = type === "personalised";
@@ -59,7 +60,7 @@ const launch = (...ids: string[]) => LUMORA_LAUNCH_MODULES.filter((m) => ids.inc
 /** Open courses reps can pick up themselves: nobody is assigned them. */
 function libraryCourse(id: string, title: string, objective: string, mods: Module[], scope: { productId?: string; divisionId?: string; everyone?: boolean }, publishedAt: string): Course {
   return {
-    id, title, format: "short", template: templateFor(title), type: "linear", objective, productId: scope.productId, divisionId: scope.divisionId,
+    id, title: `${title} · Short form`, format: "short", template: templateFor(title), type: "linear", objective, productId: scope.productId, divisionId: scope.divisionId,
     audience: scope.everyone ? "Everyone" : "Immunology division", sourceIds: scope.productId ? ["src-lum-pi", "src-lum-obj"] : ["src-code"],
     competencyIds: [...new Set(mods.map((m) => m.competency))], modules: mods, items: [], scenarioIds: [],
     settings: defaultSettings("linear", { recertMonths: 24 }),
@@ -71,7 +72,7 @@ function libraryCourse(id: string, title: string, objective: string, mods: Modul
 export function seedCourses(): Course[] {
   const list: Course[] = [
     {
-      id: "c-compliance", title: "Compliance essentials", format: "short", template: "essentials", type: "linear",
+      id: "c-compliance", title: "Compliance essentials · Short form", format: "short", template: "essentials", type: "linear",
       objective: "Every rep knows the rules for on-label promotion, medical information requests and adverse event reporting.",
       audience: "All field roles", sourceIds: ["src-code"], competencyIds: ["c-compliance"],
       modules: COMPLIANCE_MODULES, items: [], scenarioIds: [],
@@ -87,7 +88,7 @@ export function seedCourses(): Course[] {
       visibility: "everyone", prerequisites: [], allowExplore: true,
     },
     {
-      id: "c-ad101", title: "Atopic dermatitis 101", format: "short", template: "myth", type: "linear",
+      id: "c-ad101", title: "Atopic dermatitis 101 · Short form", format: "short", template: "myth", type: "linear",
       objective: "New and transferring reps understand atopic dermatitis, how severity is measured, and today's care pathway.",
       audience: "Immunology division", sourceIds: ["src-ad-guide"], competencyIds: ["c-disease", "c-competitive"],
       modules: AD101_MODULES, items: [], scenarioIds: [],
@@ -99,7 +100,7 @@ export function seedCourses(): Course[] {
       divisionId: "div-imm", visibility: "audience", prerequisites: [], allowExplore: true,
     },
     {
-      id: "c-lumora-launch", title: "Lumora launch readiness", productId: "p-lumora", format: "long", type: "personalised",
+      id: "c-lumora-launch", title: "Lumora launch readiness · Personalised path", productId: "p-lumora", format: "long", type: "personalised",
       objective: "Every Immunology rep can hold a compliant, confident first Lumora conversation: the right patient, the approved data, fair balance, and the top objections.",
       audience: "Immunology field reps and managers",
       sourceIds: ["src-lum-pi", "src-lum-va", "src-lum-p3", "src-lum-obj", "src-lum-payer", "src-ad-guide", "src-code"],
@@ -121,7 +122,7 @@ export function seedCourses(): Course[] {
       visibility: "audience", prerequisites: ["c-compliance", "c-ad101"], allowExplore: true,
     },
     {
-      id: "c-lumora-np", title: "Lumora for nurse practitioners", productId: "p-lumora", format: "short", template: "glance", type: "linear",
+      id: "c-lumora-np", title: "Lumora for nurse practitioners · Short form", productId: "p-lumora", format: "short", template: "glance", type: "linear",
       objective: "Reps can support NP-led follow-up visits and the first injection.",
       audience: "Immunology reps", sourceIds: ["src-lum-pi", "src-lum-va", "src-ad-guide"], competencyIds: ["c-opening", "c-dosing"],
       modules: NP_MODULES, items: [], scenarioIds: [],
@@ -136,7 +137,7 @@ export function seedCourses(): Course[] {
       visibility: "audience", prerequisites: [], allowExplore: true,
     },
     {
-      id: "c-cardexa", title: "Cardexa label update 2026", productId: "p-cardexa", format: "short", template: "label", type: "linear",
+      id: "c-cardexa", title: "Cardexa label update 2026 · Short form", productId: "p-cardexa", format: "short", template: "label", type: "linear",
       objective: "Every Cardiometabolic rep knows what changed in the October 2026 Cardexa label and delivers the updated safety information.",
       audience: "Cardiometabolic division", sourceIds: ["src-cdx-pi", "src-cdx-va", "src-code"], competencyIds: ["c-safety", "c-dosing", "c-compliance"],
       modules: CARDEXA_V2_MODULES, items: CARDEXA_ITEMS, scenarioIds: [],
@@ -164,7 +165,7 @@ export function seedCourses(): Course[] {
     },
     /* A finished personalised course from Priya's first months, so her record shows a full before and after. */
     {
-      id: "c-skills", title: "Field selling skills: open, handle, balance", format: "long", type: "personalised",
+      id: "c-skills", title: "Field selling skills: open, handle, balance · Personalised path", format: "long", type: "personalised",
       objective: "Reps open on the right patient, handle the access and cost objection, and keep fair balance in every conversation.",
       audience: "Immunology division", divisionId: "div-imm", sourceIds: ["src-lum-pi", "src-lum-obj", "src-lum-payer", "src-code"],
       competencyIds: ["c-opening", "c-objections", "c-access", "c-safety", "c-compliance"],
@@ -177,7 +178,7 @@ export function seedCourses(): Course[] {
     },
     /* The flagship's own content as short form: the same approved modules, broken into cards. */
     {
-      id: "c-lumora-short", title: "Lumora essentials, card by card", productId: "p-lumora", format: "short", template: "glance", type: "linear",
+      id: "c-lumora-short", title: "Lumora essentials, card by card · Short form", productId: "p-lumora", format: "short", template: "glance", type: "linear",
       objective: "Reps can explain who Lumora is for, how it works, the week-16 data, dosing and the safety information, in a few minutes a day.",
       audience: "Immunology division", divisionId: "div-imm", sourceIds: ["src-lum-pi", "src-lum-va", "src-lum-p3", "src-ad-guide"],
       competencyIds: ["c-disease", "c-moa", "c-efficacy", "c-dosing", "c-safety"],
@@ -197,6 +198,11 @@ export function seedCourses(): Course[] {
     libraryCourse("c-lib-np", "Working with nurse practitioners", "Who NPs see, what they ask about, and how to support NP-led follow-up visits.",
       clone(NP_MODULES.slice(0, 1), "lnp"), { everyone: true }, "2026-07-15"),
   ];
+  /* The direct course: the team's own files as they are, plus a roleplay; assessed on the call alone. */
+  list.push(fieldKitCourse(defaultSettings("linear", {
+    assessmentCall: true, assessmentScenarioId: "sc-fieldkit", finalNoHints: true,
+    completion: { path: true, assessment: true, verify: false, attestation: true, checks: 0 },
+  })));
   /* The flagship course leads every list. */
   const FIRST = "c-lumora-launch";
   return [...list.filter((c) => c.id === FIRST), ...list.filter((c) => c.id !== FIRST)];

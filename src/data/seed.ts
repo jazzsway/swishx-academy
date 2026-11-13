@@ -235,6 +235,33 @@ export function seed(): SeedState {
     completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
   });
 
+  /* ── Lumora field kit (direct from sources): Northeast reps, at every stage of the direct journey ── */
+  const kit = courses.find((c) => c.id === "c-fieldkit")!;
+  const kitPath = buildPath(kit.modules, {}, "full");
+  const kitBlocks = kit.modules.map((m) => m.blocks[0].id);
+  const kitCall = (at: string, score: number, passed: boolean): Attempt => ({
+    at, quiz: 0, roleplay: score, overall: score, passed,
+    competencyScores: { "c-opening": Math.min(100, score + 6), "c-objections": Math.max(0, score - 4) },
+    failedCompetencies: passed ? [] : ["c-objections"], reason: passed ? undefined : `Roleplay ${score}% (needs 75%)`,
+  });
+  const kitRow = (userId: string, over: Partial<Progress>): Progress => ({
+    id: `p-${userId}-fieldkit`, userId, courseId: "c-fieldkit", version: 1, state: "learning",
+    assignedAt: "2026-11-06", dueAt: "2026-12-06", assignType: "required", startedAt: "2026-11-07", path: kitPath,
+    completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [], ...over,
+  });
+  const ne = reps.filter((u) => u.districtId === "d-northeast");
+  progress.push(
+    /* Priya: halfway through the files, learn + practice. */
+    kitRow("u-priya", { completedBlocks: kitBlocks.slice(0, 2), minutesSpent: 14 }),
+    /* Experienced reps assigned practice only: one hasn't started, one passed the call straight away. */
+    kitRow(ne[1].id, { mode: "practice", state: "not_started", startedAt: undefined, path: undefined }),
+    kitRow(ne[2].id, { mode: "practice", state: "certified", path: undefined, attempts: [kitCall("2026-11-09T15:20:00", 84, true)], certifiedAt: "2026-11-09", certExpiresAt: "2027-11-09", attestedAt: "2026-11-09", attestName: ne[2].name }),
+    /* Learn + practice: one certified, one retaking after a missed call, the rest on their way. */
+    kitRow(ne[3].id, { state: "certified", completedBlocks: kitBlocks, minutesSpent: 29, attempts: [kitCall("2026-11-10T11:00:00", 79, true)], certifiedAt: "2026-11-10", certExpiresAt: "2027-11-10", attestedAt: "2026-11-10", attestName: ne[3].name }),
+    kitRow(ne[4].id, { state: "remediation", completedBlocks: kitBlocks, minutesSpent: 31, attempts: [kitCall("2026-11-11T09:40:00", 58, false)] }),
+    ...ne.slice(5).map((u, i) => kitRow(u.id, i % 2 ? { state: "not_started", startedAt: undefined, path: undefined } : { completedBlocks: kitBlocks.slice(0, 1 + (i % 3)), minutesSpent: 6 + i * 3 })),
+  );
+
   /* Priya's first months: a personalised skills course she was screened on, failed once, then passed. Her record shows the whole arc. */
   const skills = courses.find((c) => c.id === "c-skills")!;
   const pScreen = { "c-opening": 62, "c-objections": 41, "c-access": 38, "c-safety": 66, "c-compliance": 72 };

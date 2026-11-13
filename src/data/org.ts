@@ -86,6 +86,8 @@ export const SOURCES: Source[] = [
   { id: "src-lum-payer", title: "Corvana Access Hub payer guide", type: "Payer guide", pages: 6, docNumber: "LUM-US-0211", productId: "p-lumora" },
   { id: "src-ad-guide", title: "Atopic dermatitis disease-state guide", type: "Clinical summary", pages: 14, docNumber: "CORV-US-0090" },
   { id: "src-code", title: "Corvana promotional compliance policy", type: "Policy", pages: 10, docNumber: "CORV-US-0010" },
+  /* The client's own call framework: roleplays score against it. */
+  { id: "src-selling", title: "Corvana selling model", type: "Selling model", pages: 6 },
   { id: "src-cdx-pi", title: "Cardexa Prescribing Information (rev. 10/2026)", type: "Prescribing Information", pages: 22, docNumber: "CDX-US-0398", productId: "p-cardexa" },
   { id: "src-cdx-va", title: "Cardexa visual aid", type: "Visual aid", pages: 10, docNumber: "CDX-US-0405", productId: "p-cardexa" },
   ...PRODUCT_PI_SOURCES,

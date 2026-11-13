@@ -22,7 +22,7 @@ import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 const STEPS = ["Basics", "Materials", "Create"];
 /* Library documents that suit each side: what reps read, and what tells the AI how calls go. */
 const FOR_REPS = new Set(["Visual aid", "Prescribing Information", "Clinical summary", "Policy"]);
-const FOR_ROLEPLAY = new Set(["Objection handler", "Payer guide"]);
+const FOR_ROLEPLAY = new Set(["Objection handler", "Payer guide", "Selling model"]);
 
 const THUMB: Record<string, string> = {
   video: "bg-ink text-white", audio: "bg-ok-bg text-ok", image: "bg-info-bg text-info", slides: "bg-tint text-brand-deep", pdf: "bg-subtle text-ink-3", doc: "bg-info-bg text-info", data: "bg-subtle text-ink-3", other: "bg-subtle text-ink-3",
@@ -229,7 +229,7 @@ export function DirectCourseWizard() {
                 </ul>
               )}
               <Dropzone label="Add your roleplay documents" kinds="Call scenarios, objection lists, your selling model" onFiles={(f) => upload(f, "rp")} />
-              {rpSuggest.length > 0 && <Suggest label="From the product library" items={rpSuggest} onAdd={(x) => setRpIds([...rpIds, x.id])} />}
+              {rpSuggest.length > 0 && <Suggest label="From the product library" items={rpSuggest} onAdd={(x) => { setRpIds([...rpIds, x.id]); if (x.type === "Selling model" && !sellingId) setSellingId(x.id); }} />}
               <div className="squircle flex items-center gap-3 rounded-panel border border-dashed border-hair-2 px-3 py-2.5 opacity-70">
                 <span className="grid size-9 shrink-0 place-items-center rounded-control bg-subtle text-ink-3"><Waypoints className="size-4" aria-hidden="true" /></span>
                 <span className="flex min-w-0 flex-1 flex-col"><span className="text-body font-semibold text-ink-2">Doctors from Veeva CRM call data</span><span className="text-caption text-ink-3">Comes with the Veeva integration</span></span>
