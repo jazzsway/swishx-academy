@@ -92,6 +92,8 @@ export interface AppState extends Seeded {
   updateCourse: (courseId: string, patch: Partial<Course>) => void;
   updateSettings: (courseId: string, patch: Partial<CourseSettings>) => void;
   startNewVersion: (courseId: string) => void;
+  /** Throws away the open draft: back to the live version, or the whole course if it was never published. */
+  discardDraft: (courseId: string) => void;
   backToDraft: (courseId: string) => void;
   markReady: (courseId: string, acknowledged: string[]) => void;
   markSubmitted: (courseId: string, d: { date: string; vaultId?: string; note?: string }) => void;
@@ -348,6 +350,17 @@ export const useApp = create<AppState>()(
             return { ...c, modules: base.modules, versions: [...c.versions, v] };
           }),
         ),
+
+      discardDraft: (courseId) =>
+        set((s) => {
+          const c = s.courses.find((x) => x.id === courseId);
+          if (!c) return {};
+          const lv = live(c);
+          if (!lv) return { courses: s.courses.filter((x) => x.id !== courseId), progress: s.progress.filter((p) => p.courseId !== courseId) };
+          const cur = current(c);
+          if (cur.state === "published") return {};
+          return mapCourse(s, courseId, (x) => ({ ...x, modules: lv.modules, versions: x.versions.filter((v) => v.version !== cur.version) }));
+        }),
 
       backToDraft: (courseId) =>
         set((s) => mapCourse(s, courseId, (c) => mapCurrent(c, (v) => (v.state === "ready" ? hist({ ...v, state: "draft", packageAt: undefined }, "Edited · package voided") : v)))),

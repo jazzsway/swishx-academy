@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useApp, current, live } from "@/store/app-store";
@@ -17,6 +17,8 @@ import { VersionChip } from "@/components/patterns/academy";
 import type { Course } from "@/data/types";
 import { courseCardCount } from "@/lib/short-form";
 import { NewCourseModal } from "./course-start";
+import { useToast, Toast } from "@/components/patterns/toast";
+import { TOAST_KEY } from "./course/course-frame";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -28,6 +30,9 @@ const FILTERS = [
 export function CourseCatalogue() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
+  /* A course closed from its workspace says what happened here, where the trainer lands. */
+  const { message, open, showToast } = useToast();
+  useEffect(() => { try { const t = sessionStorage.getItem(TOAST_KEY); if (t) { sessionStorage.removeItem(TOAST_KEY); showToast(t); } } catch { /* storage off */ } }, [showToast]);
   const courses = useApp((s) => s.courses);
   const progress = useApp((s) => s.progress);
   const [q, setQ] = useState("");
@@ -72,6 +77,7 @@ export function CourseCatalogue() {
           { key: "upd", header: "Updated", secondary: true, cell: (c) => fmtDate(c.updatedAt) },
         ]}
       />
+      <Toast message={message} open={open} />
     </div>
   );
 }

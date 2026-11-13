@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ChevronDown, Eye, FileText, ListChecks, Lock, PanelRight, PencilLine, Plus, Rocket, Settings2, Users, X } from "lucide-react";
+import { Archive, ChevronDown, Eye, FileText, ListChecks, Lock, PanelRight, PencilLine, Plus, Rocket, Save, Settings2, Trash2, Users, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -110,6 +110,7 @@ function TopBar() {
   const open = useCopilot((s) => s.open);
   const toggle = useCopilot((s) => s.toggle);
   const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const { course, cur, lv } = data;
   const base = `/trainer/courses/${id}`;
   const direct = course.origin === "direct";
@@ -122,7 +123,6 @@ function TopBar() {
   ];
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-hair bg-card px-3 sm:px-4">
-      <Link href="/trainer/courses" aria-label="Back to courses" title="Courses" className="grid size-9 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><ArrowLeft className="size-4.5" /></Link>
       <span className="grid size-8 shrink-0 place-items-center rounded-control border border-tint-line bg-gradient-to-br from-tint to-white"><LogoMark size={17} className="text-brand" /></span>
       <span className="h-5 w-px shrink-0 bg-hair-2" aria-hidden="true" />
       <div className="flex min-w-0 flex-col">
@@ -148,7 +148,12 @@ function TopBar() {
           ? <Button size="sm" variant="secondary" onClick={() => { startNewVersion(course.id); router.push(base); }}><PencilLine className="size-4" aria-hidden="true" />Edit as v{cur.version + 1}</Button>
           : <Button size="sm" variant="secondary" onClick={() => router.push(`${base}/preview`)}><Eye className="size-4" aria-hidden="true" />Preview as rep</Button>}
         <Button size="sm" onClick={() => router.push(cur.state === "published" ? `${base}/assign` : `${base}/review`)}>{cur.state === "published" ? "Assign" : "Publish"}</Button>
+        {/* Closing the course, as a project closes in the SwishX for Biz studios: a draft asks to keep it or discard it. */}
+        <span className="mx-0.5 h-5 w-px bg-hair-2" aria-hidden="true" />
+        <button type="button" onClick={() => (cur.state === "published" ? router.push("/trainer/courses") : setLeaving(true))} aria-label="Close course" title="Close course"
+          className="grid size-9 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><X className="size-4.5" /></button>
       </div>
+      {leaving && <LeaveDialog course={course} hasLive={!!lv} draftVersion={cur.version} onCancel={() => setLeaving(false)} />}
       {menu && (
         <Portal>
           <div className="fixed inset-0 z-[60]" onClick={() => setMenu(null)} aria-hidden="true" />
@@ -392,5 +397,57 @@ function JourneyStrip({ course, editable }: { course: Course; editable: boolean 
         ))}
       </ol>
     </section>
+  );
+}
+
+/* A message for the page the trainer lands on after closing, since this one is gone by then. */
+export const TOAST_KEY = "academy:queued-toast";
+const queueToast = (t: string) => { try { sessionStorage.setItem(TOAST_KEY, t); } catch { /* storage off */ } };
+
+/**
+ * Leaving a draft course: keep it as a draft to carry on later, or discard it. Discarding a new course
+ * removes it; discarding a new version goes back to the live one. Discard asks once more.
+ */
+function LeaveDialog({ course, hasLive, draftVersion, onCancel }: { course: Course; hasLive: boolean; draftVersion: number; onCancel: () => void }) {
+  const router = useRouter();
+  const discardDraft = useApp((s) => s.discardDraft);
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, [onCancel]);
+  const save = () => { queueToast(`Saved ${course.title} as a draft`); router.push("/trainer/courses"); };
+  const discard = () => { queueToast(hasLive ? `Discarded the v${draftVersion} draft. v${draftVersion - 1} is still live.` : `Discarded ${course.title}`); router.push("/trainer/courses"); window.setTimeout(() => discardDraft(course.id), 60); };
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-[70] grid place-items-center bg-ink/40 p-4 backdrop-blur-sm" role={confirming ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="leave-title" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+        <div className="select-pop relative w-full max-w-[420px] overflow-hidden rounded-card border border-hair bg-card shadow-modal">
+          <button type="button" aria-label="Stay in this course" onClick={onCancel} className="absolute right-3 top-3 grid size-8 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink"><X className="size-4" /></button>
+          <div className="flex flex-col gap-1.5 p-5 pr-12">
+            {confirming && <span className="mb-2 grid size-10 place-items-center rounded-full bg-warn-bg text-warn">{hasLive ? <Archive className="size-5" aria-hidden="true" /> : <Trash2 className="size-5" aria-hidden="true" />}</span>}
+            <Text as="h2" id="leave-title" size="title" weight="bold">{confirming ? (hasLive ? `Discard the v${draftVersion} draft?` : "Discard this course?") : "Leave this course?"}</Text>
+            <Text size="body" tone="muted">
+              {confirming
+                ? hasLive ? `Your changes since v${draftVersion - 1} are thrown away. v${draftVersion - 1} stays live for reps.` : "It hasn't been published, so it's removed for good, roleplays included."
+                : "Save it as a draft to carry on later from Courses, or discard it."}
+            </Text>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-hair bg-canvas/60 p-4">
+            {confirming ? (
+              <>
+                <Button fullWidth onClick={discard}>{hasLive ? <Archive className="size-4" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}Yes, discard</Button>
+                <Button fullWidth variant="secondary" onClick={save}><Save className="size-4" aria-hidden="true" />No, save as draft</Button>
+              </>
+            ) : (
+              <>
+                <Button fullWidth onClick={save}><Save className="size-4" aria-hidden="true" />Save as draft</Button>
+                <Button fullWidth variant="secondary" onClick={() => setConfirming(true)}>{hasLive ? "Discard this draft" : "Discard course"}</Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Portal>
   );
 }
