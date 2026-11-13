@@ -93,7 +93,9 @@ function directMinutes(s: Source): number {
 export function directModules(items: Source[], prefix: string): Module[] {
   return items.map((s, i) => {
     const id = `${prefix}-m${i + 1}`;
-    const competency = PLACE.find(([re]) => re.test(`${s.title} ${s.uploaded?.fileName ?? ""} ${s.type}`))?.[1] ?? "c-opening";
+    /* The PI carries the safety information: everyone sees it, whatever their screening says. */
+    const pi = s.type === "Prescribing Information";
+    const competency = pi ? "c-safety" : PLACE.find(([re]) => re.test(`${s.title} ${s.uploaded?.fileName ?? ""} ${s.type}`))?.[1] ?? "c-opening";
     const minutes = directMinutes(s);
     const base = { id: `${id}-b1`, title: s.title, minutes, competencies: [competency] };
     let block: Block;
@@ -105,6 +107,6 @@ export function directModules(items: Source[], prefix: string): Module[] {
       const pages = Object.keys(DOC_PAGES[s.id] ?? {}).map(Number);
       block = { ...base, type: "document", document: { sourceId: s.id, pages: pages.length ? pages : [1, 2, 3], callouts: [] } };
     }
-    return { id, title: s.title, summary: `${directKind(s)} · shown to reps as it is`, competency, tier: "core" as const, required: false, minutes, blocks: [block] };
+    return { id, title: s.title, summary: `${directKind(s)} · shown to reps as it is`, competency, tier: "core" as const, required: pi, minutes, blocks: [block] };
   });
 }

@@ -201,6 +201,8 @@ export function seedCourses(): Course[] {
   /* The direct course: the team's own files as they are, plus a roleplay; assessed on the call alone. */
   list.push(fieldKitCourse(defaultSettings("linear", {
     assessmentCall: true, assessmentScenarioId: "sc-fieldkit", finalNoHints: true,
+    /* Screening is the call alone: it decides which files each rep can skip. The PI stays for everyone. */
+    screening: true, screeningCall: true, screeningScenarioId: "sc-fieldkit", screeningItems: 0, baseline: true,
     completion: { path: true, assessment: true, verify: false, attestation: true, checks: 0 },
   })));
   /* The flagship course leads every list. */

@@ -267,11 +267,12 @@ export const useApp = create<AppState>()(
           ...c, id, modules: [], items: [], scenarioIds: !direct && c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
           settings: {
             ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
-            screening: c.type === "personalised",
-            screeningCall: false,
+            /* Direct courses screen with the roleplay call alone: there are no questions to screen with. */
+            screening: c.type === "personalised" || direct,
+            screeningCall: direct,
             assessmentCall: false,
             assessmentScenarioId: undefined,
-            baseline: c.type === "personalised",
+            baseline: c.type === "personalised" || direct,
             finalNoHints: true,
             verify: "auto", // v1-hidden: was c.type === "personalised" ? "manager" : "auto" 
             /* A direct course is done when every file is seen; a final call, once attached, adds the assessment. */
@@ -296,11 +297,13 @@ export const useApp = create<AppState>()(
           return {
             scenarios,
             ...mapCourse(s, sc.courseId, (c) => {
-              const settings = use.final
+              let settings = use.final
                 ? { ...c.settings, assessmentCall: true, assessmentScenarioId: sc.id, completion: { ...c.settings.completion, assessment: true } }
                 : c.settings.assessmentScenarioId === sc.id
                   ? { ...c.settings, assessmentCall: false, assessmentScenarioId: undefined, completion: { ...c.settings.completion, assessment: c.type === "personalised" } }
                   : c.settings;
+              /* A course that screens with a call and has no screening doctor yet uses this one. */
+              if (settings.screening && settings.screeningCall && !c.scenarioIds.includes(settings.screeningScenarioId ?? "")) settings = { ...settings, screeningScenarioId: sc.id };
               return { ...c, scenarioIds: c.scenarioIds.includes(sc.id) ? c.scenarioIds : [...c.scenarioIds, sc.id], settings };
             }),
           };
@@ -644,7 +647,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 25,
+      version: 26,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

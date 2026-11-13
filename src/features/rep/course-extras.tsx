@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Award, Check, ChevronRight, FileText, Film, Flag, Headphones, Image as ImageIcon, Lock, Mic, Presentation, TrendingUp } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { fileLength } from "@/features/media/file-view";
-import { modulesOf } from "./use-rep";
+import { modulesOf, pathModules } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
 import type { Course, Module, Progress } from "@/data/types";
@@ -111,24 +111,41 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const mods = modulesOf(c);
   const practiceOnly = p.mode === "practice";
   const sc = allScenarios().find((x) => x.id === (c.settings.assessmentScenarioId ?? c.scenarioIds[0]));
-  const filesDone = practiceOnly || mods.every((m) => m.blocks.every((b) => p.completedBlocks.includes(b.id)));
+  /* Screening first: it decides which files this rep still needs. */
+  const screens = c.settings.screening && !practiceOnly;
+  const filesDone = practiceOnly || ((!screens || !!p.screening) && (p.path ? pathModules(p, c) : mods).every((m) => m.blocks.every((b) => p.completedBlocks.includes(b.id))));
   const practised = !!sc && s.practice.some((x) => x.userId === p.userId && x.title.startsWith(sc.title));
   const passed = !!p.attempts.at(-1)?.passed || p.state === "certified";
   const fails = p.attempts.filter((a) => !a.passed).length;
   const certified = p.state === "certified";
-  const nextFile = mods.find((m) => !m.blocks.every((b) => p.completedBlocks.includes(b.id)));
+  const screened = !!p.screening;
+  const pathIds = p.path?.moduleIds;
+  const needed = screened && pathIds ? mods.filter((m) => pathIds.includes(m.id)) : mods;
+  const skipped = screened && pathIds ? mods.filter((m) => !pathIds.includes(m.id)) : [];
+  const nextFile = needed.find((m) => !m.blocks.every((b) => p.completedBlocks.includes(b.id)));
 
   type Step = { key: string; done: boolean; current?: boolean; locked?: boolean; href?: string; icon: React.ReactNode; title: string; sub: string; tag?: string };
   const steps: Step[] = [];
+  if (screens && sc)
+    steps.push(screened
+      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${sc.persona.name}`,
+          sub: `Baseline ${p.screening!.overall} · ${skipped.length ? `you skip ${skipped.length} file${skipped.length === 1 ? "" : "s"}` : "every file stays in your path"}` }
+      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${sc.persona.name}`,
+          sub: "About 5 min · not graded · decides which files you can skip" });
   if (practiceOnly) {
     steps.push({ key: "skip", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${mods.length} files`, sub: "Skipped: you're assigned practice only", tag: "Skipped" });
   } else {
-    mods.forEach((m, i) => {
+    needed.forEach((m) => {
       const meta = fileMeta(m);
       const done = m.blocks.every((b) => p.completedBlocks.includes(b.id));
-      steps.push({ key: m.id, done, current: !done && m.id === nextFile?.id && p.state !== "not_started", href: `/rep/course/${c.id}/learn?module=${m.id}`,
-        icon: <meta.icon className="size-4" aria-hidden="true" />, title: m.title, sub: `File ${i + 1} · ${meta.label} · ${meta.len}` });
+      const waiting = screens && !screened;
+      steps.push({ key: m.id, done, current: !done && !waiting && m.id === nextFile?.id && p.state !== "not_started", href: waiting ? undefined : `/rep/course/${c.id}/learn?module=${m.id}`,
+        icon: <meta.icon className="size-4" aria-hidden="true" />, title: m.title,
+        sub: `File ${mods.indexOf(m) + 1} · ${meta.label} · ${meta.len}${m.required ? " · for everyone" : ""}${waiting ? " · after your screening" : ""}` });
     });
+    if (skipped.length)
+      steps.push({ key: "tested-out", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${skipped.length} file${skipped.length === 1 ? "" : "s"} skipped`,
+        sub: `You already know this: ${skipped.map((m) => m.title).join(", ")}`, tag: "Tested out" });
   }
   if (sc && sc.use.includes("practice"))
     steps.push({ key: "practice", done: practised, current: filesDone && !practised && !passed, href: `/rep/practice/call?scenario=${sc.id}`,

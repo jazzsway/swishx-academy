@@ -70,7 +70,11 @@ export function CourseSettingsTab() {
       <div className="grid gap-5 xl:grid-cols-2">
         <Card title="Essentials" eyebrow="The decisions that matter">
           <div className="-mt-2 flex flex-col">
-            {personalised && <Row label="Screen before learning" hint="Reps skip modules they already know."><Toggle label="Screening" on={s.screening} disabled={d} onChange={(v) => set({ screening: v })} /></Row>}
+            {(personalised || hasScenario) && (
+              <Row label="Screen before learning" hint={personalised ? "Reps skip modules they already know." : "A short call with the course's doctor first. Reps skip the files they already know; anything marked for everyone stays."}>
+                <Toggle label="Screening" on={s.screening} disabled={d} onChange={(v) => set(personalised ? { screening: v } : { screening: v, screeningCall: v, screeningScenarioId: s.screeningScenarioId ?? course.scenarioIds[0], baseline: v })} />
+              </Row>
+            )}
             {/* v1-hidden: no manager sign-off in v1, so passing the assessment always certifies.
             {personalised && (
               <Row label="Who certifies" hint={s.verify === "manager" ? "The manager reviews the recorded call. After 5 days you can verify on their behalf." : "Passing the assessment certifies the rep."}>

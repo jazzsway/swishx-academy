@@ -41,7 +41,8 @@ export function Screening() {
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [target, setTarget] = useState(2);
   const [current, setCurrent] = useState<Item | undefined>(() => pickNext(pool, [], 2));
-  const [phase, setPhase] = useState<"quiz" | "bridge" | "call">("quiz");
+  /* No screening questions (a direct course): the call is the whole screening. */
+  const [phase, setPhase] = useState<"quiz" | "bridge" | "call">(pool.length ? "quiz" : "bridge");
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
   const sc = c.settings.screeningScenarioId ? getScenario(c.settings.screeningScenarioId) : undefined;
@@ -65,8 +66,8 @@ export function Screening() {
 
   function finish(ans: Record<string, number | null>, call?: CallOutcome) {
     const quiz = scoreItems(pool, ans);
-    const scores = blendScores(quiz.scores, call?.competencyScores);
-    const overall = call ? Math.round(quiz.overall * 0.7 + call.score * 0.3) : quiz.overall;
+    const scores = pool.length ? blendScores(quiz.scores, call?.competencyScores) : call?.competencyScores ?? {};
+    const overall = call ? (pool.length ? Math.round(quiz.overall * 0.7 + call.score * 0.3) : call.score) : quiz.overall;
     s.saveScreening(p!.id, { overall, scores, call: call ? { transcript: call.transcript, criteria: call.criteria, flags: call.flags, score: call.score, typed: call.typed, durationSec: call.durationSec } : undefined });
     s.touchStreak(me.id);
     router.replace(`/rep/course/${c!.id}/results?fresh=1`);
@@ -78,13 +79,15 @@ export function Screening() {
   if (phase === "bridge")
     return (
       <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-8">
-        <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">Now, a short call</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">You'll talk to {sc?.persona.name}, an AI dermatologist. Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.</Text>
+        {pool.length > 0
+          ? <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
+          : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>}
+        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{pool.length ? "Now, a short call" : "Start with a short call"}</Text>
+        <Text size="subhead" tone="muted" className="leading-relaxed">You'll talk to {sc?.persona.name}, an AI {sc?.persona.specialty.toLowerCase() ?? "doctor"}. Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} files you can skip; anything marked for everyone stays.`}</Text>
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by competency, not the recording.</Text></div>
         <div className="mt-auto flex flex-col gap-2">
           <Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>Skip the call for now</Button>
+          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every file"}</Button>
         </div>
       </div>
     );
@@ -125,8 +128,12 @@ export function ScreeningResults() {
   const mods = modulesOf(c);
   const scores = p.screening.scores;
   const comps = COMPETENCIES.filter((x) => scores[x.id] !== undefined).sort((a, b) => scores[b.id] - scores[a.id]);
-  const strongest = comps.slice(0, 2);
-  const weakest = [...comps].reverse().slice(0, 2);
+  /* With only a few competencies measured, each appears on one side only. */
+  const n = Math.min(2, Math.max(1, Math.floor(comps.length / 2)));
+  const strongest = comps.slice(0, n);
+  const weakest = [...comps].reverse().slice(0, n);
+  const unit = c.origin === "direct" ? "file" : "module";
+  const req = mods.filter((m) => m.required).length;
   const mins = pathMinutes(mods, p.path.moduleIds);
   const full = courseMinutes({ modules: mods });
 
@@ -134,8 +141,8 @@ export function ScreeningResults() {
     <div className="flex flex-col gap-5 px-4 pt-5">
       <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
         <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR PATH IS READY</Text>
-        <Text as="h1" size="hero" weight="extrabold" tone="inverse" className="leading-tight">{p.path.moduleIds.length} of {mods.length} modules · ~{mins} min</Text>
-        <Text size="body-lg" tone="inverse" className="opacity-80">Full course is {full} min. You tested out of {p.path.testedOut.length} module{p.path.testedOut.length === 1 ? "" : "s"}; {mods.filter((m) => m.required).length} safety modules are required for everyone.</Text>
+        <Text as="h1" size="hero" weight="extrabold" tone="inverse" className="leading-tight">{p.path.moduleIds.length} of {mods.length} {unit}s · ~{mins} min</Text>
+        <Text size="body-lg" tone="inverse" className="opacity-80">Full course is {full} min. You tested out of {p.path.testedOut.length} {unit}{p.path.testedOut.length === 1 ? "" : "s"}{req ? `; ${req} safety ${unit}${req === 1 ? " is" : "s are"} required for everyone` : ""}.</Text>
         <Link href={`/rep/course/${c.id}`} className="mt-1 flex h-12 items-center justify-center gap-2 rounded-control bg-brand text-subhead font-bold text-white"><AgentIcon className="size-4" aria-hidden="true" />Start my path</Link>
       </div>
       <div className="grid grid-cols-2 gap-3">

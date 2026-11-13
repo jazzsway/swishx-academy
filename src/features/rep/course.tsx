@@ -231,10 +231,10 @@ export function RepCourse() {
         </div>
       )}
       {!scheduled && p.state === "not_started" && c.settings.screening && locked.length > 0 && <PrereqLock courses={locked} />}
-      {!scheduled && p.state === "not_started" && c.settings.screening && locked.length === 0 && (
+      {!scheduled && p.state === "not_started" && c.settings.screening && locked.length === 0 && c.origin !== "direct" && (
         <div className="squircle flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
           <Text size="display" weight="extrabold" tone="inverse">Get certified</Text>
-          <Text size="body-lg" tone="inverse" className="opacity-80">Start with a ~10-minute quiz and a 5-minute call with an AI doctor. It isn't graded. It finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.</Text>
+          <Text size="body-lg" tone="inverse" className="opacity-80">{c.items.some((i) => i.pool === "screening") ? "Start with a ~10-minute quiz and a 5-minute call with an AI doctor." : "Start with a 5-minute call with an AI doctor."} It isn't graded. It finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.</Text>
           <div className="flex flex-wrap gap-2 text-caption">
             <span className="rounded-chip bg-white/10 px-2.5 py-1">Full course {pr.fullMinutes} min</span>
             <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} modules</span>

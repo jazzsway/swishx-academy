@@ -65,7 +65,9 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
       : { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Practise the call", why: "You're assigned practice only. It's private and unlimited.", cta: "Practise", href: "/rep/practice", minutes: 5 };
   if (p.state === "not_started")
     return c.settings.screening
-      ? { progress: p, course: c, eyebrow: c.title, title: "Take your screening", why: "About 15 minutes. It skips what you already know.", cta: "Start screening", href: `${base}/screening`, minutes: 15 }
+      ? (c.items.some((i) => i.pool === "screening")
+        ? { progress: p, course: c, eyebrow: c.title, title: "Take your screening", why: "About 15 minutes. It skips what you already know.", cta: "Start screening", href: `${base}/screening`, minutes: 15 }
+        : { progress: p, course: c, eyebrow: c.title, title: "Start with a screening call", why: "About 5 minutes. It skips the files you already know.", cta: "Start the call", href: `${base}/screening`, minutes: 5 })
       : { progress: p, course: c, eyebrow: c.title, title: "Start the course", why: c.format === "short" ? `${modulesOf(c).length} modules of swipeable cards` : `${modulesOf(c).length} short modules`, cta: "Start", href: `${base}/learn`, minutes: modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) };
   if (p.state === "screening") return { progress: p, course: c, eyebrow: c.title, title: "Finish your screening", why: "Pick up where you left off.", cta: "Continue screening", href: `${base}/screening`, minutes: 10 };
   const nb = nextBlock(p, c);
