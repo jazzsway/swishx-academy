@@ -806,3 +806,12 @@ mark.cite-missing { background: transparent; color: inherit; text-decoration: un
 .card-next { animation: card-next 260ms cubic-bezier(.2,.8,.2,1) both; }
 .card-prev { animation: card-prev 260ms cubic-bezier(.2,.8,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .card-next, .card-prev { animation: none; } }
+
+/* Call tree: a step the agent just changed glows once. */
+@keyframes node-flash {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand) 55%, transparent); }
+  60% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-brand) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.node-flash { animation: node-flash 1.4s ease-out 2; }
+@media (prefers-reduced-motion: reduce) { .node-flash { animation: none; } }

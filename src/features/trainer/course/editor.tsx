@@ -20,17 +20,18 @@ import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view"
 import { blockCards, moduleCards, TEMPLATES } from "@/lib/short-form";
 import { MiniCard, PreviewDeck } from "@/features/shortform/card-deck";
 import { useCourse } from "./use-course";
-import { applyChanges, respond, SUGGESTIONS, type ChatTurn } from "./chat";
+import { applyChanges, directRespond, respond, DIRECT_SUGGESTIONS, SUGGESTIONS, type ChatTurn } from "./chat";
 import { runChecks } from "./checks";
 import { questionsByModule } from "./question-index";
 // v1-hidden: import { AddMediaRow } from "./add-media";
 import { formatOf, rememberFile } from "../source-preview";
-import { blockFor, howRepsGetIt } from "../materials";
+import { blockFor, directModules, howRepsGetIt } from "../materials";
 // v1-hidden: import { clipsFrom } from "./media-builders";
 import { useToast, Toast } from "@/components/patterns/toast";
 import { CopilotOverride } from "@/features/copilot/copilot-panel";
 import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
+import { allScenarios } from "@/data/scenarios";
 
 export function CourseEditor() {
   const { id } = useParams<{ id: string }>();
@@ -38,10 +39,10 @@ export function CourseEditor() {
   const data = useCourse(id);
   const setModules = useApp((s) => s.setModules);
   const backToDraft = useApp((s) => s.backToDraft);
-  const [selected, setSelected] = useState<string | undefined>(search.get("module") ?? undefined);
+  /* The workspace rail picks the module; switching shows the new one from its top. */
+  const selected = search.get("module") ?? undefined;
   const paneTop = useRef<HTMLDivElement>(null);
-  /* Switching module shows the new one from its top; the index pane stays where it is. */
-  const pick = (mid: string) => { setSelected(mid); revealTop(paneTop.current); };
+  useEffect(() => { document.getElementById("workspace-canvas")?.scrollTo({ top: 0 }); }, [selected]);
   const [editing, setEditing] = useState<{ moduleId: string; block: Block } | null>(null);
   /* Short form: the module as reps see it, opened at a card. */
   const [deckAt, setDeckAt] = useState<number | null>(null);
@@ -68,30 +69,7 @@ export function CourseEditor() {
   const patchModule = (mid: string, patch: Partial<Module>) => save(modules.map((m) => (m.id === mid ? { ...m, ...patch } : m)));
 
   return (
-    <div ref={paneTop} className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
-      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 [scrollbar-width:thin]">
-        <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{modules.length} modules</Text>
-        {modules.map((m, i) => {
-          const active = m.id === mod?.id;
-          const modIssues = issues.filter((f) => f.moduleId === m.id).length;
-          return (
-            <button key={m.id} type="button" onClick={() => pick(m.id)} aria-current={active}
-              className={cn("squircle flex items-start gap-2.5 rounded-control px-2.5 py-2 text-left transition-colors", active ? "bg-tint" : "hover:bg-subtle")}>
-              <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-glyph text-micro font-bold", active ? "bg-brand text-white" : "bg-black/[0.06] text-ink-3")}>{i + 1}</span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className={cn("text-body font-semibold leading-snug", active ? "text-brand-deep" : "text-ink")}>{m.title}</span>
-                <span className="text-micro text-ink-3">{m.minutes} min · {competency(m.competency)?.name}</span>
-              </span>
-              {m.required && <Lock className="mt-1 size-3.5 shrink-0 text-ink-4" aria-label="Required for everyone" />}
-              {modIssues > 0 && <span className="mt-0.5 rounded-glyph bg-danger-bg px-1.5 text-micro font-bold text-danger">{modIssues}</span>}
-            </button>
-          );
-        })}
-        <div className="mt-3 rounded-panel border border-hair bg-card p-3">
-          <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="mb-2 block">Sources</Text>
-          <SourceList sourceIds={course.sourceIds} />
-        </div>
-      </nav>
+    <div ref={paneTop} className="flex flex-col gap-4">
 
       <div className="flex min-w-0 flex-col gap-4">
         {mod ? (
@@ -109,7 +87,7 @@ export function CourseEditor() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>
+                {course.origin === "direct" ? <Chip size="md" tone="brand">Your file · shown as uploaded</Chip> : <Chip size="md" tone="brand">{competency(mod.competency)?.name}</Chip>}
                 <Chip size="md">{course.format === "short" ? `${moduleCards(mod).length} cards · ${TEMPLATES[course.template ?? "essentials"].label}` : `${mod.minutes} min`}</Chip>
                 {course.type === "personalised" && <Chip size="md" iconLeft={mod.required ? <Lock className="size-3.5" aria-hidden="true" /> : undefined}>{mod.required ? "Required for everyone" : `Personalisable · ${mod.tier === "core" ? "core" : "extra practice"}`}</Chip>}
                 {/* v1-hidden: the Required / Personalisable toggle. Ask the agent: "Make this module required".
@@ -207,8 +185,8 @@ export function CourseEditor() {
                 className="squircle flex items-center gap-3 rounded-card border border-dashed border-hair-3 p-4 text-left transition-colors hover:bg-subtle">
                 <span className="grid size-9 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><AgentIcon className="size-4.5" /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <Text size="body-lg" weight="semibold">Change this module with the SwishX AI Agent</Text>
-                  <Text size="caption" tone="subtle">Add a video, audio or PDF pages, split a recording into clips, rename it, or remove something. Attach your own files in the chat.</Text>
+                  <Text size="body-lg" weight="semibold">{course.origin === "direct" ? "Arrange the course with the agent" : "Change this module with the SwishX AI Agent"}</Text>
+                  <Text size="caption" tone="subtle">{course.origin === "direct" ? "Move, rename or remove this module, or attach another file as a new module. Your files are never rewritten." : "Add a video, audio or PDF pages, split a recording into clips, rename it, or remove something. Attach your own files in the chat."}</Text>
                 </span>
               </button>
             )}
@@ -257,15 +235,22 @@ export function useApplyChanges(courseId: string) {
 }
 
 /** The copilot while editing a course: the only way to change it. Proposes cited changes that wait for the trainer's OK. */
-export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply, suggestions = SUGGESTIONS }: {
+export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply, suggestions: given }: {
   courseId: string; moduleId?: string; editable: boolean; fresh: boolean; issues: number;
   onApply: (c: NonNullable<ChatTurn["changes"]>) => void; suggestions?: string[];
 }) {
   const data = useCourse(courseId);
   const addUploads = useApp((s) => s.addUploads);
+  const direct = data?.course.origin === "direct";
+  const suggestions = given ?? (direct ? DIRECT_SUGGESTIONS : SUGGESTIONS);
+  const roleplay = allScenarios().find((x) => data?.course.scenarioIds.includes(x.id));
   const [turns, setTurns] = useState<ChatTurn[]>(() => [{
     id: "hello", from: "ai",
-    text: fresh
+    text: direct
+      ? fresh
+        ? `I placed your ${data?.course.modules.length ?? 0} files as ${data?.course.modules.length ?? 0} modules, in your order, exactly as uploaded. No questions added. I also drafted a roleplay${roleplay ? ` with ${roleplay.persona.name}` : ""} from your ${data?.course.roleplaySourceIds?.length || "course"} ${data?.course.roleplaySourceIds?.length === 1 ? "document" : "documents"}. Open it under AI roleplay on the left to shape the call.`
+        : editable ? "I can reorder, rename or remove modules, and add your files. I don't write content into a direct course." : "This version is locked. To change it, start a new version."
+      : fresh
       ? `I wrote ${data?.course.modules.length ?? 0} modules from ${data?.course.sourceIds.length ?? 0} sources, plus ${data?.course.items.length ?? 0} questions. ${issues ? `${issues} finding${issues > 1 ? "s" : ""} need${issues > 1 ? "" : "s"} your attention before review.` : "Everything is cited."}`
       : editable ? "Ask me to change this course. I'll only use its sources, and every change waits for your OK." : "This version is locked. I can answer questions about it; to change it, start a new version.",
   }]);
@@ -282,13 +267,21 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
   /* Your own files go into the module you're on, as a proposed change like any other. */
   function attach(files: File[]) {
     const mod = data!.course.modules.find((m) => m.id === moduleId) ?? data!.course.modules[0];
-    if (!files.length || !mod) return;
+    if (!files.length || (!mod && !direct)) return;
     const added: Source[] = files.map((f, i) => {
       const id = `up-${Date.now().toString(36)}-${i}`;
       rememberFile(id, f);
       return { id, title: f.name.replace(/\.[^.]+$/, ""), type: "Uploaded file", pages: 0, productId: data!.course.productId, uploaded: { fileName: f.name, format: formatOf(f.name), at: new Date().toISOString() } };
     });
     addUploads(added);
+    if (direct) {
+      const mods = directModules(added, `d${Date.now().toString(36).slice(-4)}`);
+      setTurns((t) => [...t,
+        { id: `u${Date.now()}`, from: "you", text: `Attached ${files.map((f) => f.name).join(", ")}` },
+        { id: `a${Date.now()}`, from: "ai", text: `I'll add ${added.length === 1 ? "it" : "them"} as ${added.length === 1 ? "a new module" : `${added.length} new modules`} at the end, exactly as uploaded.`, changes: mods.map((m) => ({ kind: "addModule" as const, module: m })), status: "pending" },
+      ]);
+      return;
+    }
     setTurns((t) => [...t,
       { id: `u${Date.now()}`, from: "you", text: `Attached ${files.map((f) => f.name).join(", ")}` },
       { id: `a${Date.now()}`, from: "ai", text: `I'll put ${added.length === 1 ? "it" : "them"} in ${mod.title}. ${added.map((s) => howRepsGetIt(s)).join(". ")}.`,
@@ -302,7 +295,7 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
     setText("");
     setThinking(true);
     window.setTimeout(() => {
-      const r = respond(prompt, data.course, moduleId);
+      const r = direct ? directRespond(prompt, data.course, moduleId) : respond(prompt, data.course, moduleId);
       if (!editable && r.changes) {
         r.changes = undefined;
         r.status = undefined;
@@ -317,7 +310,7 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-hair bg-tint/60 px-4 py-2.5">
         <PencilLine className="size-4 text-brand-deep" aria-hidden="true" />
-        <Text size="caption" weight="semibold" tone="muted" className="truncate">Editing {data.course.title} · uses only its {data.course.sourceIds.length} sources</Text>
+        <Text size="caption" weight="semibold" tone="muted" className="truncate">{direct ? `Arranging ${data.course.title} · your files stay as they are` : `Editing ${data.course.title} · uses only its ${data.course.sourceIds.length} sources`}</Text>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {turns.map((t) => (
@@ -336,6 +329,7 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
                     {ch.kind === "block" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.block.title.startsWith(BLOCK_META[ch.block.type].label) ? "" : `${BLOCK_META[ch.block.type].label}: `}{ch.block.check?.question ?? ch.block.title}</span>}
                     {ch.kind === "items" && ch.items.map((it) => <span key={it.id} className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {it.question} <span className="text-micro font-bold">({it.format === "open" ? "written answer" : it.pool})</span></span>)}
                     {ch.kind === "insert" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.label}</span>}
+                    {ch.kind === "move" && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                     {ch.kind === "addModule" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ Module: {ch.module.title} · {ch.module.minutes} min</span>}
                     {(ch.kind === "removeBlock" || ch.kind === "removeModule" || ch.kind === "retire") && <span className="rounded-chip bg-danger-bg px-2 py-1 text-danger line-through decoration-danger/60">{ch.kind === "removeModule" ? "Module: " : ""}{ch.label}</span>}
                     {ch.kind === "guide" && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
@@ -359,8 +353,8 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
       <div className="flex flex-col gap-2.5 border-t border-hair p-3">
         {started && <Suggestions items={suggestions.slice(0, 4)} onPick={send} variant="row" />}
         <Composer id="course-chat" value={text} onChange={setText} onSend={() => send(text)} busy={thinking} onAttach={attach}
-          placeholder={moduleId ? "Ask for a change, e.g. add a short video to this module" : "Ask for a change"}
-          hint={`Uses only this course's ${data.course.sourceIds.length} sources. Changes wait for your OK.`} />
+          placeholder={direct ? "Move, rename or remove a module, or attach a file" : moduleId ? "Ask for a change, e.g. add a short video to this module" : "Ask for a change"}
+          hint={direct ? "Nothing is written into your files. Changes wait for your OK." : `Uses only this course's ${data.course.sourceIds.length} sources. Changes wait for your OK.`} />
       </div>
     </div>
   );

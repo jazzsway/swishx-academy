@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { NewCourseWizard } from "@/features/trainer/new-course";
+import { NewCourseStart } from "@/features/trainer/course-start";
 
 export default function Page() {
-  return <Suspense><NewCourseWizard /></Suspense>;
+  return <Suspense><NewCourseStart /></Suspense>;
 }

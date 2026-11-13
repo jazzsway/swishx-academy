@@ -124,7 +124,7 @@ export function VisualAidWalkthrough({ spec, onDone }: { spec: VisualAidSpec; on
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="squircle flex gap-2.5 rounded-panel bg-ok-bg px-4 py-3"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" /><Text size="body-lg"><strong className="text-ok">Say. </strong>{step.say}</Text></div>
+        {step.say && <div className="squircle flex gap-2.5 rounded-panel bg-ok-bg px-4 py-3"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" /><Text size="body-lg"><strong className="text-ok">Say. </strong>{step.say}</Text></div>}
         {step.avoid && <div className="squircle flex gap-2.5 rounded-panel bg-danger-bg px-4 py-3"><X className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden="true" /><Text size="body-lg"><strong className="text-danger">Avoid. </strong>{step.avoid}</Text></div>}
       </div>
       {spec.pages.length > 1 && (

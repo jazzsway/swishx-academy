@@ -161,6 +161,9 @@ export function DeskShell({ role, children }: { role: DeskRole; children: ReactN
     </Link>
   );
 
+  /* A course opens as its own full-screen workspace, as a project does in the SwishX for Biz studios. */
+  if (/^\/trainer\/courses\/(?!new(\/|$))[^/]+/.test(pathname)) return <div className="h-dvh overflow-hidden bg-canvas">{children}</div>;
+
   return (
     <div className="flex min-h-dvh bg-canvas">
       {/* Floating island, as in SwishX for Biz. */}

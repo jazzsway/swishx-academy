@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check, CirclePlay, Layers, ListChecks, BookOpenText, Mic, X, FileText, Presentation, Headphones, ChartPie } from "lucide-react";
+import { Check, CirclePlay, Paperclip, Layers, ListChecks, BookOpenText, Mic, X, FileText, Presentation, Headphones, ChartPie } from "lucide-react";
 import { VideoPlayer } from "@/features/media/video-player";
 import { YouTubePlayer } from "@/features/media/youtube-player";
 import { AudioPlayer, DocumentViewer, GraphicView, VisualAidWalkthrough } from "@/features/media/readers";
+import { FileView } from "@/features/media/file-view";
 import { cn } from "@/lib/cn";
 import type { Block, Citation as Cite, Para } from "@/data/types";
 import { scenario } from "@/data/scenarios";
@@ -23,6 +24,7 @@ export const BLOCK_META: Record<Block["type"], { label: string; icon: typeof Che
   audio: { label: "Listen", icon: Headphones },
   graphic: { label: "Graphic", icon: ChartPie },
   scenario: { label: "Roleplay", icon: Mic },
+  file: { label: "Your file", icon: Paperclip },
 };
 
 export function citeNumber(sourceIds: string[], c?: Cite) {
@@ -77,6 +79,7 @@ export function BlockView({ block, sourceIds, interactive, flag, onCheckAnswered
   if (block.type === "document" && block.document) return <DocumentViewer spec={block.document} compact={!interactive} onAllViewed={onComplete} />;
   if (block.type === "visualaid" && block.visualaid) return <VisualAidWalkthrough spec={block.visualaid} onDone={onComplete} />;
   if (block.type === "graphic" && block.graphic) return <GraphicView spec={block.graphic} />;
+  if (block.type === "file" && block.file) return <FileView spec={block.file} onComplete={onComplete} compact={!interactive} />;
   if (block.type === "audio" && block.audio) return <AudioPlayer spec={block.audio} siblings={siblings ?? []} onDone={onComplete} />;
   if (block.type === "scenario") {
     const sc = block.scenarioId ? scenario(block.scenarioId) : undefined;

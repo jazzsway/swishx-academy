@@ -41,7 +41,13 @@ export const OBJECTIONS: Objection[] = [
   },
 ];
 
-export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id)!;
+/* Scenarios trainers build live in the store; the store registers them here so lookups find them. */
+let CUSTOM: Scenario[] = [];
+export function registerScenarios(list: Scenario[]) { CUSTOM = list; }
+/** Every scenario: the approved ones we ship, then the ones trainers built. */
+export const allScenarios = (): Scenario[] => [...SCENARIOS, ...CUSTOM];
+
+export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id) ?? CUSTOM.flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id)!;
 
 export const PROHIBITED: ProhibitedRule[] = [
   {
@@ -71,7 +77,7 @@ export const PROHIBITED: ProhibitedRule[] = [
   },
 ];
 
-export const prohibited = (id: string) => PROHIBITED.find((p) => p.id === id)!;
+export const prohibited = (id: string) => PROHIBITED.find((p) => p.id === id) ?? CUSTOM.flatMap((s) => s.custom?.prohibited ?? []).find((p) => p.id === id)!;
 
 const LUMORA_RUBRIC: RubricCriterion[] = [
   { id: "r-open", label: "Opens with a relevant patient type", competency: "c-opening", weight: 15,
@@ -123,7 +129,7 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-export const scenario = (id: string) => SCENARIOS.find((s) => s.id === id)!;
+export const scenario = (id: string) => allScenarios().find((s) => s.id === id)!;
 
 /** Building blocks for Practice → "Prep for a meeting" (PRD PR-2). */
 export const PREP_SPECIALTIES = ["Dermatologist", "Allergist", "Nurse practitioner (derm)", "Primary care physician"];

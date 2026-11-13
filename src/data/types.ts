@@ -82,7 +82,7 @@ export interface Citation { sourceId: string; page: number }
 
 export interface Para { text: string; cite?: Citation; missing?: boolean }
 
-export type BlockType = "lesson" | "keypoints" | "flashcards" | "check" | "video" | "document" | "visualaid" | "audio" | "graphic" | "scenario";
+export type BlockType = "lesson" | "keypoints" | "flashcards" | "check" | "video" | "document" | "visualaid" | "audio" | "graphic" | "scenario" | "file";
 
 /** A short video. Captions are the approved script; scenes drive the simulated picture in the prototype. */
 /** A question that pops up when a video chapter ends. The rep answers before the video continues. */
@@ -111,6 +111,9 @@ export interface VisualAidSpec { sourceId: string; pages: { page: number; say: s
 /** An approved one-page infographic. */
 export interface GraphicSpec { headline: string; stats: { value: string; label: string }[]; points: string[]; footnote?: string; sourceId?: string }
 
+/** A file the trainer uploaded, shown to reps exactly as it is (direct courses). */
+export interface FileSpec { sourceId: string; format: FileFormat; fileName: string; pages?: number; durationSec?: number }
+
 /** Approved text read aloud (text-to-speech). Same words, so nothing new to approve. */
 export interface AudioSpec { fromBlockIds: string[]; durationSec: number }
 
@@ -129,6 +132,7 @@ export interface Block {
   visualaid?: VisualAidSpec;
   audio?: AudioSpec;
   graphic?: GraphicSpec;
+  file?: FileSpec;
   scenarioId?: string;
 }
 
@@ -202,6 +206,8 @@ export interface Objection {
   pushback: string;
   handled: string;
   keywords: string[];
+  /** What a good answer sounds like: tap-to-answer lines and assisted practice use it. */
+  answer?: string;
 }
 
 export interface Persona {
@@ -226,6 +232,17 @@ export interface Scenario {
   prohibitedIds: string[];
   behaviourNote: string;
   use: ("screening" | "assessment" | "practice")[];
+  /** Built by a trainer in the roleplay builder. Carries its own objections and rules. */
+  custom?: {
+    objections: Objection[];
+    prohibited: ProhibitedRule[];
+    /** The documents it was built from; the selling model sets the rubric. */
+    sourceIds: string[];
+    sellingModelId?: string;
+    /** Where each part came from, for the cite chips: field → source and page. */
+    cites: Partial<Record<"persona" | "opening" | "objections" | "rubric" | "prohibited", Citation>>;
+    createdAt: string;
+  };
 }
 
 export type VersionState =
@@ -269,6 +286,10 @@ export interface CourseSettings {
   criticalCompetencies: string[];
   attempts: number;
   cooldownHours: number;
+  /** The screening score is each rep's starting point; progress is shown from it. */
+  baseline?: boolean;
+  /** The final test gives no hints and no prompts. */
+  finalNoHints?: boolean;
   verify: "auto" | "manager";
   recertMonths: number;
   attestation: string;
@@ -279,6 +300,10 @@ export interface Course {
   id: string;
   title: string;
   productId?: string;
+  /** direct: built only from the trainer's own files; SwishX writes nothing and adds no questions. */
+  origin?: "direct" | "swishx";
+  /** Direct courses: documents only the AI reads, to build roleplays. Reps never see them. */
+  roleplaySourceIds?: string[];
   /** long: modules of videos, documents and decks. short: the same content broken into swipeable cards. */
   format: "long" | "short";
   /** Short form only: the card template SwishX writes to. */
@@ -384,6 +409,8 @@ export interface Progress {
   startsAt?: string;
   dueAt?: string;
   assignType: "default" | "required" | "recommended" | "self";
+  /** practice: experienced reps skip the modules and go straight to roleplay calls and the final test. */
+  mode?: "learn" | "practice";
   campaignId?: string;
   startedAt?: string;
   screening?: { at: string; overall: number; scores: Record<string, number>; call?: RoleplayResult };
@@ -435,7 +462,7 @@ export interface PracticeSession {
   at: string;
   kind: "roleplay" | "quiz";
   title: string;
-  setup?: { specialty: string; traits: string[]; objectionIds: string[]; callType: string };
+  setup?: { specialty: string; traits: string[]; objectionIds: string[]; callType: string; assisted?: boolean; situation?: string };
   result?: RoleplayResult;
   quizScore?: number;
   shared?: { at: string; seen: boolean };

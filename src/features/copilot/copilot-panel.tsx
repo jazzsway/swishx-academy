@@ -55,7 +55,7 @@ function Items({ items, onGo }: { items: CoItem[]; onGo: () => void }) {
 interface Turn { id: string; from: "you" | "ai"; reply?: CoReply; text?: string; done?: Record<number, string> }
 
 /** The role's own copilot: a briefing for the page you're on, then a conversation. */
-function RoleCopilot({ role, onGo }: { role: Role; onGo: () => void }) {
+export function RoleCopilot({ role, onGo }: { role: Role; onGo: () => void }) {
   const ctx = useCtx();
   const router = useRouter();
   const brain = BRAINS[role];

@@ -113,6 +113,9 @@ export function scoreCall(scenario: Scenario, turns: Turn[], typed: boolean): Ro
 /** Sample lines a rep can tap to answer in the demo (no microphone needed). */
 export function sampleAnswers(state: CallState): { label: string; text: string }[] {
   if (state.done) return [];
+  if (state.idx === -1 && state.scenario.custom)
+    return [{ label: "Open on the patient", text: "Thanks, Doctor, I'll be quick. Think of the patients you see who still aren't where you'd like them on current treatment. How many did you see this month?" },
+      { label: "Lead with the product (try it)", text: "Hi Doctor, I'm here to tell you about our product. It's the best option out there." }];
   if (state.idx === -1)
     return [{ label: "Open on the patient", text: state.scenario.id === "sc-kim" ? "Thanks, Doctor. Think of your adult patients still flaring despite topicals. In LUMEN-1 and LUMEN-2, 51% reached EASI-75 at week 16 versus 17% on placebo. How many of those patients did you see this month?" : "Thanks for the time. Think of your adult patients with moderate-to-severe eczema who are still flaring despite topicals. How many of those did you see this month?" },
       { label: "Lead with the product (try it)", text: "Hi Doctor, I'm here to tell you about Lumora, our new biologic. It's the best option out there." }];
@@ -124,7 +127,8 @@ export function sampleAnswers(state: CallState): { label: string; text: string }
     "ob-topicals": "Totally fair. Which of your adult patients are still flaring or losing sleep despite topicals? Those are the patients Lumora is for. Would you consider it for the next one?",
     "ob-teen": "Lumora is only approved for adults, so I can't discuss use in teenagers. I can submit a medical information request for you. Would that help?",
   };
-  const out = cur ? [{ label: "Approved answer", text: answers[cur.id] }] : [];
+  const good = cur ? answers[cur.id] ?? cur.answer : undefined;
+  const out = cur && good ? [{ label: "Approved answer", text: good }] : [];
   if (cur?.id === "ob-teen") out.push({ label: "Off-label answer (try it)", text: "Sure, it works great for teenagers too. Lots of offices are using it for their 15-year-olds." });
   if (cur?.id === "ob-eyes") out.push({ label: "Minimise risk (try it)", text: "Honestly there are basically no side effects, it's completely safe." });
   /* A vague answer, to see the doctor push back. */

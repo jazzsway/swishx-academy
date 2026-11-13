@@ -4,11 +4,12 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   Attempt, AudienceRules, Campaign, Course, CourseSettings, CourseVersion, District, LibraryVisibility, Material, MlrComment,
-  Module, Notification, PointEvent, PointKind, PracticeSession, Progress, RoleplayResult, Source, User,
+  Module, Notification, PointEvent, PointKind, PracticeSession, Progress, RoleplayResult, Scenario, Source, User,
 } from "@/data/types";
 import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/library";
 import { seed } from "@/data/seed";
 import { TODAY, registerUploads } from "@/data/org";
+import { registerScenarios } from "@/data/scenarios";
 import { buildPath } from "@/lib/learning";
 import { POINTS, seedPoints } from "@/lib/points";
 
@@ -58,6 +59,8 @@ export interface AppState extends Seeded {
   presenter: boolean;
   structureRequests: StructureRequest[];
   uploads: Source[];
+  /** Scenarios trainers built in the roleplay builder. */
+  scenarios: Scenario[];
 
   setHydrated: () => void;
   setPresenter: (v: boolean) => void;
@@ -77,7 +80,10 @@ export interface AppState extends Seeded {
   markRead: (userId: string, id?: string) => void;
 
   /* Trainer: courses */
-  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "template" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams"> & { visibility?: LibraryVisibility }) => string;
+  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "template" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams"> & { visibility?: LibraryVisibility; origin?: Course["origin"]; roleplaySourceIds?: string[] }) => string;
+  /** Roleplay builder: adds or replaces a trainer-built scenario and attaches it to its course. */
+  saveScenario: (sc: Scenario, use: { practice: boolean; final: boolean }) => void;
+  removeScenario: (id: string) => void;
   setModules: (courseId: string, modules: Module[]) => void;
   updateCourse: (courseId: string, patch: Partial<Course>) => void;
   updateSettings: (courseId: string, patch: Partial<CourseSettings>) => void;
@@ -90,7 +96,7 @@ export interface AppState extends Seeded {
   recordApproval: (courseId: string, d: { docNumber: string; approvedAt: string; expiresAt: string }) => void;
   publish: (courseId: string, transition: "minor" | "recertify" | "restart") => void;
   withdraw: (courseId: string, reason: string) => void;
-  assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string, startsAt?: string) => number;
+  assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string, startsAt?: string, mode?: Progress["mode"]) => number;
   /** Creates the campaign as scheduled; startCampaign assigns it. */
   createCampaign: (c: Omit<Campaign, "id" | "status" | "ownerId">) => string;
   /** Assigns the courses to everyone matching, and pulls in people who already had them. */
@@ -162,6 +168,7 @@ function initial() {
     presenter: false,
     structureRequests: [] as StructureRequest[],
     uploads: [] as Source[],
+    scenarios: [] as Scenario[],
   };
 }
 
@@ -211,14 +218,14 @@ export const useApp = create<AppState>()(
       ...initial(),
       hydrated: false,
 
-      setHydrated: () => { registerUploads(get().uploads); set({ hydrated: true }); },
+      setHydrated: () => { registerUploads(get().uploads); registerScenarios(get().scenarios); set({ hydrated: true }); },
       addUploads: (list) => set((s) => { const uploads = [...s.uploads, ...list]; registerUploads(uploads); return { uploads }; }),
       removeUpload: (id) => set((s) => { const uploads = s.uploads.filter((u) => u.id !== id); registerUploads(uploads); return { uploads }; }),
       viewAs: (userId) => set({ viewAsId: userId }),
       updateUser: (userId, patch) => set((s) => ({ users: s.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
       setPresenter: (v) => set({ presenter: v }),
       requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
-      resetDemo: () => set((s) => { registerUploads([]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
+      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
       completeOnboarding: (userId) => set((s) => ({ onboarded: { ...s.onboarded, [userId]: true } })),
       setVoiceConsent: (userId, v) => set((s) => ({ voiceConsent: { ...s.voiceConsent, [userId]: v } })),
 
@@ -249,26 +256,64 @@ export const useApp = create<AppState>()(
 
       createCourse: (c) => {
         const id = uid("c");
+        const direct = c.origin === "direct";
         const course: Course = {
-          // Roleplay doctors are product-specific; only Lumora has an approved one today.
-          ...c, id, modules: [], items: [], scenarioIds: c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
+          // Roleplay doctors are product-specific; only Lumora has an approved one today. Direct courses build their own.
+          ...c, id, modules: [], items: [], scenarioIds: !direct && c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
           settings: {
             ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
             screening: c.type === "personalised",
             screeningCall: false,
+            assessmentCall: false,
+            assessmentScenarioId: undefined,
+            baseline: c.type === "personalised",
+            finalNoHints: true,
             verify: "auto", // v1-hidden: was c.type === "personalised" ? "manager" : "auto" 
-            completion: c.type === "personalised"
+            /* A direct course is done when every file is seen; a final call, once attached, adds the assessment. */
+            completion: direct ? { path: true, assessment: false, verify: false, attestation: false, checks: 0 }
+              : c.type === "personalised"
               ? { path: true, assessment: true, verify: true, attestation: true, checks: 0 }
               : { path: true, assessment: false, verify: false, attestation: true, checks: 80 },
           },
           versions: [{ version: 1, versionId: `NEW-v1-${id.slice(-4)}`, state: "draft", comments: [], acknowledged: [], modules: [],
-            history: [{ at: dayStr(nowIso()), by: "Maya Chen", action: "Created with AI" }] }],
+            history: [{ at: dayStr(nowIso()), by: "Maya Chen", action: direct ? "Created from your materials" : "Created with AI" }] }],
           ownerId: "u-maya", updatedAt: dayStr(nowIso()),
           visibility: c.visibility ?? "audience", prerequisites: [], allowExplore: true,
         };
         set((s) => ({ courses: [course, ...s.courses] }));
         return id;
       },
+
+      saveScenario: (sc, use) =>
+        set((s) => {
+          const scenarios = [...s.scenarios.filter((x) => x.id !== sc.id), { ...sc, use: [...(use.final ? ["assessment" as const] : []), ...(use.practice ? ["practice" as const] : [])] }];
+          registerScenarios(scenarios);
+          return {
+            scenarios,
+            ...mapCourse(s, sc.courseId, (c) => {
+              const settings = use.final
+                ? { ...c.settings, assessmentCall: true, assessmentScenarioId: sc.id, completion: { ...c.settings.completion, assessment: true } }
+                : c.settings.assessmentScenarioId === sc.id
+                  ? { ...c.settings, assessmentCall: false, assessmentScenarioId: undefined, completion: { ...c.settings.completion, assessment: c.type === "personalised" } }
+                  : c.settings;
+              return { ...c, scenarioIds: c.scenarioIds.includes(sc.id) ? c.scenarioIds : [...c.scenarioIds, sc.id], settings };
+            }),
+          };
+        }),
+      removeScenario: (id) =>
+        set((s) => {
+          const sc = s.scenarios.find((x) => x.id === id);
+          const scenarios = s.scenarios.filter((x) => x.id !== id);
+          registerScenarios(scenarios);
+          if (!sc) return { scenarios };
+          return {
+            scenarios,
+            ...mapCourse(s, sc.courseId, (c) => ({
+              ...c, scenarioIds: c.scenarioIds.filter((x) => x !== id),
+              settings: c.settings.assessmentScenarioId === id ? { ...c.settings, assessmentCall: false, assessmentScenarioId: undefined, completion: { ...c.settings.completion, assessment: c.type === "personalised" } } : c.settings,
+            })),
+          };
+        }),
 
       setModules: (courseId, modules) =>
         set((s) => mapCourse(s, courseId, (c) => mapCurrent({ ...c, modules }, (v) => (v.state === "draft" ? { ...v, modules } : v)))),
@@ -348,7 +393,7 @@ export const useApp = create<AppState>()(
       withdraw: (courseId, reason) =>
         set((s) => mapCourse(s, courseId, (c) => ({ ...c, versions: c.versions.map((v) => (v.state === "published" ? hist({ ...v, state: "withdrawn" }, "Withdrawn", reason) : v)) }))),
 
-      assign: (courseId, rules, type, dueAt, campaignId, startsAt) => {
+      assign: (courseId, rules, type, dueAt, campaignId, startsAt, mode) => {
         const s = get();
         const course = s.courses.find((c) => c.id === courseId)!;
         const v = live(course)?.version ?? current(course).version;
@@ -358,10 +403,11 @@ export const useApp = create<AppState>()(
         const created: Progress[] = targets.map((u) => ({
           id: `p-${u.id}-${courseId}-${uid("a").slice(-4)}`, userId: u.id, courseId, version: v, state: "not_started",
           assignedAt: at, startsAt: startsAt && startsAt > at ? startsAt : undefined, dueAt, assignType: type, campaignId, completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
+          mode: mode === "practice" ? "practice" : undefined,
         }));
         const notes: Notification[] = targets.slice(0, 400).map((u) => ({
           id: uid("n"), userId: u.id, at: nowIso(), read: false,
-          title: type === "recommended" ? "Recommended course" : "New course assigned",
+          title: mode === "practice" ? "Practice assigned" : type === "recommended" ? "Recommended course" : "New course assigned",
           body: `${course.title}${startsAt && startsAt > at ? ` · starts ${new Date(startsAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${campaignId ? ` · ${s.campaigns.find((x) => x.id === campaignId)?.name ?? ""}` : ""}`,
           href: `/rep/course/${courseId}`,
         }));
@@ -593,7 +639,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 23,
+      version: 24,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

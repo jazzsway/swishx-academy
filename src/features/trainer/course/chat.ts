@@ -18,6 +18,7 @@ export type Change =
   | { kind: "removeBlock"; moduleId: string; blockId: string; label: string }
   | { kind: "module"; moduleId: string; patch: Partial<Pick<Module, "title" | "required">>; label: string }
   | { kind: "addModule"; module: Module }
+  | { kind: "move"; moduleId: string; to: number; label: string }
   | { kind: "removeModule"; moduleId: string; label: string }
   | { kind: "retire"; itemIds: string[]; label: string }
   | { kind: "pool"; itemIds: string[]; pool: Item["pool"]; label: string }
@@ -283,6 +284,10 @@ export function applyChanges(course: Course, changes: Change[]): { modules: Modu
     });
     if (ch.kind === "module") modules = modules.map((m) => (m.id === ch.moduleId ? { ...m, ...ch.patch } : m));
     if (ch.kind === "addModule") modules = [...modules, ch.module];
+    if (ch.kind === "move") {
+      const from = modules.findIndex((m) => m.id === ch.moduleId);
+      if (from >= 0) { const next = [...modules]; const [m] = next.splice(from, 1); next.splice(Math.max(0, Math.min(next.length, ch.to)), 0, m); modules = next; }
+    }
     if (ch.kind === "removeModule") modules = modules.filter((m) => m.id !== ch.moduleId);
     if (ch.kind === "retire") items = items.filter((i) => !ch.itemIds.includes(i.id));
     if (ch.kind === "pool") items = items.map((i) => (ch.itemIds.includes(i.id) ? { ...i, pool: ch.pool } : i));
@@ -301,4 +306,50 @@ export function applyChanges(course: Course, changes: Change[]): { modules: Modu
       });
   }
   return { modules, items };
+}
+
+/** Prompts for a direct course: the agent arranges the trainer's files, it doesn't write. */
+export const DIRECT_SUGGESTIONS = [
+  "Move this module to the start",
+  "Rename this module",
+  "Remove this module",
+  "What will reps see in this module?",
+];
+
+/**
+ * The chat on a direct course. It can reorder, rename and remove modules, and add files as new
+ * modules (through the paperclip). It never writes content or adds questions: that's the promise.
+ */
+export function directRespond(prompt: string, course: Course, moduleId?: string): ChatTurn {
+  const p = prompt.toLowerCase();
+  const id = `a${Date.now()}`;
+  const mods = course.modules;
+  const n = Number(p.match(/module\s*(\d+)/)?.[1]);
+  const mod = (n && mods[n - 1]) || mods.find((m) => m.id === moduleId) || mods[0];
+  const pos = mods.findIndex((m) => m.id === mod?.id);
+  if (!mod) return { id, from: "ai", text: "There are no modules yet. Attach a file with the paperclip and I'll add it as module 1." };
+  const to = /\b(start|first|top|beginning)\b/.test(p) ? 0 : /\b(end|last|bottom)\b/.test(p) ? mods.length - 1
+    : /\bup\b|earlier|before/.test(p) ? pos - 1 : /\bdown\b|later|after/.test(p) ? pos + 1 : Number(p.match(/(?:to|position)\s*(\d+)/)?.[1]) - 1;
+  if (/move|reorder|put|first|last|start|earlier|later/.test(p) && Number.isFinite(to) && to >= 0) {
+    if (to === pos) return { id, from: "ai", text: `${mod.title} is already module ${pos + 1}.` };
+    return { id, from: "ai", text: `I'll move "${mod.title}" from module ${pos + 1} to module ${to + 1}. Everything else keeps its order.`, changes: [{ kind: "move", moduleId: mod.id, to, label: `Move "${mod.title}" to module ${to + 1}` }], status: "pending" };
+  }
+  const name = prompt.match(/(?:rename|call)[^"“]*["“]([^"”]+)["”]/i)?.[1] ?? prompt.match(/rename .*? to (.+)$/i)?.[1];
+  if (/rename|call it|title/.test(p)) {
+    if (!name) return { id, from: "ai", text: `What should "${mod.title}" be called? Say it in quotes, like: rename this module to "Dosing at a glance".` };
+    return { id, from: "ai", text: `Renaming module ${pos + 1}. The file inside stays exactly as it is.`, changes: [{ kind: "module", moduleId: mod.id, patch: { title: name.trim().replace(/[.]$/, "") }, label: `"${mod.title}" → "${name.trim().replace(/[.]$/, "")}"` }], status: "pending" };
+  }
+  if (/remove|delete|drop/.test(p)) {
+    if (mods.length === 1) return { id, from: "ai", text: "This is the only module. Add another file first, then remove this one." };
+    return { id, from: "ai", text: `I'll take "${mod.title}" out of the course. The file stays in your uploads if you want it back.`, changes: [{ kind: "removeModule", moduleId: mod.id, label: mod.title }], status: "pending" };
+  }
+  if (/what will|what do reps|see in/.test(p)) {
+    const b = mod.blocks[0];
+    return { id, from: "ai", text: `Module ${pos + 1} shows reps "${b?.title ?? mod.title}" exactly as uploaded. It counts as done once they've ${b?.type === "file" && (b.file?.format === "video" || b.file?.format === "audio") ? "played 90% of it" : "seen every page"}. There's no quiz in it.` };
+  }
+  if (/add|upload|attach|file/.test(p)) return { id, from: "ai", text: "Attach the file with the paperclip below. I'll add it as a new module at the end, exactly as it is, and you can move it from there." };
+  if (/roleplay|doctor|call|objection/.test(p)) return { id, from: "ai", text: "The roleplay has its own place: pick it under AI roleplay on the left and I'll edit the call there." };
+  if (/write|summar|question|quiz|check|lesson|generate|explain/.test(p))
+    return { id, from: "ai", text: "This is a direct course, so I don't write content or add questions to your material. I can reorder, rename or remove modules, add your files, and shape the roleplay." };
+  return { id, from: "ai", text: `I can move, rename or remove modules, and add your files as new modules. Try "move this module to the start" or rename this module to "Dosing at a glance".` };
 }
