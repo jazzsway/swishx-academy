@@ -176,7 +176,7 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
   const setOpen = useCopilot((s) => s.setOpen);
   const base = `/trainer/courses/${course.id}`;
   const onContent = pathname === base;
-  const onRoleplay = pathname === `${base}/roleplay`;
+  const onRoleplay = pathname.startsWith(`${base}/roleplay`);
   const moduleId = search.get("module") ?? course.modules[0]?.id;
   const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const scId = search.get("sc") ?? scs[0]?.id;

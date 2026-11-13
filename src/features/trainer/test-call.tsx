@@ -25,10 +25,12 @@ const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, 
  * SwishX does behind the scenes: which objection comes next, which rubric points are met, what gets flagged.
  * Nothing is saved.
  */
-export function TestCall() {
+export function TestCall({ embedded }: { embedded?: boolean }) {
   const search = useSearchParams();
-  const sc = getScenario(search.get("scenario") ?? "sc-kim");
-  const back = search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
+  const sc = getScenario(search.get("sc") ?? search.get("scenario") ?? "sc-kim");
+  /* Inside the course workspace the call runs on the canvas, and "back" is the call tree. */
+  const back = embedded ? `/trainer/courses/${sc.courseId}/roleplay?sc=${sc.id}` : search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
+  const otherHref = (id: string) => (embedded ? `/trainer/courses/${sc.courseId}/roleplay/test?sc=${id}` : `/trainer/test-call?scenario=${id}&back=${encodeURIComponent(back)}`);
   const course = useApp((s) => s.courses.find((c) => c.id === sc.courseId));
   const others = allScenarios().filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
   const voice = useVoice();
@@ -46,9 +48,9 @@ export function TestCall() {
 
   const top = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />AI roleplay</Link>
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? "Call tree" : "AI roleplay"}</Link>
       <span className="text-ink-4">/</span>
-      <Text size="body" weight="semibold" className="text-ink-2">{course?.title}</Text>
+      <Text size="body" weight="semibold" className="text-ink-2">{embedded ? sc.persona.name : course?.title}</Text>
       <Chip size="sm" className="ml-auto">Test call · nothing is saved</Chip>
     </div>
   );
@@ -56,13 +58,13 @@ export function TestCall() {
   /* ── Briefing ── */
   if (stage === "brief") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="@container flex flex-col gap-5">
         {top}
         <div className="flex flex-col gap-1">
           <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Test call: {sc.persona.name}</Text>
           <Text size="body-lg" tone="subtle">The {role} reps take in {course?.title}. Talk to the doctor as a rep would; SwishX scores it the same way.</Text>
         </div>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="grid gap-5 @[680px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
           <Card>
             <div className="flex items-center gap-4">
               <span className="grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-title font-extrabold text-white">{initials(sc.persona.name)}</span>
@@ -131,7 +133,7 @@ export function TestCall() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" onClick={start}>{useMic ? <Mic className="size-4" aria-hidden="true" /> : <Keyboard className="size-4" aria-hidden="true" />}Start test call</Button>
-          {others.map((o) => <Link key={o.id} href={`/trainer/test-call?scenario=${o.id}&back=${encodeURIComponent(back)}`} className="text-body font-semibold text-brand-deep hover:underline">Or test {o.persona.name} instead</Link>)}
+          {others.map((o) => <Link key={o.id} href={otherHref(o.id)} className="text-body font-semibold text-brand-deep hover:underline">Or test {o.persona.name} instead</Link>)}
         </div>
       </div>
     );
@@ -140,10 +142,10 @@ export function TestCall() {
   /* ── The call, with SwishX's view next to it ── */
   if (stage === "call") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="@container flex flex-col gap-4">
         {top}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="h-[calc(100dvh-210px)] min-h-[520px] overflow-hidden rounded-card shadow-float">
+        <div className="grid gap-5 @[680px]:grid-cols-[minmax(0,1fr)_320px] @[900px]:grid-cols-[minmax(0,1fr)_360px]">
+          <div className={cn("min-h-[520px] overflow-hidden rounded-card shadow-float", embedded ? "h-[calc(100dvh-170px)]" : "h-[calc(100dvh-210px)]")}>
             <CallScreen key={run} scenario={sc} mode="test" voiceAllowed={useMic} skipPrep showSamples={hints}
               onChange={onChange} onExit={() => setStage("brief")} onComplete={(r) => { setResult(r); setStage("result"); }} />
           </div>
@@ -156,13 +158,13 @@ export function TestCall() {
   /* ── Result ── */
   const passed = (result?.score ?? 0) >= PASS && !result?.flags.some((f) => f.critical);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="@container flex flex-col gap-5">
       {top}
       <div className="flex flex-col gap-1">
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Your test call with {sc.persona.name}</Text>
         <Text size="body-lg" tone="subtle">This is the scorecard a rep would see. Nothing was saved.</Text>
       </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-5 @[680px]:grid-cols-[minmax(0,1fr)_320px]">
         <Card>{result && <Scorecard result={result} mode="assessment" />}</Card>
         <div className="flex flex-col gap-4">
           <Card title="What this would mean for a rep">
@@ -187,8 +189,8 @@ export function TestCall() {
           <div className="flex flex-col gap-2">
             <Button size="lg" onClick={start}><RotateCcw className="size-4" aria-hidden="true" />Call again</Button>
             <Button size="lg" variant="secondary" onClick={() => setStage("brief")}>Change how you test</Button>
-            {others.map((o) => <Link key={o.id} href={`/trainer/test-call?scenario=${o.id}&back=${encodeURIComponent(back)}`} className="py-1 text-center text-body font-semibold text-brand-deep hover:underline">Test {o.persona.name} next</Link>)}
-            <Link href={back} className="py-1 text-center text-body font-semibold text-ink-3 hover:text-ink">Back to AI roleplay</Link>
+            {others.map((o) => <Link key={o.id} href={otherHref(o.id)} className="py-1 text-center text-body font-semibold text-brand-deep hover:underline">Test {o.persona.name} next</Link>)}
+            <Link href={back} className="py-1 text-center text-body font-semibold text-ink-3 hover:text-ink">{embedded ? "Back to the call tree" : "Back to AI roleplay"}</Link>
           </div>
         </div>
       </div>
@@ -214,7 +216,7 @@ function LivePanel({ live, sc }: { live: { state: CallState; elapsed: number } |
   const now = state ? scoreCall(sc, state.turns, true) : undefined;
   const met = now?.criteria.filter((c) => c.met).length ?? 0;
   return (
-    <aside className="flex flex-col gap-4 lg:sticky lg:top-[84px] lg:self-start">
+    <aside className="flex flex-col gap-4 @[680px]:sticky @[680px]:top-4 @[680px]:self-start">
       <div className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-4">
         <div className="flex items-center justify-between">
           <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">Behind the scenes</Text>

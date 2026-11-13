@@ -133,7 +133,7 @@ export function RoleplaySetup() {
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <Link href={`/trainer/test-call?scenario=${sc.id}&back=${encodeURIComponent(`${base}/roleplay?sc=${sc.id}`)}`}
+            <Link href={`${base}/roleplay/test?sc=${sc.id}`}
               className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
               <Mic className="size-4" aria-hidden="true" />Test call
             </Link>
