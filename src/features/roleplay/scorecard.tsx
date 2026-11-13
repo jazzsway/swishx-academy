@@ -51,7 +51,7 @@ export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
                 </div>
                 <Text size="body-lg" className="italic">“{f.quote}”</Text>
                 <Text size="body" tone="muted">{f.explanation}</Text>
-                {rule.approvedRef && approvedHref && (
+                {rule?.approvedRef && approvedHref && (
                   <Link href={approvedHref(rule.approvedRef.moduleId)} className="self-start text-body font-semibold text-brand-deep hover:underline">What the approved material says: {rule.approvedRef.label}</Link>
                 )}
               </div>

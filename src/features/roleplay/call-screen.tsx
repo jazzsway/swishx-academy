@@ -7,6 +7,8 @@ import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import type { Scenario } from "@/data/types";
 import { objection, prohibited } from "@/data/scenarios";
+import { source } from "@/data/org";
+import { configOf } from "@/lib/roleplay-draft";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { startCall, repSays, sampleAnswers, scoreCall, type CallState } from "./engine";
@@ -93,10 +95,13 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           <div className="flex flex-wrap justify-center gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-white/10 px-2.5 py-1 text-caption">{t}</span>)}</div>
         </div>
         <div className="squircle flex flex-col gap-3 rounded-panel bg-white/[0.06] p-4">
+          {(() => { const cfg = configOf(sc); const va = cfg.showPages ? source(cfg.showPages.sourceId) : undefined; return (
+            <Text size="body" tone="inverse" className="opacity-80">{cfg.callType} · {cfg.place.toLowerCase()}{va && cfg.showPages ? ` · you can show ${va.title}, pages ${cfg.showPages.pages.join(", ")}` : ""}</Text>
+          ); })()}
           <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR OBJECTIVE</Text>
           <Text size="body-lg" tone="inverse">{sc.objective}</Text>
           <Text size="caption" weight="bold" tone="inverse" className="opacity-60">THEY MAY RAISE</Text>
-          <div className="flex flex-wrap gap-1.5">{state.queue.map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{o.label}</span>)}</div>
+          <div className="flex flex-wrap gap-1.5">{state.queue.filter((o) => !o.moment).map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{o.label}</span>)}</div>
           <Text size="caption" tone="inverse" className="opacity-60">About {minutes} minutes. Speak naturally; the doctor answers out loud.{mode === "assessment" ? " This call is recorded and scored. Off-label statements fail the assessment." : mode === "screening" ? " Nothing here counts against you." : ""}</Text>
         </div>
         {mode === "practice" && (

@@ -9,7 +9,7 @@ import { useApp } from "@/store/app-store";
 import { allScenarios, objection, prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import type { Course, Objection, ProhibitedRule, Scenario } from "@/data/types";
-import { draftScenario, editCall, withLists, type CallFocus } from "@/lib/roleplay-draft";
+import { configOf, draftScenario, editCall, withLists, type CallFocus } from "@/lib/roleplay-draft";
 import { objectionsFor } from "@/features/roleplay/engine";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 
 type Role = "screening" | "final";
-const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind);
+const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind === "config" ? "config" : f.kind);
+const PART_LABEL = { knows: "What she knows", behaves: "How she behaves", settings: "Call settings", brief: "The rep's brief" } as const;
 const initials = (name: string) => name.replace(/^(Dr|NP)\.?\s*/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
 const DOCTORS = ["Dr. Lena Kim", "Dr. Elena Ruiz", "Dr. Marcus Hale", "NP Ana Ruiz", "Dr. Priya Raman", "Dr. Owen Brooks", "Dr. Sofia Alvarez"];
 
@@ -56,6 +57,7 @@ function label(f: CallFocus, sc: Scenario, obs: Objection[]) {
   if (f.kind === "opening") return "The opening";
   if (f.kind === "close") return "The close";
   if (f.kind === "rubric") return "The scorecard";
+  if (f.kind === "config") return PART_LABEL[f.part];
   if (f.kind === "objection") { const i = obs.findIndex((o) => o.id === f.id); return `Objection ${i + 1} · ${obs[i]?.label ?? ""}`; }
   return `Never say · ${prohibited(f.id)?.label ?? ""}`;
 }
@@ -166,12 +168,13 @@ export function RoleplaySetup() {
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <Link href={`${base}/roleplay/test?sc=${sc.id}`} className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
+            <Link href={`${base}/roleplay/test?sc=${sc.id}`} data-anchor="test" className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
               <Mic className="size-4" aria-hidden="true" />Test call
             </Link>
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
         </div>
+        <HowItWorks sc={sc} course={course} roles={roles} canEdit={canEdit} flash={flashing({ kind: "config", part: "knows" }) ? flash.n : 0} onChat={(part) => addToChat({ kind: "config", part })} />
       </section>
 
       {!sc.custom && editable && (
@@ -329,12 +332,13 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
               const k = `objection:${o.id}`;
               const f: CallFocus = { kind: "objection", id: o.id };
               const calls = callsOf(o);
+              const num = obs.slice(0, i + 1).filter((x) => !x.moment).length;
               return [
-                place(at[k], <DNode n={n} f={f} tone="brand" eyebrow={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={calls.join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(calls)} />),
-                place(at[`${k}:hd`], <Outcome n={n} f={f} tone="ok" title="Rep handles it" body={o.handled} foot={o.keywords.slice(0, 3).join(" · ")} />),
-                place(at[`${k}:ms`], <Outcome n={n} f={f} tone="warn" title="Rep misses it" body={o.pushback} foot="One pushback, a second chance" />),
-                place(at[`${k}:rt`], <Mini tone="ok" text="Handles it now" />),
-                place(at[`${k}:mv`], <Mini tone="muted" text="Misses again · moves on" />),
+                place(at[k], <DNode n={n} f={f} tone={o.moment ? "moment" : "brand"} eyebrow={o.moment ? `Moment · ${o.label}` : `Objection ${num} · ${o.label}`} body={`“${o.line}”`} tag={o.moment ? "Must handle" : calls.join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(calls)} />),
+                place(at[`${k}:hd`], <Outcome n={n} f={f} tone="ok" title={o.moment === "ae" ? "Rep reports it" : o.moment === "offlabel" ? "Rep refers it to Medical Information" : "Rep handles it"} body={o.handled} foot={o.keywords.slice(0, 3).join(" · ")} />),
+                place(at[`${k}:ms`], <Outcome n={n} f={f} tone="warn" title="Rep misses it" body={o.pushback} foot={o.moment ? "One more chance" : "One pushback, a second chance"} />),
+                place(at[`${k}:rt`], <Mini tone="ok" text={o.moment ? "Handles it now" : "Handles it now"} />),
+                place(at[`${k}:mv`], <Mini tone={o.moment ? "danger" : "muted"} text={o.moment ? "Critical flag · fails" : "Misses again · moves on"} />),
               ];
             })}
             {place(at.close, <DNode n={n} f={{ kind: "close" }} tone="ink" eyebrow="Doctor closes" body={`“${sc.persona.closing}”`} />)}
@@ -352,14 +356,14 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
   );
 }
 
-function DNode({ n, f, tone, eyebrow, body, tag, dark }: { n: NodeCtx; f: CallFocus; tone: "ink" | "brand"; eyebrow: string; body: string; tag?: string; dark?: boolean }) {
+function DNode({ n, f, tone, eyebrow, body, tag, dark }: { n: NodeCtx; f: CallFocus; tone: "ink" | "brand" | "moment"; eyebrow: string; body: string; tag?: string; dark?: boolean }) {
   const sel = n.isSel(f);
   return (
     <div className="relative">
       <button type="button" onClick={() => n.pick(f)} aria-pressed={sel} key={n.flashing(f) ? n.flashN : 0}
-        className={cn("squircle flex w-full flex-col gap-1.5 rounded-panel border bg-card p-3 text-left shadow-hair transition-all hover:shadow-soft", sel ? "border-brand ring-2 ring-brand/20" : "border-hair-2", n.flashing(f) && "node-flash")}>
+        className={cn("squircle flex w-full flex-col gap-1.5 rounded-panel border p-3 text-left shadow-hair transition-all hover:shadow-soft", tone === "moment" ? "bg-warn-bg/60" : "bg-card", sel ? "border-brand ring-2 ring-brand/20" : tone === "moment" ? "border-warn-line" : "border-hair-2", n.flashing(f) && "node-flash")}>
         <span className="flex items-center gap-1.5">
-          <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-white", tone === "brand" ? "bg-brand" : "bg-ink")}><Mic className="size-2.5" aria-hidden="true" /></span>
+          <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-white", tone === "brand" ? "bg-brand" : tone === "moment" ? "bg-warn" : "bg-ink")}>{tone === "moment" ? <ShieldAlert className="size-2.5" aria-hidden="true" /> : <Mic className="size-2.5" aria-hidden="true" />}</span>
           <span className="min-w-0 flex-1 truncate text-micro font-bold uppercase tracking-wider text-ink-3">{eyebrow}</span>
           {tag && <span className={cn("shrink-0 rounded-glyph px-1.5 py-0.5 text-[10px] font-bold", dark ? "bg-ink text-white" : "bg-subtle text-ink-3")}>{tag}</span>}
         </span>
@@ -380,8 +384,8 @@ function Outcome({ n, f, tone, title, body, foot }: { n: NodeCtx; f: CallFocus; 
   );
 }
 
-function Mini({ tone, text }: { tone: "ok" | "muted"; text: string }) {
-  return <span className={cn("grid h-full place-items-center rounded-panel border px-2 text-center text-micro font-bold", tone === "ok" ? "border-ok-line bg-card text-ok" : "border-hair-2 bg-card text-ink-3")}>{text}</span>;
+function Mini({ tone, text }: { tone: "ok" | "muted" | "danger"; text: string }) {
+  return <span className={cn("grid h-full place-items-center rounded-panel border px-2 text-center text-micro font-bold", tone === "ok" ? "border-ok-line bg-card text-ok" : tone === "danger" ? "border-danger-line bg-danger-bg text-danger" : "border-hair-2 bg-card text-ink-3")}>{text}</span>;
 }
 
 /* ── List ────────────────────────────────────────────────────────────────── */
@@ -419,10 +423,10 @@ function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
         {rules.map((r) => <Child key={r.id} tone={r.critical ? "danger" : "warn"} title={r.critical ? "Call fails" : "Flagged"} text={`${r.label}: ${r.explanation}`} />)}
       </Row>
       {obs.map((o, i) => (
-        <Row key={o.id} f={{ kind: "objection", id: o.id }} num={step++} title={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={callsOf(o).join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(callsOf(o))} dim={!inCall(o)}>
+        <Row key={o.id} f={{ kind: "objection", id: o.id }} num={step++} title={o.moment ? `Moment · ${o.label} · must handle` : `Objection ${obs.slice(0, i + 1).filter((x) => !x.moment).length} · ${o.label}`} body={`“${o.line}”`} tag={callsOf(o).join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(callsOf(o))} dim={!inCall(o)}>
           <Child tone="ok" title="Handled" text={`“${o.handled}” · listens for ${o.keywords.slice(0, 3).join(", ")}`} />
           <Child tone="warn" title="Missed" text={`“${o.pushback}”`} />
-          <Child tone="muted" title="Then" text="Handled on the second try, or the doctor moves on" />
+          <Child tone={o.moment ? "danger" : "muted"} title="Then" text={o.moment ? "Handled on the second try, or a critical flag that fails the call" : "Handled on the second try, or the doctor moves on"} />
           {o.answer && <Child tone="ok" title="Good answer" text={o.answer} />}
         </Row>
       ))}
@@ -591,3 +595,95 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
   );
 }
 
+
+/**
+ * How this doctor works, in the doctor's tile: what she knows (her materials), how she behaves (her
+ * rules), the call settings, and the brief reps see before the call. Read-only: change it through chat.
+ */
+function HowItWorks({ sc, course, roles, canEdit, flash, onChat }: {
+  sc: Scenario; course: Course; roles: { screening: boolean; final: boolean; practice: boolean }; canEdit: boolean; flash: number; onChat: (part: keyof typeof PART_LABEL) => void;
+}) {
+  const [part, setPart] = useState<keyof typeof PART_LABEL>("knows");
+  const cfg = configOf(sc);
+  const she = cfg.voice.gender === "male" ? "he" : "she";
+  const She = she === "he" ? "He" : "She";
+  const her = she === "he" ? "his" : "her";
+  const obs = sc.custom ? sc.custom.objections : sc.objectionIds.map(objection);
+  const regular = obs.filter((o) => !o.moment);
+  const st = course.settings;
+  const va = cfg.showPages ? source(cfg.showPages.sourceId) : undefined;
+  const diff = { easy: "Easy: patient and open; no pushback, she moves on after a miss", standard: "Standard: one pushback on a miss, then she moves on", hard: "Hard: interrupts, and pushes back twice before moving on" }[cfg.difficulty].replace(/she/g, she);
+  const variety = cfg.variety.pick ? `Raises ${cfg.variety.pick} of ${her} ${regular.length} objections${cfg.variety.shuffle ? ", in a random order" : ""}` : cfg.variety.shuffle ? `Raises all ${regular.length} objections, in a random order` : `Raises all ${regular.length} objections, in order`;
+  const rules: { t: string; tone?: "warn" | "danger" }[] = [
+    { t: `Stays in character as a ${sc.persona.specialty.toLowerCase()} and never gives medical advice.` },
+    { t: `Raises only ${her} listed objections. ${variety}.` },
+    { t: diff + "." },
+    ...(cfg.fairBalance ? [{ t: `If the rep gives a benefit without the safety, ${she} asks "And the side effects?"`, tone: "warn" as const }] : []),
+    ...obs.filter((o) => o.moment === "ae").map(() => ({ t: `Adverse event: mentions a patient's rash. The rep must say it will be reported within 24 hours, or it's a critical flag.`, tone: "danger" as const })),
+    ...obs.filter((o) => o.moment === "offlabel").map(() => ({ t: `Off-label trap: asks about use in 15-year-olds. The rep must refer it to Medical Information, or it's a critical flag.`, tone: "danger" as const })),
+    ...(cfg.endEarly.critical ? [{ t: `Ends the final call early on a critical never-say claim.` }] : []),
+    ...(cfg.endEarly.monologue ? [{ t: `Cuts the rep off after a minute of talking with no question.` }] : []),
+  ];
+  const settings: [string, string][] = [
+    ["Call", `${cfg.callType} · ${cfg.place.toLowerCase()} · about ${sc.durationMin} min`],
+    ["Difficulty", cfg.difficulty[0].toUpperCase() + cfg.difficulty.slice(1)],
+    ["Variety", variety],
+    ["Voice", `${cfg.voice.gender === "male" ? "Male" : "Female"}, ${cfg.voice.accent}, ${cfg.voice.pace} pace`],
+    ["Language", cfg.language],
+    ["Help", roles.screening ? "None: screening is a clean first call" : "Assisted prompts in practice; never in the final call"],
+    ["Scoring", roles.screening ? "Not graded · sets the rep's baseline" : `Pass ${st.passRoleplay} · ${st.attempts} attempts · ${st.cooldownHours} h between attempts`],
+  ];
+  return (
+    <div className="border-t border-hair">
+      <div className="flex flex-wrap items-center gap-1 px-5 pt-3">
+        <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="mr-2">How {sc.persona.name.split(" ").slice(-1)[0]} works</Text>
+        {(Object.keys(PART_LABEL) as (keyof typeof PART_LABEL)[]).map((k) => (
+          <button key={k} type="button" aria-pressed={part === k} onClick={() => setPart(k)}
+            className={cn("rounded-[8px] px-2.5 py-1 text-caption font-bold transition-colors", part === k ? "bg-ink text-white" : "text-ink-3 hover:bg-subtle hover:text-ink")}>{PART_LABEL[k]}</button>
+        ))}
+        {canEdit && <button type="button" onClick={() => onChat(part)} className="ml-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-caption font-bold text-brand-deep hover:bg-tint"><MessageSquarePlus className="size-3.5" aria-hidden="true" />Change in chat</button>}
+      </div>
+      <div key={flash} className={cn("px-5 pb-4 pt-3", flash > 0 && "node-flash rounded-panel")}>
+        {part === "knows" && (
+          <ul className="flex flex-col divide-y divide-hair rounded-panel border border-hair">
+            {cfg.materials.map((m) => (
+              <li key={m.sourceId} className="flex flex-wrap items-start gap-x-3 gap-y-0.5 px-3 py-2">
+                <span className="flex min-w-[220px] items-center gap-1.5 text-body font-semibold text-ink"><FileText className="size-4 shrink-0 text-info" aria-hidden="true" />{source(m.sourceId)?.title ?? "Your document"}{m.pages ? `, pages ${m.pages}` : ""}</span>
+                <span className="min-w-0 flex-1 text-body text-ink-3">{m.use}</span>
+              </li>
+            ))}
+            <li className="flex items-start gap-2 px-3 py-2 text-body text-ink-3"><Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Nothing else: {she} won&apos;t invent data, prices or comparisons, and challenges claims that aren&apos;t in these.</li>
+          </ul>
+        )}
+        {part === "behaves" && (
+          <ul className="flex flex-col gap-1.5">
+            {rules.map((r) => (
+              <li key={r.t} className="flex items-start gap-2 text-body text-ink-2">
+                <span className={cn("mt-2 size-1.5 shrink-0 rounded-full", r.tone === "danger" ? "bg-danger" : r.tone === "warn" ? "bg-warn" : "bg-ink-4")} />{r.t}
+              </li>
+            ))}
+          </ul>
+        )}
+        {part === "settings" && (
+          <dl className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+            {settings.map(([k, v]) => (
+              <div key={k} className="flex gap-3 text-body"><dt className="w-20 shrink-0 font-semibold text-ink-3">{k}</dt><dd className="text-ink">{v}</dd></div>
+            ))}
+          </dl>
+        )}
+        {part === "brief" && (
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="squircle flex w-full max-w-[340px] flex-col gap-2.5 rounded-[22px] bg-ink p-4 text-white shadow-float">
+              <span className="text-micro font-bold uppercase tracking-wider text-white/60">{roles.screening ? "Screening call · not graded" : "Before your call"}</span>
+              <span className="flex items-center gap-2.5"><span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body font-extrabold">{initials(sc.persona.name)}</span><span className="flex flex-col"><b className="text-body-lg">{sc.persona.name}</b><span className="text-caption text-white/70">{sc.persona.specialty} · {cfg.callType.toLowerCase()}, {cfg.place.toLowerCase()}</span></span></span>
+              <span className="text-caption text-white/60">YOUR GOAL</span>
+              <span className="text-body">{sc.objective}</span>
+              <span className="text-caption text-white/80">About {sc.durationMin} min{va && cfg.showPages ? ` · you can show ${va.title}, pages ${cfg.showPages.pages.join(", ")}` : ""}</span>
+            </div>
+            <Text size="body" tone="muted" className="max-w-[320px]">This is exactly what reps see on their phone before the call. Who they&apos;re meeting, the goal, the time and what they may show. Not {her} objections, never-say rules or the scorecard.</Text>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

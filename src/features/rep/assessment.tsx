@@ -65,7 +65,7 @@ export function Assessment() {
     const failed = new Set<string>();
     for (const k of st.criticalCompetencies) if (scores[k] !== undefined && scores[k] < st.passCritical) failed.add(k);
     for (const [k, v] of Object.entries(scores)) if (v < 50) failed.add(k);
-    for (const f of critFlags) { const m = modulesOf(c!).find((x) => x.id === prohibited(f.ruleId).approvedRef?.moduleId); if (m) failed.add(m.competency); }
+    for (const f of critFlags) { const m = modulesOf(c!).find((x) => x.id === prohibited(f.ruleId)?.approvedRef?.moduleId); if (m) failed.add(m.competency); }
     const reasons: string[] = [];
     if (items.length && overall < st.passOverall) reasons.push(`Overall ${overall}% (needs ${st.passOverall}%)`);
     for (const k of st.criticalCompetencies) if (scores[k] !== undefined && scores[k] < st.passCritical) reasons.push(`${competency(k)?.name} ${scores[k]}% (needs ${st.passCritical}%)`);

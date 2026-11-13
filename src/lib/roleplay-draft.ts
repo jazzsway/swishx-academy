@@ -1,5 +1,5 @@
-import type { Citation, Objection, ProhibitedRule, RubricCriterion, Scenario, Source } from "@/data/types";
-import { product } from "@/data/org";
+import type { ActorConfig, Citation, Objection, ProhibitedRule, RubricCriterion, Scenario, Source } from "@/data/types";
+import { SOURCES, product } from "@/data/org";
 
 /*
  * The roleplay a course starts with. SwishX reads the trainer's roleplay documents and lays out a
@@ -71,6 +71,60 @@ function rules(brand: string, prefix: string): ProhibitedRule[] {
   ];
 }
 
+/** The two moments every pharma call can throw at a rep: a reported side effect, and an off-label question. */
+function moments(brand: string, prefix: string): Objection[] {
+  return [
+    {
+      id: `${prefix}-ae`, label: "Adverse event", competency: "c-compliance", moment: "ae",
+      line: `One more thing: a patient of mine got a rash after her second dose of ${brand}.`,
+      pushback: "So what am I supposed to do with that?",
+      handled: "Okay, good. Thanks for flagging it properly.",
+      keywords: ["report", "24 hours", "safety", "pharmacovigilance", "adverse event", "drug safety"],
+      answer: "Thank you for telling me. I need to report that to our drug safety team within 24 hours. Could I take a few details?",
+    },
+    {
+      id: `${prefix}-ol`, label: "Off-label question", competency: "c-compliance", moment: "offlabel",
+      line: "I've got a couple of 15-year-olds with bad eczema. Can I use it for them?",
+      pushback: "Is that a yes or a no?",
+      handled: "Adults only, and you'll send a medical information request. Fine.",
+      keywords: ["medical information", "approved for adults", "not approved", "adults only", "mi request"],
+      answer: "It's only approved for adults, so I can't discuss that. I can send a request to Medical Information for you.",
+    },
+  ];
+}
+
+const FEMALE = /Lena|Elena|Priya|Sofia|Ana\b/;
+
+/** How a new actor works: drafted from the same documents, so every line of it can be traced. */
+function draftConfig(o: { productId?: string; sources: Source[]; sellingModelId?: string; name: string; regular: number }): ActorConfig {
+  const p = product(o.productId);
+  const pi = p ? SOURCES.find((s) => s.id === p.piSourceId) : undefined;
+  const va = p ? SOURCES.find((s) => s.productId === p.id && s.type === "Visual aid") : undefined;
+  const materials: ActorConfig["materials"] = [
+    ...o.sources.filter((s) => s.id !== o.sellingModelId).map((s) => ({ sourceId: s.id, use: "Her objections, and how she reacts to good and weak answers" })),
+    ...(o.sellingModelId ? [{ sourceId: o.sellingModelId, use: "How the call is scored" }] : []),
+    ...(pi ? [{ sourceId: pi.id, use: "Her own questions on dosing and safety, and checking what the rep says" }] : []),
+    ...(va ? [{ sourceId: va.id, use: "The pages the rep may show her; she reacts to them", pages: "2–4" }] : []),
+  ];
+  return {
+    materials, showPages: va ? { sourceId: va.id, pages: [2, 3, 4] } : undefined,
+    callType: "Follow-up visit", place: "In the office", difficulty: "standard",
+    variety: { pick: o.regular > 2 ? o.regular - 1 : undefined, shuffle: true },
+    fairBalance: true, endEarly: { critical: true, monologue: true },
+    voice: { gender: FEMALE.test(o.name) ? "female" : "male", accent: "US English", pace: "measured" }, language: "English",
+  };
+}
+
+/** An actor's config, with sensible defaults for doctors that shipped before configs existed. */
+export function configOf(sc: Scenario): ActorConfig {
+  if (sc.config) return sc.config;
+  return {
+    materials: (sc.custom?.sourceIds ?? []).map((id) => ({ sourceId: id, use: id === sc.custom?.sellingModelId ? "How the call is scored" : "Her objections and reactions" })),
+    callType: sc.context, place: "In the office", difficulty: "standard", variety: { shuffle: false }, fairBalance: true, endEarly: { critical: true, monologue: false },
+    voice: { gender: FEMALE.test(sc.persona.name) ? "female" : "male", accent: "US English", pace: "measured" }, language: "English",
+  };
+}
+
 /** The doctor's opening line and closing, in the product's words. */
 const opener = (brand: string) => `I've got about five minutes between patients. What's new with ${brand}?`;
 const closer = (brand: string) => `Alright. Leave me the information, and I'll think about ${brand} for the next patient who fits.`;
@@ -87,7 +141,9 @@ export function draftScenario(o: { courseId: string; productId?: string; sources
   const scenarioDoc = o.sources.find((s) => s.id !== o.sellingModelId) ?? o.sources[0];
   const at = (page: number, id = scenarioDoc?.id): Citation | undefined => (id ? { sourceId: id, page } : undefined);
   const selling = !!o.sellingModelId;
-  const obs = objections(brand, prefix);
+  /* The regular objections, with the two pharma moments the rep must handle placed after the first. */
+  const regular = objections(brand, prefix);
+  const obs = [regular[0], ...moments(brand, prefix), ...regular.slice(1)];
   const prs = rules(brand, prefix);
   return {
     id: prefix, courseId: o.courseId, title: `${name} · first call`,
@@ -104,6 +160,7 @@ export function draftScenario(o: { courseId: string; productId?: string; sources
     prohibitedIds: prs.map((x) => x.id),
     behaviourNote: "The AI doctor stays in persona, gives no medical advice, and raises objections only from this call's list. It never states product facts beyond the course's own material.",
     use: ["practice", "assessment"],
+    config: draftConfig({ productId: o.productId, sources: o.sources, sellingModelId: o.sellingModelId, name, regular: regular.length }),
     custom: {
       objections: obs, prohibited: prs, sourceIds: o.sources.map((s) => s.id), sellingModelId: o.sellingModelId,
       cites: { persona: at(1), opening: at(2), objections: at(3), prohibited: at(4), rubric: selling ? at(2, o.sellingModelId) : at(5) },
@@ -123,7 +180,7 @@ const quoted = (t: string) => t.match(/["“']([^"”']{3,})["”']/)?.[1];
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** What the trainer can point the chat at: a step in the call tree. */
-export type CallFocus = { kind: "persona" } | { kind: "opening" } | { kind: "objection"; id: string } | { kind: "close" } | { kind: "rule"; id: string } | { kind: "rubric" };
+export type CallFocus = { kind: "config"; part: "knows" | "behaves" | "settings" | "brief" } | { kind: "persona" } | { kind: "opening" } | { kind: "objection"; id: string } | { kind: "close" } | { kind: "rule"; id: string } | { kind: "rubric" };
 
 export interface CallEdit { next?: Scenario; reply: string; changed: string[] }
 
@@ -181,10 +238,58 @@ export function editCall(sc: Scenario, prompt: string, focus?: CallFocus): CallE
     };
     return set(withCustom({ objections: [...obs, ob] }), `Added "${label}" as objection ${obs.length + 1}. Tap it in the tree to rewrite the line or the good answer.`, [`objection:${id}`]);
   }
+  /* How she works: difficulty, variety, voice, call setup, moments, pages the rep may show. */
+  const cfg = configOf(sc);
+  const setCfg = (patch: Partial<ActorConfig>, reply: string): CallEdit => ({ next: withLists({ ...sc, config: { ...cfg, ...patch } }), reply, changed: ["config"] });
+  if (/\b(easy|easier|beginner|new hires?)\b/.test(l) && /difficult|level|mode|make (it|her|him)/.test(l)) return setCfg({ difficulty: "easy" }, "Difficulty is Easy now: she's patient, gives the rep time, and moves on after one miss without pushing back.");
+  if (/\bhard(er)? (mode|level|difficulty)|difficulty .*hard|set .*hard/.test(l)) return setCfg({ difficulty: "hard" }, "Difficulty is Hard now: she interrupts and pushes back twice before moving on.");
+  if (/standard (mode|level|difficulty)|difficulty .*standard/.test(l)) return setCfg({ difficulty: "standard" }, "Difficulty is Standard: one pushback on a miss, then she moves on.");
+  const pickN = l.match(/(\d)\s*of\s*(\d)/);
+  if (pickN || /shuffle|random|same order|every time|all (her )?objections/.test(l)) {
+    const regular = obs.filter((o) => !o.moment).length;
+    const pick = /all (her )?objections|same order|every time/.test(l) ? undefined : pickN ? Math.min(regular, Number(pickN[1])) : cfg.variety.pick;
+    const shuffle = !/same order|no shuffle|don.?t shuffle/.test(l);
+    return setCfg({ variety: { pick, shuffle } }, pick ? `She raises ${pick} of her ${regular} objections now, ${shuffle ? "in a random order" : "in order"}, so reps can't learn one script.` : `She raises all ${regular} objections${shuffle ? ", in a random order" : ", in the same order every time"}.`);
+  }
+  if (/\b(male|female|man|woman)\b.*voice|voice.*\b(male|female|man|woman)\b|\b(brisk|faster|slower|relaxed) (voice|pace)|pace/.test(l)) {
+    const gender = /\b(male|man)\b/.test(l) && !/female|woman/.test(l) ? "male" : /female|woman/.test(l) ? "female" : cfg.voice.gender;
+    const pace = /brisk|faster/.test(l) ? "brisk" : /relaxed|slower/.test(l) ? "relaxed" : cfg.voice.pace;
+    return setCfg({ voice: { ...cfg.voice, gender, pace } }, `Voice set: ${gender}, ${cfg.voice.accent}, ${pace} pace.`);
+  }
+  const lang = l.match(/\bin (spanish|french|german|italian|japanese|portuguese|hindi|english)\b/)?.[1];
+  if (lang) return setCfg({ language: cap(lang) }, `She speaks ${cap(lang)} now. Her lines are translated from the approved English; the scorecard stays the same.`);
+  if (/first call|follow.?up|virtual|video call|lunch|hallway|in the office/.test(l)) {
+    const callType = /first call/.test(l) ? "First call" : /follow.?up/.test(l) ? "Follow-up visit" : /lunch/.test(l) ? "Lunch-and-learn" : cfg.callType;
+    const place = /virtual|video call/.test(l) ? "Virtual" : /hallway/.test(l) ? "Hallway, between patients" : /in the office/.test(l) ? "In the office" : cfg.place;
+    return setCfg({ callType, place }, `The call is a ${callType.toLowerCase()}, ${place.toLowerCase()}. Her opening fits it.`);
+  }
+  const pages = l.match(/pages?\s*([\d,\s\-–and]+)/)?.[1];
+  if (pages && /show|visual aid|deck|let reps|can use/.test(l) && cfg.showPages) {
+    const nums = [...new Set(pages.replace(/and/g, ",").split(/[,\s]+/).flatMap((x) => { const m = x.match(/(\d+)[\-–](\d+)/); return m ? Array.from({ length: +m[2] - +m[1] + 1 }, (_, i) => +m[1] + i) : x ? [+x] : []; }).filter((n) => n > 0))].sort((a, b) => a - b);
+    if (nums.length) return setCfg({ showPages: { ...cfg.showPages, pages: nums }, materials: cfg.materials.map((m) => (m.sourceId === cfg.showPages!.sourceId ? { ...m, pages: nums.join(", ") } : m)) }, `Reps can show visual aid page${nums.length === 1 ? "" : "s"} ${nums.join(", ")}. She reacts to what's on them.`);
+  }
+  if (/fair balance|side effects? (question|check)/.test(l)) {
+    const on = !/(no|stop|turn off|remove|without)\b/.test(l);
+    return setCfg({ fairBalance: on }, on ? "Fair-balance check is on: when the rep gives a benefit without the safety, she asks \"And the side effects?\"" : "Fair-balance check is off.");
+  }
+  if (/adverse event|\bae\b|off.?label/.test(l)) {
+    const kind = /off.?label/.test(l) ? "offlabel" : "ae";
+    const has = obs.find((o) => o.moment === kind);
+    const off = /(no|remove|turn off|drop|without|stop)\b/.test(l);
+    if (off && has) return set(withCustom({ objections: obs.filter((o) => o.id !== has.id) }), `Removed the ${kind === "ae" ? "adverse-event" : "off-label"} moment from ${sc.persona.name}'s call.`, []);
+    if (!off && !has) {
+      const m = moments(sc.objective.match(/consider (\w+)/)?.[1] ?? "it", sc.id).find((x) => x.moment === kind)!;
+      return set(withCustom({ objections: [...obs.slice(0, 1), m, ...obs.slice(1)] }), `Added the ${kind === "ae" ? "adverse-event" : "off-label"} moment. Missing it is a critical flag.`, [`objection:${m.id}`]);
+    }
+  }
+  if (/end (the call )?early|stop the call|cut (them|the rep) off/.test(l)) {
+    const off = /(don.?t|never|no|stop ending|turn off)\b/.test(l);
+    return setCfg({ endEarly: { critical: !off, monologue: !off } }, off ? "She won't end the call early any more; she plays it to the end." : "She ends the call early on a critical claim, or after a minute of talking with no question.");
+  }
   if (/tough|harder|difficult|sceptic|skeptic|push harder/.test(l)) {
     const traits = [...new Set([...sc.persona.traits, "Sceptical", "Interrupts"])];
     const sharpen = (o: Objection) => ({ ...o, pushback: o.pushback.startsWith("No.") ? o.pushback : `No. ${o.pushback} Give me something specific.` });
-    return set(withCustom({ objections: obs.map((o) => (!focusOb || o.id === focusOb.id ? sharpen(o) : o)) }, { persona: { ...sc.persona, traits } }),
+    return set(withCustom({ objections: obs.map((o) => (!focusOb || o.id === focusOb.id ? sharpen(o) : o)) }, { persona: { ...sc.persona, traits }, ...(focusOb ? {} : { config: { ...configOf(sc), difficulty: "hard" as const } }) }),
       focusOb ? `"${focusOb.label}" now pushes back harder when the rep misses it.` : "The doctor is tougher now: more sceptical, interrupts, and pushes back harder on every miss.",
       focusOb ? [`objection:${focusOb.id}`] : ["persona", ...obs.map((o) => `objection:${o.id}`)]);
   }

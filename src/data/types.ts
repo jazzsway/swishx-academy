@@ -210,6 +210,27 @@ export interface Objection {
   answer?: string;
   /** Held back for the final call, so reps can't rehearse it in screening or practice. */
   finalOnly?: boolean;
+  /** A pharma moment the rep must handle, not an objection: missing it is a critical flag. */
+  moment?: "ae" | "offlabel";
+}
+
+/** How a roleplay actor works: what they draw on, how they behave, and how the call is set up. */
+export interface ActorConfig {
+  /** What the doctor uses each document for. */
+  materials: { sourceId: string; use: string; pages?: string }[];
+  /** Pages the rep may show during the call; the doctor reacts to them. */
+  showPages?: { sourceId: string; pages: number[] };
+  callType: string;
+  place: string;
+  difficulty: "easy" | "standard" | "hard";
+  /** Raise only this many of the regular objections, and in a random order. */
+  variety: { pick?: number; shuffle: boolean };
+  /** "And the side effects?" whenever the rep gives a benefit without the safety. */
+  fairBalance: boolean;
+  /** The doctor stops the call: on a critical never-say claim, or a monologue with no question. */
+  endEarly: { critical: boolean; monologue: boolean };
+  voice: { gender: "female" | "male"; accent: string; pace: "measured" | "brisk" | "relaxed" };
+  language: string;
 }
 
 export interface Persona {
@@ -234,6 +255,8 @@ export interface Scenario {
   prohibitedIds: string[];
   behaviourNote: string;
   use: ("screening" | "assessment" | "practice")[];
+  /** How the actor works. Older scenarios get defaults from their content. */
+  config?: ActorConfig;
   /** Built by a trainer in the roleplay builder. Carries its own objections and rules. */
   custom?: {
     objections: Objection[];
