@@ -15,8 +15,20 @@ export interface CallState {
   start: number;
 }
 
-export function startCall(scenario: Scenario, objectionIds?: string[]): CallState {
-  const ids = objectionIds?.length ? objectionIds : scenario.objectionIds;
+/**
+ * Which objections a call raises. One doctor serves every call: screening is the short version (the
+ * first two that aren't held back), practice leaves out the held-back one, the final call has them all.
+ */
+export function objectionsFor(scenario: Scenario, mode?: "screening" | "practice" | "assessment" | "test"): string[] {
+  const all = scenario.objectionIds;
+  const open = all.filter((id) => !objection(id)?.finalOnly);
+  if (mode === "screening") return open.slice(0, 2);
+  if (mode === "practice") return open;
+  return all;
+}
+
+export function startCall(scenario: Scenario, objectionIds?: string[], mode?: "screening" | "practice" | "assessment" | "test"): CallState {
+  const ids = objectionIds?.length ? objectionIds : objectionsFor(scenario, mode);
   return {
     scenario,
     queue: ids.map(objection),

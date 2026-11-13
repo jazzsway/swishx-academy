@@ -16,6 +16,7 @@ import { LUMORA_LAUNCH_MODULES } from "@/data/courses/lumora-launch";
 import { shapeOutline } from "@/lib/outline";
 import { courseCardCount, moduleCards, templateFor } from "@/lib/short-form";
 import { ContentTypePicker, TemplatePicker, VisibilityPicker, type Form } from "./content-type";
+import { ScreeningPicker } from "./screening-picker";
 import { suggestCompetencies } from "@/lib/suggest-competencies";
 import type { Module, ShortTemplate, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
@@ -88,6 +89,7 @@ export function NewCourseWizard() {
   const [pickedTemplate, setTemplate] = useState<ShortTemplate | null>(null);
   const template = pickedTemplate ?? templateFor(title);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [screening, setScreening] = useState(true);
   /* Long form is personalised (screening, final assessment, call); short form is the same cards for everyone. v1-hidden: the type and audience pickers are commented out below. */
   const type: "personalised" | "linear" = form === "short" ? "linear" : "personalised";
   const [writtenFor] = useState<"reps" | "new_hires" | "managers">("reps");
@@ -189,12 +191,14 @@ export function NewCourseWizard() {
   function generate() {
     if (!outline) return;
     setStep(4);
-    const id = createCourse({ title, productId: productId || undefined, format: form, template: form === "short" ? template : undefined, visibility: visibility === "public" ? "audience" : "assigned", type, objective, audience: `${WRITTEN_FOR[writtenFor].label} · ${teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" + ") : "everyone"}`, writtenFor, teams, sourceIds, competencyIds: comps,
+    const id = createCourse({ title, productId: productId || undefined, format: form, template: form === "short" ? template : undefined, visibility: visibility === "public" ? "audience" : "assigned", screening: form !== "short" && screening, type, objective, audience: `${WRITTEN_FOR[writtenFor].label} · ${teams.length ? teams.map((t) => DIVISIONS.find((d) => d.id === t)?.name).join(" + ") : "everyone"}`, writtenFor, teams, sourceIds, competencyIds: comps,
       scope: { variants: scope.variants, indications: scope.indications, therapyAreas: scope.therapyAreas } });
     const pr = product(productId);
     const items = (productId === "p-cardexa" ? CARDEXA_ITEMS : productId === "p-lumora" || !pr ? LUMORA_ITEMS.filter((it) => comps.includes(it.competency)) : genericProductItems(id, pr)).map((it) => ({ ...it, id: `${id}-${it.id}` }));
     const hasCall = form === "long" && productId === "p-lumora";
-    updateCourse(id, { items, settings: { ...useApp.getState().courses.find((c) => c.id === id)!.settings, screeningCall: false, assessmentCall: hasCall, assessmentScenarioId: hasCall ? "sc-kim" : undefined } });
+    /* One doctor for the course: the screening call and the final call are both with them. */
+    const screensWithCall = hasCall && screening;
+    updateCourse(id, { items, settings: { ...useApp.getState().courses.find((c) => c.id === id)!.settings, screeningCall: screensWithCall, screeningScenarioId: screensWithCall ? "sc-kim" : undefined, assessmentCall: hasCall, assessmentScenarioId: hasCall ? "sc-kim" : undefined } });
     let i = 0;
     setGenIndex(0);
     const tick = () => {
@@ -243,6 +247,7 @@ export function NewCourseWizard() {
             <Wand2 className="size-4" aria-hidden="true" />Make it measurable
           </button>
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
+          <ScreeningPicker value={screening && form !== "short"} onChange={setScreening} kind={form === "short" ? "short" : "long"} />
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Type of content</Text>
             <ContentTypePicker value={form} onChange={setForm} template={template} title={title} />

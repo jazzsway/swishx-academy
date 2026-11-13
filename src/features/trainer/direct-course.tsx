@@ -12,6 +12,7 @@ import { draftScenario } from "@/lib/roleplay-draft";
 import { FORMAT_ICON, SourcePreview, fileUrl, formatOf, rememberFile } from "./source-preview";
 import { directKind, directModules } from "./materials";
 import { VisibilityPicker } from "./content-type";
+import { ScreeningPicker } from "./screening-picker";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -49,6 +50,7 @@ export function DirectCourseWizard() {
   const prod = product(productId);
   const teams = prod ? [prod.divisionId] : [];
   const [visibility, setVisibility] = useState<"public" | "private">("private");
+  const [screening, setScreening] = useState(true);
   const [repIds, setRepIds] = useState<string[]>([]);
   const [rpIds, setRpIds] = useState<string[]>([]);
   const [sellingId, setSellingId] = useState<string>();
@@ -103,7 +105,7 @@ export function DirectCourseWizard() {
       audience: `Field reps · ${teamNames}`, writtenFor: "reps", teams, sourceIds: [...repIds, ...rpIds],
       competencyIds: [...new Set(mods.map((m) => m.competency))],
       scope: { variants: [], indications: [], therapyAreas: [] },
-      visibility: visibility === "public" ? "audience" : "assigned",
+      visibility: visibility === "public" ? "audience" : "assigned", screening,
     });
     let i = 0;
     setBuilt(0);
@@ -151,6 +153,7 @@ export function DirectCourseWizard() {
             <Text tone="subtle" size="body-lg">{prod ? `A ${prod.brand} course. ` : ""}Reps will see your files exactly as you upload them. Nothing is rewritten.</Text>
           </div>
           <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora field kit" autoFocus />
+          <ScreeningPicker value={screening} onChange={setScreening} kind="direct" />
           <VisibilityPicker value={visibility} onChange={setVisibility} teams={prod ? `${prod.brand}'s field team` : "everyone"} />
         </Card>
       )}

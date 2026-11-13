@@ -208,6 +208,8 @@ export interface Objection {
   keywords: string[];
   /** What a good answer sounds like: tap-to-answer lines and assisted practice use it. */
   answer?: string;
+  /** Held back for the final call, so reps can't rehearse it in screening or practice. */
+  finalOnly?: boolean;
 }
 
 export interface Persona {

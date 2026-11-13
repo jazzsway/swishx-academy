@@ -84,7 +84,7 @@ export interface AppState extends Seeded {
   markRead: (userId: string, id?: string) => void;
 
   /* Trainer: courses */
-  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "template" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams"> & { visibility?: LibraryVisibility; origin?: Course["origin"]; roleplaySourceIds?: string[] }) => string;
+  createCourse: (c: Pick<Course, "title" | "productId" | "format" | "template" | "type" | "objective" | "audience" | "sourceIds" | "competencyIds" | "scope" | "writtenFor" | "teams"> & { visibility?: LibraryVisibility; origin?: Course["origin"]; roleplaySourceIds?: string[]; screening?: boolean }) => string;
   /** Roleplay builder: adds or replaces a trainer-built scenario and attaches it to its course. */
   saveScenario: (sc: Scenario, use: { practice: boolean; final: boolean }) => void;
   removeScenario: (id: string) => void;
@@ -262,17 +262,21 @@ export const useApp = create<AppState>()(
       createCourse: (c) => {
         const id = uid("c");
         const direct = c.origin === "direct";
+        /* Chosen under the course name at creation; on unless the trainer turned it off. Short form never screens. */
+        const screens = c.format !== "short" && (c.screening ?? (c.type === "personalised" || direct));
+        const { screening: _screening, ...rest } = c;
+        void _screening;
         const course: Course = {
           // Roleplay doctors are product-specific; only Lumora has an approved one today. Direct courses build their own.
-          ...c, id, modules: [], items: [], scenarioIds: !direct && c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
+          ...rest, id, modules: [], items: [], scenarioIds: !direct && c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
           settings: {
             ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
             /* Direct courses screen with the roleplay call alone: there are no questions to screen with. */
-            screening: c.type === "personalised" || direct,
-            screeningCall: direct,
+            screening: screens,
+            screeningCall: screens && (direct || c.productId === "p-lumora"),
             assessmentCall: false,
             assessmentScenarioId: undefined,
-            baseline: c.type === "personalised" || direct,
+            baseline: screens,
             finalNoHints: true,
             verify: "auto", // v1-hidden: was c.type === "personalised" ? "manager" : "auto" 
             /* A direct course is done when every file is seen; a final call, once attached, adds the assessment. */
@@ -647,7 +651,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 26,
+      version: 27,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

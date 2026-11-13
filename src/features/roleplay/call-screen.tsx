@@ -36,7 +36,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 }) {
   const sc: Scenario = personaOverride ? { ...scenario, persona: { ...scenario.persona, ...personaOverride } } : scenario;
   const [stage, setStage] = useState<"prep" | "call" | "ended">(skipPrep ? "call" : "prep");
-  const [state, setState] = useState<CallState>(() => startCall(sc, objectionIds));
+  const [state, setState] = useState<CallState>(() => startCall(sc, objectionIds, mode));
   const [typing, setTyping] = useState(!voiceAllowed);
   const [text, setText] = useState("");
   const [muted, setMuted] = useState(false);
@@ -45,6 +45,8 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   const [assist, setAssist] = useState(!!assisted && mode === "practice");
   const voice = useVoice();
   const endRef = useRef<HTMLDivElement>(null);
+  /* The screening call is the short version of the course's call. */
+  const minutes = mode === "screening" ? Math.min(3, sc.durationMin) : sc.durationMin;
   const initials = sc.persona.name.replace("Dr. ", "").split(" ").map((x) => x[0]).join("");
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [state.turns, voice.interim]);
@@ -54,8 +56,8 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
     return () => window.clearInterval(t);
   }, [stage]);
   useEffect(() => {
-    if (stage === "call" && elapsed >= sc.durationMin * 60) setStage("ended");
-  }, [elapsed, stage, sc.durationMin]);
+    if (stage === "call" && elapsed >= minutes * 60) setStage("ended");
+  }, [elapsed, stage, minutes]);
   useEffect(() => { if (state.done && stage === "call") window.setTimeout(() => setStage("ended"), 600); }, [state.done, stage]);
 
   function hcpSpeak(t: string) { if (!muted && !typing) voice.speak(t); }
@@ -94,8 +96,8 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR OBJECTIVE</Text>
           <Text size="body-lg" tone="inverse">{sc.objective}</Text>
           <Text size="caption" weight="bold" tone="inverse" className="opacity-60">THEY MAY RAISE</Text>
-          <div className="flex flex-wrap gap-1.5">{(objectionIds?.length ? objectionIds : sc.objectionIds).map((o) => <span key={o} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{objection(o).label}</span>)}</div>
-          <Text size="caption" tone="inverse" className="opacity-60">About {sc.durationMin} minutes. Speak naturally; the doctor answers out loud.{mode === "assessment" ? " This call is recorded and scored. Off-label statements fail the assessment." : mode === "screening" ? " Nothing here counts against you." : ""}</Text>
+          <div className="flex flex-wrap gap-1.5">{state.queue.map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{o.label}</span>)}</div>
+          <Text size="caption" tone="inverse" className="opacity-60">About {minutes} minutes. Speak naturally; the doctor answers out loud.{mode === "assessment" ? " This call is recorded and scored. Off-label statements fail the assessment." : mode === "screening" ? " Nothing here counts against you." : ""}</Text>
         </div>
         {mode === "practice" && (
           <div className="flex flex-col gap-2">

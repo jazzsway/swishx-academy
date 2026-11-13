@@ -58,6 +58,7 @@ function objections(brand: string, prefix: string): Objection[] {
       handled: "If the support program really takes the paperwork off my staff, that helps.",
       keywords: ["support", "hub", "prior auth", "benefits", "copay", "coverage", "paperwork"],
       answer: "I hear you, the paperwork is real. Our support program runs the benefits check and prepares the prior auth for your office. I can't promise coverage, but it takes that work off your staff.",
+      finalOnly: true,
     },
   ];
 }
@@ -149,6 +150,16 @@ export function editCall(sc: Scenario, prompt: string, focus?: CallFocus): CallE
     if (focusOb && /pushback|push back|miss/.test(l)) return set(withCustom({ objections: obs.map((o) => (o.id === focusOb.id ? { ...o, pushback: q } : o)) }), `Updated the pushback on "${focusOb.label}".`, [`objection:${focusOb.id}`]);
     if (focusOb && /good answer|answer|should say/.test(l)) return set(withCustom({ objections: obs.map((o) => (o.id === focusOb.id ? { ...o, answer: q } : o)) }), `Updated what a good answer to "${focusOb.label}" sounds like.`, [`objection:${focusOb.id}`]);
     if (focusOb) return set(withCustom({ objections: obs.map((o) => (o.id === focusOb.id ? { ...o, line: q } : o)) }), `The doctor now raises "${focusOb.label}" in those words.`, [`objection:${focusOb.id}`]);
+  }
+  if (/hold (it |this |that )?back|final( call)? only|only (in|for) the final|keep .* for the final|save .* for the final|all calls|practice too|in practice|in screening/.test(l)) {
+    const n = Number(l.match(/objection\s*(\d)/)?.[1] ?? l.match(/(\d)(st|nd|rd|th)? objection/)?.[1]);
+    const target = focusOb ?? (n ? obs[n - 1] : undefined);
+    if (!target) return { reply: "Which objection? Select it in the tree, or say \"hold back objection 2 for the final call\".", changed: [] };
+    const hold = !/all calls|practice too|in practice|in screening/.test(l);
+    if (hold && obs.filter((o) => !o.finalOnly && o.id !== target.id).length === 0) return { reply: "Screening and practice need at least one objection. Keep another one open first.", changed: [] };
+    return set(withCustom({ objections: obs.map((o) => (o.id === target.id ? { ...o, finalOnly: hold } : o)) }),
+      hold ? `"${target.label}" is held back for the final call now. Reps won't meet it in screening or practice, so they can't rehearse it.` : `"${target.label}" comes up in every call now, practice and screening included.`,
+      [`objection:${target.id}`]);
   }
   if (/\b(remove|drop|delete)\b/.test(l)) {
     const n = Number(l.match(/objection\s*(\d)/)?.[1] ?? l.match(/(\d)(st|nd|rd|th)? objection/)?.[1]);

@@ -11,6 +11,7 @@ import { allScenarios, objection, prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import type { Citation, Course, Objection, ProhibitedRule, RubricCriterion, Scenario } from "@/data/types";
 import { draftScenario, editCall, withLists, type CallFocus } from "@/lib/roleplay-draft";
+import { objectionsFor } from "@/features/roleplay/engine";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -60,6 +61,7 @@ export function RoleplaySetup() {
   const saveScenario = useApp((s) => s.saveScenario);
   const removeScenario = useApp((s) => s.removeScenario);
   const updateCourse = useApp((s) => s.updateCourse);
+  const updateSettings = useApp((s) => s.updateSettings);
   const [selected, setSelected] = useState<CallFocus | null>(null);
   const [attached, setAttached] = useState<CallFocus | null>(null);
   const [flash, setFlash] = useState<{ keys: string[]; n: number }>({ keys: [], n: 0 });
@@ -92,6 +94,14 @@ export function RoleplaySetup() {
   const rules: ProhibitedRule[] = sc.custom ? sc.custom.prohibited : sc.prohibitedIds.map(prohibited);
   const cites = sc.custom?.cites ?? {};
   const use = useOf(sc, course);
+  /* One doctor, three moments: the screening call is the short version, the final call has everything. */
+  const screeningOn = course.settings.screening && course.settings.screeningCall && course.settings.screeningScenarioId === sc.id;
+  const screenIds = objectionsFor(sc, "screening");
+  const usesOf = (o: Objection) => [screeningOn && screenIds.includes(o.id) && "Screening", use.practice && !o.finalOnly && "Practice", use.final && "Final"].filter(Boolean) as string[];
+  function setScreening(v: boolean) {
+    const hasQuestions = course!.items.some((i) => i.pool === "screening");
+    updateSettings(course!.id, v ? { screening: true, screeningCall: true, screeningScenarioId: sc!.id, baseline: true } : hasQuestions ? { screeningCall: false } : { screening: false, screeningCall: false });
+  }
   const canEdit = editable && !!sc.custom;
   const openCrit = sc.rubric.filter((r) => r.competency === "c-opening");
   const closeCrit = sc.rubric.filter((r) => /next step|close/i.test(r.label));
@@ -140,9 +150,11 @@ export function RoleplaySetup() {
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-hair bg-subtle/50 px-5 py-3">
-          <Text size="body" tone="muted" className="min-w-0 flex-1"><strong className="text-ink">Goal for the rep:</strong> {sc.objective}</Text>
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-3 border-t border-hair bg-subtle/50 px-5 py-3">
+          <Text size="body" tone="muted"><strong className="text-ink">Goal for the rep:</strong> {sc.objective}</Text>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-hair pt-3">
+            <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">Used for</Text>
+            <Toggle label="Screening call" hint="Short version, before the content" on={screeningOn} disabled={!editable} onChange={setScreening} />
             <Toggle label="Practice" hint="Reps rehearse it privately" on={use.practice} disabled={!editable} onChange={(v) => setUse({ ...use, practice: v })} />
             <Toggle label="Final assessment call" hint="Scored, ends the course" on={use.final} disabled={!editable} onChange={(v) => setUse({ ...use, final: v })} />
           </div>
@@ -174,7 +186,7 @@ export function RoleplaySetup() {
           {obs.map((o, i) => (
             <div key={o.id} className="flex w-full flex-col items-center">
               <Stem />
-              <Node {...node({ kind: "objection", id: o.id })} tone="brand" eyebrow={`Objection ${i + 1} · ${o.label}`} quote={o.line} cite={i === 0 ? cites.objections : undefined} canEdit={canEdit} pins={midCrit} />
+              <Node {...node({ kind: "objection", id: o.id })} tone="brand" eyebrow={`Objection ${i + 1} · ${o.label}`} uses={usesOf(o)} held={!!o.finalOnly} quote={o.line} cite={i === 0 ? cites.objections : undefined} canEdit={canEdit} pins={midCrit} />
               <Branches
                 left={<Outcome tone="ok" title="Rep handles it" body={o.handled} listen={o.keywords} answer={o.answer} />}
                 right={<Outcome tone="warn" title="Rep misses it" body={o.pushback} note="One pushback, then the doctor moves on" />} />
@@ -273,8 +285,8 @@ function AddPill({ onClick }: { onClick: () => void }) {
   );
 }
 
-function Node({ id, tone, eyebrow, quote, cite, pins, selected, flash, onSelect, onAdd, canEdit }: {
-  id: string; tone: "ink" | "brand"; eyebrow: string; quote: string; cite?: Citation; pins: RubricCriterion[];
+function Node({ id, tone, eyebrow, quote, cite, pins, selected, flash, onSelect, onAdd, canEdit, uses, held }: {
+  id: string; tone: "ink" | "brand"; uses?: string[]; held?: boolean; eyebrow: string; quote: string; cite?: Citation; pins: RubricCriterion[];
   selected: boolean; flash: number; onSelect: () => void; onAdd: () => void; canEdit: boolean;
 }) {
   return (
@@ -285,6 +297,9 @@ function Node({ id, tone, eyebrow, quote, cite, pins, selected, flash, onSelect,
         <span className="flex items-center gap-2">
           <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-white", tone === "brand" ? "bg-brand" : "bg-ink")}><Mic className="size-3" aria-hidden="true" /></span>
           <span className="min-w-0 flex-1 text-caption font-bold uppercase tracking-wider text-ink-3">{eyebrow}</span>
+          {uses && (held
+            ? <span className="shrink-0 rounded-glyph bg-ink px-1.5 py-0.5 text-micro font-bold text-white" title="Held back so reps can't rehearse it">Final call only</span>
+            : <span className="shrink-0 rounded-glyph bg-subtle px-1.5 py-0.5 text-micro font-bold text-ink-3">{uses.join(" · ") || "Not in use"}</span>)}
         </span>
         <span className="text-body-lg leading-relaxed text-ink">“{quote}”</span>
         {cite && <span><CiteChip c={cite} /></span>}
@@ -367,7 +382,7 @@ function Toggle({ label, hint, on, disabled, onChange }: { label: string; hint: 
 
 interface Turn { id: string; from: "you" | "ai"; text: string; focus?: string; undo?: Scenario; undone?: boolean }
 
-const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Make it a 4-minute call", "Never say \"works for everyone\""];
+const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Never say \"works for everyone\""];
 
 /** The agent, pointed at the roleplay: every edit lands in the call tree straight away, and can be undone. */
 function RoleplayChat({ sc, course, attached, onDetach, onEdited, onCopy }: {

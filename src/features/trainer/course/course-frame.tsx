@@ -215,6 +215,7 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
 
   return (
     <nav aria-label="Course" className="hidden w-[256px] shrink-0 flex-col overflow-y-auto border-r border-hair bg-canvas px-2.5 pb-4 [scrollbar-width:thin] md:flex">
+      <JourneyStrip course={course} editable={editable} />
       {section(`${course.modules.length} module${course.modules.length === 1 ? "" : "s"}`,
         <button type="button" onClick={() => setModsOpen(!showMods)} aria-expanded={showMods} aria-label={showMods ? "Fold the modules" : "Show the modules"} className="grid size-5 place-items-center rounded-glyph text-ink-3 hover:bg-subtle hover:text-ink">
           <ChevronDown className={cn("size-3.5 transition-transform", !showMods && "-rotate-90")} aria-hidden="true" />
@@ -330,5 +331,59 @@ function AgentDock({ course }: { course: Course }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The rep's journey through this course, as the trainer sets it: screening, the content, practice,
+ * the final call, the certificate. The same steps reps see, switched on or off here.
+ */
+function JourneyStrip({ course, editable }: { course: Course; editable: boolean }) {
+  const updateSettings = useApp((s) => s.updateSettings);
+  const saveScenario = useApp((s) => s.saveScenario);
+  useApp((s) => s.scenarios);
+  const st = course.settings;
+  const short = course.format === "short";
+  const sc = allScenarios().find((x) => x.id === (st.assessmentScenarioId ?? st.screeningScenarioId ?? course.scenarioIds[0]));
+  const hasQuestions = course.items.some((i) => i.pool === "screening");
+  const canScreen = !short && (hasQuestions || !!sc);
+  const unit = course.origin === "direct" ? "file" : "module";
+  const required = course.modules.filter((m) => m.required).length;
+  const doctor = sc?.persona.name.replace(/^Dr\.?\s*/, "Dr. ") ?? "";
+  const rows: { key: string; label: string; sub: string; on: boolean; can: boolean; set?: (v: boolean) => void; fixed?: boolean }[] = [
+    { key: "screen", label: "Screening", sub: !canScreen ? (short ? "Not for short form" : "Needs a roleplay or questions") : st.screening ? [hasQuestions && "Quiz", st.screeningCall && sc && `call with ${doctor}`].filter(Boolean).join(" + ") || "On" : "Everyone takes everything",
+      on: canScreen && st.screening, can: canScreen,
+      set: (v) => updateSettings(course.id, v ? { screening: true, screeningCall: !!sc, screeningScenarioId: st.screeningScenarioId ?? sc?.id, baseline: true } : { screening: false, screeningCall: false }) },
+    { key: "content", label: course.format === "short" ? "Cards" : `${course.modules.length} ${unit}${course.modules.length === 1 ? "" : "s"}`, sub: required ? `${required} for everyone` : "In order", on: true, can: false, fixed: true },
+    { key: "practice", label: "Practice", sub: sc ? `With ${doctor}, private` : "Add a roleplay", on: !!sc?.use.includes("practice"), can: !!sc,
+      set: (v) => sc && saveScenario(sc, { practice: v, final: st.assessmentScenarioId === sc.id }) },
+    { key: "final", label: "Final call", sub: sc ? `Pass ${st.passRoleplay} · ${st.attempts} attempts` : "Add a roleplay", on: !!sc && st.assessmentScenarioId === sc.id, can: !!sc,
+      set: (v) => sc && saveScenario(sc, { practice: sc.use.includes("practice"), final: v }) },
+    { key: "cert", label: "Certificate", sub: st.completion.attestation ? "Signed attestation" : "On completion", on: true, can: false, fixed: true },
+  ];
+  return (
+    <section aria-label="Rep journey" className="mt-3 rounded-panel border border-hair bg-card p-2.5">
+      <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="block px-1 pb-1.5">Rep journey</Text>
+      <ol className="flex flex-col">
+        {rows.map((r, i) => (
+          <li key={r.key} className="flex items-center gap-2.5 px-1 py-1">
+            <span className="flex flex-col items-center self-stretch">
+              <span className={cn("mt-1 size-2.5 shrink-0 rounded-full", r.on ? "bg-brand" : "border border-hair-3 bg-card")} />
+              {i < rows.length - 1 && <span className={cn("mt-0.5 w-px flex-1", r.on ? "bg-brand/40" : "bg-hair-2")} />}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col pb-0.5">
+              <span className={cn("truncate text-caption font-semibold", r.on ? "text-ink" : "text-ink-3")}>{r.label}</span>
+              <span className="truncate text-micro text-ink-3">{r.sub}</span>
+            </span>
+            {!r.fixed && (
+              <button type="button" role="switch" aria-checked={r.on} aria-label={r.label} disabled={!editable || !r.can} onClick={() => r.set?.(!r.on)}
+                className={cn("relative h-4.5 w-8 shrink-0 rounded-full transition-colors disabled:opacity-40", r.on ? "bg-ok" : "bg-hair-3")}>
+                <span className={cn("absolute top-0.5 size-3.5 rounded-full bg-white shadow-hair transition-all", r.on ? "left-[15px]" : "left-0.5")} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
