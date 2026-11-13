@@ -156,9 +156,9 @@ export function editCall(sc: Scenario, prompt: string, focus?: CallFocus): CallE
     const target = focusOb ?? (n ? obs[n - 1] : undefined);
     if (!target) return { reply: "Which objection? Select it in the tree, or say \"hold back objection 2 for the final call\".", changed: [] };
     const hold = !/all calls|practice too|in practice|in screening/.test(l);
-    if (hold && obs.filter((o) => !o.finalOnly && o.id !== target.id).length === 0) return { reply: "Screening and practice need at least one objection. Keep another one open first.", changed: [] };
+    if (hold && obs.filter((o) => !o.finalOnly && o.id !== target.id).length === 0) return { reply: "Practice needs at least one objection. Keep another one open first.", changed: [] };
     return set(withCustom({ objections: obs.map((o) => (o.id === target.id ? { ...o, finalOnly: hold } : o)) }),
-      hold ? `"${target.label}" is held back for the final call now. Reps won't meet it in screening or practice, so they can't rehearse it.` : `"${target.label}" comes up in every call now, practice and screening included.`,
+      hold ? `"${target.label}" is held back for the final call now. Reps won't meet it in practice, so they can't rehearse it.` : `"${target.label}" comes up in practice now as well as the final.`,
       [`objection:${target.id}`]);
   }
   if (/\b(remove|drop|delete)\b/.test(l)) {

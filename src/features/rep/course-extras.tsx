@@ -126,11 +126,12 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
 
   type Step = { key: string; done: boolean; current?: boolean; locked?: boolean; href?: string; icon: React.ReactNode; title: string; sub: string; tag?: string };
   const steps: Step[] = [];
-  if (screens && sc)
+  const screener = allScenarios().find((x) => x.id === c.settings.screeningScenarioId) ?? sc;
+  if (screens && screener)
     steps.push(screened
-      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${sc.persona.name}`,
+      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${screener.persona.name}`,
           sub: `Baseline ${p.screening!.overall} · ${skipped.length ? `you skip ${skipped.length} file${skipped.length === 1 ? "" : "s"}` : "every file stays in your path"}` }
-      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${sc.persona.name}`,
+      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${screener.persona.name}`,
           sub: "About 5 min · not graded · decides which files you can skip" });
   if (practiceOnly) {
     steps.push({ key: "skip", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${mods.length} files`, sub: "Skipped: you're assigned practice only", tag: "Skipped" });

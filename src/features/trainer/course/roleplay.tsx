@@ -19,18 +19,21 @@ import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 
-type Role = "screening" | "practice" | "final";
-type Lens = "all" | Role;
+type Role = "screening" | "final";
 const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind);
 const initials = (name: string) => name.replace(/^(Dr|NP)\.?\s*/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
 const DOCTORS = ["Dr. Lena Kim", "Dr. Elena Ruiz", "Dr. Marcus Hale", "NP Ana Ruiz", "Dr. Priya Raman", "Dr. Owen Brooks", "Dr. Sofia Alvarez"];
 
-/** What this actor is used for in the course: one screening actor, one final actor, any number for practice. */
+/**
+ * Each actor is one of two types: the screening call, or the final assessment. Reps practise the
+ * final-assessment call (without the objections held back for the final), so practice isn't a type.
+ */
 function rolesOf(sc: Scenario, c: Course) {
+  const final = c.settings.assessmentScenarioId === sc.id;
   return {
-    screening: !!c.settings.screening && !!c.settings.screeningCall && c.settings.screeningScenarioId === sc.id,
-    practice: sc.use.includes("practice"),
-    final: c.settings.assessmentScenarioId === sc.id,
+    screening: !final && !!c.settings.screening && !!c.settings.screeningCall && c.settings.screeningScenarioId === sc.id,
+    final,
+    practice: final && sc.use.includes("practice"),
   };
 }
 
@@ -73,7 +76,6 @@ export function RoleplaySetup() {
   const updateCourse = useApp((s) => s.updateCourse);
   const updateSettings = useApp((s) => s.updateSettings);
   const [view, setView] = useState<"diagram" | "list">("diagram");
-  const [lens, setLens] = useState<Lens>("all");
   const [selected, setSelected] = useState<CallFocus | null>(null);
   const [attached, setAttached] = useState<CallFocus | null>(null);
   const [flash, setFlash] = useState<{ keys: string[]; n: number }>({ keys: [], n: 0 });
@@ -81,7 +83,7 @@ export function RoleplaySetup() {
   const course = data?.course;
   const scs = useMemo(() => (course ? allScenarios().filter((x) => course.scenarioIds.includes(x.id)) : []), [course, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const sc = scs.find((x) => x.id === search.get("sc")) ?? scs[0];
-  useEffect(() => { setSelected(null); setAttached(null); setConfirmRemove(false); setLens("all"); }, [sc?.id]);
+  useEffect(() => { setSelected(null); setAttached(null); setConfirmRemove(false); }, [sc?.id]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
     document.addEventListener("keydown", k);
@@ -129,19 +131,25 @@ export function RoleplaySetup() {
   const rules: ProhibitedRule[] = sc.custom ? sc.custom.prohibited : sc.prohibitedIds.map(prohibited);
   const roles = rolesOf(sc, course);
   const canEdit = editable && !!sc.custom;
-  const inCall = (o: Objection) => lens === "all" || (lens === "screening" ? objectionsFor(sc, "screening").includes(o.id) : lens === "practice" ? !o.finalOnly : true);
-  const callsOf = (o: Objection) => [roles.screening && objectionsFor(sc, "screening").includes(o.id) && "Screening", roles.practice && !o.finalOnly && "Practice", roles.final && "Final"].filter(Boolean) as string[];
+  const inCall = () => true;
+  /* What each objection is in: a screening actor's are all in screening; a final actor's are in practice too, unless held back. */
+  const callsOf = (o: Objection) => roles.screening ? ["Screening"] : roles.final ? (o.finalOnly ? ["Final only · not in practice"] : ["Final", "Practice"]) : [];
   const isSel = (f: CallFocus) => !!selected && keyOf(selected) === keyOf(f);
   const flashing = (f: CallFocus) => flash.keys.includes(keyOf(f));
   const pick = (f: CallFocus) => setSelected(isSel(f) ? null : f);
   const addToChat = (f: CallFocus) => { setAttached(f); setSelected(null); useCopilot.getState().setOpen(true); };
 
-  function setRole(role: Role, on: boolean) {
+  /* Picking a type moves it from whichever actor had it; an actor can't be both. */
+  function setType(type: Role) {
     const r = rolesOf(sc!, course!);
-    if (role === "screening") {
-      const hasQuestions = course!.items.some((i) => i.pool === "screening");
-      updateSettings(course!.id, on ? { screening: true, screeningCall: true, screeningScenarioId: sc!.id, baseline: true } : hasQuestions ? { screeningCall: false } : { screening: false, screeningCall: false });
-    } else saveScenario(sc!, { practice: role === "practice" ? on : r.practice, final: role === "final" ? on : r.final });
+    const hasQuestions = course!.items.some((i) => i.pool === "screening");
+    if (type === "screening") {
+      if (r.final) saveScenario(sc!, { practice: false, final: false });
+      updateSettings(course!.id, { screening: true, screeningCall: true, screeningScenarioId: sc!.id, baseline: true });
+    } else {
+      saveScenario(sc!, { practice: true, final: true });
+      if (r.screening) updateSettings(course!.id, hasQuestions ? { screeningCall: false } : { screening: false, screeningCall: false });
+    }
   }
   const holder = (role: "screening" | "final") => scs.find((x) => x.id !== sc.id && rolesOf(x, course)[role]);
 
@@ -176,13 +184,27 @@ export function RoleplaySetup() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-hair bg-subtle/50 px-5 py-3">
-          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">Used for</Text>
-          {([
-            { role: "screening" as const, label: "Screening call", hint: holder("screening") && !roles.screening ? `Now ${holder("screening")!.persona.name}` : "Short version, before the content" },
-            { role: "practice" as const, label: "Practice", hint: "Reps rehearse privately" },
-            { role: "final" as const, label: "Final assessment", hint: holder("final") && !roles.final ? `Now ${holder("final")!.persona.name}` : "Scored, ends the course" },
-          ]).map((r) => <Toggle key={r.role} label={r.label} hint={r.hint} on={roles[r.role]} disabled={!editable} onChange={(v) => setRole(r.role, v)} />)}
-          <Text size="caption" tone="subtle" className="basis-full">One actor is the screening call and one the final; switching it on here moves it from the other actor.</Text>
+          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">This actor is the</Text>
+          <div className="grid w-full gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Actor type">
+            {([
+              { type: "screening" as const, label: "Screening call", hint: "Before the content. Not graded; decides what each rep can skip.", other: holder("screening") },
+              { type: "final" as const, label: "Final assessment", hint: "Scored, ends the course. Reps can practise it, except held-back objections.", other: holder("final") },
+            ]).map((o) => {
+              const on = roles[o.type];
+              return (
+                <button key={o.type} type="button" role="radio" aria-checked={on} disabled={!editable} onClick={() => !on && setType(o.type)}
+                  className={cn("squircle flex items-start gap-3 rounded-panel border p-3 text-left transition-colors disabled:cursor-default", on ? "border-brand bg-tint/60 ring-1 ring-brand" : "border-hair-2 bg-card hover:bg-subtle")}>
+                  <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border", on ? "border-brand bg-brand text-white" : "border-hair-3")}>{on && <Check className="size-3" aria-hidden="true" />}</span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-body-lg font-semibold text-ink">{o.label}</span>
+                    <span className="text-caption text-ink-3">{o.hint}</span>
+                    {!on && o.other && <span className="text-caption font-semibold text-brand-deep">Now {o.other.persona.name}. Picking this moves it here.</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!roles.screening && !roles.final && <Text size="caption" tone="warn" weight="semibold">Not used yet: pick a type so reps meet this actor.</Text>}
         </div>
       </section>
 
@@ -198,8 +220,6 @@ export function RoleplaySetup() {
       <section aria-label="Scenario builder" className="squircle overflow-hidden rounded-card border border-hair bg-card">
         <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2.5">
           <Seg value={view} onChange={(v) => setView(v as "diagram" | "list")} items={[["diagram", "Diagram"], ["list", "List"]]} label="View" />
-          <Seg value={lens} onChange={(v) => setLens(v as Lens)} label="Show"
-            items={[["all", "All calls"], ...(roles.screening ? [["screening", "Screening"]] : []), ...(roles.practice ? [["practice", "Practice"]] : []), ...(roles.final ? [["final", "Final"]] : [])] as [string, string][]} />
           <Text size="caption" tone="subtle" className="ml-auto hidden md:block">{canEdit ? "Select a step, then add it to the chat" : "Read-only"}</Text>
         </div>
         {view === "diagram"
@@ -243,6 +263,9 @@ function AddPill({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
+
+/** A held-back objection is only marked dark on the final actor, where it matters. */
+const roles_final = (calls: string[]) => calls.some((c) => c.startsWith("Final only"));
 
 /* ── Diagram ─────────────────────────────────────────────────────────────── */
 
@@ -317,7 +340,7 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
                 return <path key={i} d={path(a, b)} fill="none" stroke={stroke[e.tone ?? "muted"]} strokeOpacity={dim ? 0.15 : e.tone && e.tone !== "muted" ? 0.75 : 0.5} strokeWidth={1.6} strokeDasharray={e.tone === "danger" ? "5 4" : undefined} />;
               })}
             </svg>
-            {place(at.opening, <DNode n={n} f={{ kind: "opening" }} tone="ink" eyebrow="Doctor opens" body={`“${sc.persona.opening}”`} tag="All calls" />)}
+            {place(at.opening, <DNode n={n} f={{ kind: "opening" }} tone="ink" eyebrow="Doctor opens" body={`“${sc.persona.opening}”`} />)}
             {place(at.guard, (
               <div className="squircle flex flex-col gap-1.5 rounded-panel border-2 border-dashed border-danger-line bg-danger-bg/60 p-3">
                 <span className="text-micro font-bold uppercase tracking-wider text-danger">At any point · never say</span>
@@ -341,14 +364,14 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
               const f: CallFocus = { kind: "objection", id: o.id };
               const calls = callsOf(o);
               return [
-                place(at[k], <DNode n={n} f={f} tone="brand" eyebrow={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={o.finalOnly ? "Final only" : calls.join(" · ") || "Not in use"} dark={o.finalOnly} />),
+                place(at[k], <DNode n={n} f={f} tone="brand" eyebrow={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={calls.join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(calls)} />),
                 place(at[`${k}:hd`], <Outcome n={n} f={f} tone="ok" title="Rep handles it" body={o.handled} foot={o.keywords.slice(0, 3).join(" · ")} />),
                 place(at[`${k}:ms`], <Outcome n={n} f={f} tone="warn" title="Rep misses it" body={o.pushback} foot="One pushback, a second chance" />),
                 place(at[`${k}:rt`], <Mini tone="ok" text="Handles it now" />),
                 place(at[`${k}:mv`], <Mini tone="muted" text="Misses again · moves on" />),
               ];
             })}
-            {place(at.close, <DNode n={n} f={{ kind: "close" }} tone="ink" eyebrow="Doctor closes" body={`“${sc.persona.closing}”`} tag="All calls" />)}
+            {place(at.close, <DNode n={n} f={{ kind: "close" }} tone="ink" eyebrow="Doctor closes" body={`“${sc.persona.closing}”`} />)}
             {place(at.score, (
               <button type="button" onClick={() => n.pick({ kind: "rubric" })} className={cn("squircle flex w-full flex-col gap-1.5 rounded-panel border bg-ok-bg/60 p-3 text-left", n.isSel({ kind: "rubric" }) ? "border-brand ring-2 ring-brand/20" : "border-ok-line")}>
                 <span className="flex items-center justify-between text-micro font-bold uppercase tracking-wider text-ok"><span className="flex items-center gap-1"><Flag className="size-3" aria-hidden="true" />Scorecard</span><span>Pass {passMark}</span></span>
@@ -425,19 +448,19 @@ function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
   let step = 1;
   return (
     <ol className="flex flex-col">
-      <Row f={{ kind: "opening" }} num={step++} title="Doctor opens" body={`“${sc.persona.opening}”`} tag="All calls" />
+      <Row f={{ kind: "opening" }} num={step++} title="Doctor opens" body={`“${sc.persona.opening}”`} />
       <Row f={{ kind: "rule", id: rules[0]?.id ?? "" }} num={<ShieldAlert className="size-3.5 text-danger" />} title="At any point · never say" tag={`${rules.length} rules`}>
         {rules.map((r) => <Child key={r.id} tone={r.critical ? "danger" : "warn"} title={r.critical ? "Call fails" : "Flagged"} text={`${r.label}: ${r.explanation}`} />)}
       </Row>
       {obs.map((o, i) => (
-        <Row key={o.id} f={{ kind: "objection", id: o.id }} num={step++} title={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={o.finalOnly ? "Final only" : callsOf(o).join(" · ") || "Not in use"} dark={o.finalOnly} dim={!inCall(o)}>
+        <Row key={o.id} f={{ kind: "objection", id: o.id }} num={step++} title={`Objection ${i + 1} · ${o.label}`} body={`“${o.line}”`} tag={callsOf(o).join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(callsOf(o))} dim={!inCall(o)}>
           <Child tone="ok" title="Handled" text={`“${o.handled}” · listens for ${o.keywords.slice(0, 3).join(", ")}`} />
           <Child tone="warn" title="Missed" text={`“${o.pushback}”`} />
           <Child tone="muted" title="Then" text="Handled on the second try, or the doctor moves on" />
           {o.answer && <Child tone="ok" title="Good answer" text={o.answer} />}
         </Row>
       ))}
-      <Row f={{ kind: "close" }} num={step++} title="Doctor closes" body={`“${sc.persona.closing}”`} tag="All calls" />
+      <Row f={{ kind: "close" }} num={step++} title="Doctor closes" body={`“${sc.persona.closing}”`} />
       <Row f={{ kind: "rubric" }} num={<Flag className="size-3.5 text-ok" />} title={`Scorecard · pass ${passMark}`}>
         {sc.rubric.map((r) => <Child key={r.id} tone="muted" title={`${r.weight}%`} text={r.label} />)}
       </Row>
@@ -445,22 +468,11 @@ function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
   );
 }
 
-function Toggle({ label, hint, on, disabled, onChange }: { label: string; hint: string; on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={() => onChange(!on)} title={hint} className="flex items-center gap-2 disabled:opacity-60">
-      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-ok" : "bg-hair-3")}>
-        <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-hair transition-all", on ? "left-[18px]" : "left-0.5")} />
-      </span>
-      <span className="flex flex-col text-left leading-tight"><span className="text-body font-semibold text-ink">{label}</span><span className="text-micro text-ink-3">{hint}</span></span>
-    </button>
-  );
-}
-
 /* ── Chat ────────────────────────────────────────────────────────────────── */
 
 interface Turn { id: string; from: "you" | "ai"; text: string; focus?: string; undo?: Scenario; undone?: boolean; steps?: string[]; at?: number; opens?: string }
 
-const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Add a screening doctor"];
+const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Add a final-assessment doctor"];
 const ADD_ACTOR = /\b(add|create|new|another)\b.*\b(roleplay|actor|doctor|scenario|np|nurse)\b/;
 
 /**
@@ -495,7 +507,9 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
   /** A new actor: drafted in steps the trainer can watch, then opened. */
   function addActor(prompt: string) {
     const l = prompt.toLowerCase();
-    const role: Role = /screen/.test(l) ? "screening" : /final|assess/.test(l) ? "final" : "practice";
+    const c0 = useApp.getState().courses.find((c) => c.id === course.id) ?? course;
+    const hasScreener = allScenarios().some((x) => c0.scenarioIds.includes(x.id) && rolesOf(x, c0).screening);
+    const role: Role = /screen/.test(l) ? "screening" : /final|assess/.test(l) ? "final" : c0.settings.screening && !hasScreener ? "screening" : "final";
     const used = new Set(allScenarios().filter((x) => course.scenarioIds.includes(x.id)).map((x) => x.persona.name));
     const name = (/\bnp\b|nurse/.test(l) ? DOCTORS.filter((d) => d.startsWith("NP")) : DOCTORS.filter((d) => d.startsWith("Dr"))).find((d) => !used.has(d)) ?? DOCTORS.find((d) => !used.has(d)) ?? "Dr. Sam Rivera";
     const docs = (course.roleplaySourceIds?.length ? course.roleplaySourceIds : course.sourceIds).map((x) => source(x)?.title).filter(Boolean);
@@ -509,10 +523,10 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
       at++;
       if (at < steps.length) { setTurns((t) => t.map((x) => (x.id === id ? { ...x, at } : x))); window.setTimeout(tick, 700); return; }
       const d = draftFor(useApp.getState().courses.find((c) => c.id === course.id) ?? course, name);
-      saveScenario(d, { practice: role !== "screening", final: role === "final" });
+      saveScenario(d, { practice: role === "final", final: role === "final" });
       if (role === "screening") updateSettings(course.id, { screening: true, screeningCall: true, screeningScenarioId: d.id, baseline: true });
       setDrafting(null);
-      const what = role === "screening" ? "the screening call" : role === "final" ? "the final assessment, plus practice" : "practice";
+      const what = role === "screening" ? "the screening call" : "the final assessment (reps can practise it too)";
       setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps: undefined, text: `Added ${name}, used for ${what}. Their call is open now: 3 objections, the same scorecard, and the course's never-say rules. Tell me what to change.`, opens: d.id } : x)));
       router.push(`/trainer/courses/${course.id}/roleplay?sc=${d.id}`);
     };

@@ -196,9 +196,10 @@ export function NewCourseWizard() {
     const pr = product(productId);
     const items = (productId === "p-cardexa" ? CARDEXA_ITEMS : productId === "p-lumora" || !pr ? LUMORA_ITEMS.filter((it) => comps.includes(it.competency)) : genericProductItems(id, pr)).map((it) => ({ ...it, id: `${id}-${it.id}` }));
     const hasCall = form === "long" && productId === "p-lumora";
-    /* One doctor for the course: the screening call and the final call are both with them. */
+    /* Two actors: Dr. Ruiz for the screening call, Dr. Kim for the final assessment. */
     const screensWithCall = hasCall && screening;
-    updateCourse(id, { items, settings: { ...useApp.getState().courses.find((c) => c.id === id)!.settings, screeningCall: screensWithCall, screeningScenarioId: screensWithCall ? "sc-kim" : undefined, assessmentCall: hasCall, assessmentScenarioId: hasCall ? "sc-kim" : undefined } });
+    const cur = useApp.getState().courses.find((c) => c.id === id)!;
+    updateCourse(id, { items, scenarioIds: screensWithCall ? ["sc-ruiz", ...cur.scenarioIds] : cur.scenarioIds, settings: { ...cur.settings, screeningCall: screensWithCall, screeningScenarioId: screensWithCall ? "sc-ruiz" : undefined, assessmentCall: hasCall, assessmentScenarioId: hasCall ? "sc-kim" : undefined } });
     let i = 0;
     setGenIndex(0);
     const tick = () => {

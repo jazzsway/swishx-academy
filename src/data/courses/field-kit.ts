@@ -11,6 +11,7 @@ import { draftScenario } from "@/lib/roleplay-draft";
 
 export const FIELD_KIT_ID = "c-fieldkit";
 export const FIELD_KIT_SCENARIO_ID = "sc-fieldkit";
+export const FIELD_KIT_SCREENER_ID = "sc-fieldkit-screen";
 
 /** The team's own video. There's no file behind it in the demo, so it plays as the stand-in. */
 const MOA_VIDEO: Source = {
@@ -29,6 +30,12 @@ export const FIELD_KIT_SCENARIO: Scenario = draftScenario({
   id: FIELD_KIT_SCENARIO_ID, name: "Dr. Lena Kim", createdAt: "2026-11-05T10:05:00",
 });
 
+/** The screening actor: a separate, shorter first call. Not graded; it decides which files each rep skips. */
+export const FIELD_KIT_SCREENER: Scenario = {
+  ...draftScenario({ courseId: FIELD_KIT_ID, productId: "p-lumora", sources: ROLEPLAY_DOCS.map(src), sellingModelId: "src-selling", id: FIELD_KIT_SCREENER_ID, name: "Dr. Elena Ruiz", createdAt: "2026-11-05T10:06:00" }),
+  durationMin: 3, use: ["screening"],
+};
+
 export function fieldKitCourse(settings: Course["settings"]): Course {
   const at = "2026-11-06";
   return {
@@ -37,7 +44,7 @@ export function fieldKitCourse(settings: Course["settings"]): Course {
     audience: "Field reps · Immunology", writtenFor: "reps", teams: ["div-imm"], divisionId: "div-imm",
     sourceIds: [...REP_FILES.map((s) => s.id), ...ROLEPLAY_DOCS], roleplaySourceIds: ROLEPLAY_DOCS,
     competencyIds: [...new Set(FIELD_KIT_MODULES.map((m) => m.competency))],
-    modules: FIELD_KIT_MODULES, items: [], scenarioIds: [FIELD_KIT_SCENARIO_ID],
+    modules: FIELD_KIT_MODULES, items: [], scenarioIds: [FIELD_KIT_SCREENER_ID, FIELD_KIT_SCENARIO_ID],
     settings,
     versions: [{
       version: 1, versionId: "FIELDKIT-v1-fk01", state: "published", publishedAt: at, comments: [], acknowledged: [], modules: FIELD_KIT_MODULES,

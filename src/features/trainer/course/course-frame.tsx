@@ -252,7 +252,7 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
               {link(`${base}/roleplay?sc=${sc.id}`, on,
                 <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-extrabold text-white", on ? "bg-brand" : "bg-gradient-to-br from-brand-2 to-brand")}>{initials(sc.persona.name)}</span>,
                 sc.persona.name,
-                [course.settings.screeningScenarioId === sc.id || sc.use.includes("screening") ? "Screening call" : "", sc.use.includes("practice") && "Practice", final && "Final call"].filter(Boolean).join(" · ") || "Not in use",
+                final ? `Final assessment${sc.use.includes("practice") ? " · practice" : ""}` : course.settings.screening && course.settings.screeningCall && course.settings.screeningScenarioId === sc.id ? "Screening call" : "Not used yet",
                 !sc.custom ? <Lock className="size-3 shrink-0 text-ink-4" aria-label="Approved package, read only" /> : undefined)}
             </div>
           );
@@ -348,23 +348,22 @@ function JourneyStrip({ course, editable }: { course: Course; editable: boolean 
   useApp((s) => s.scenarios);
   const st = course.settings;
   const short = course.format === "short";
-  const sc = allScenarios().find((x) => x.id === (st.assessmentScenarioId ?? st.screeningScenarioId ?? course.scenarioIds[0]));
+  /* Two actor types: the screening call and the final assessment. Practice is the final call, rehearsed. */
+  const inCourse = allScenarios().filter((x) => course.scenarioIds.includes(x.id));
+  const finalSc = inCourse.find((x) => x.id === st.assessmentScenarioId);
+  const screener = inCourse.find((x) => x.id === st.screeningScenarioId && x.id !== finalSc?.id);
   const hasQuestions = course.items.some((i) => i.pool === "screening");
-  const canScreen = !short && (hasQuestions || !!sc);
+  const canScreen = !short && (hasQuestions || !!screener);
   const unit = course.origin === "direct" ? "file" : "module";
   const required = course.modules.filter((m) => m.required).length;
-  const doctor = sc?.persona.name ?? "";
-  /* Screening can be a different actor from the final call. */
-  const screener = allScenarios().find((x) => x.id === st.screeningScenarioId)?.persona.name ?? doctor;
   const rows: { key: string; label: string; sub: string; on: boolean; can: boolean; set?: (v: boolean) => void; fixed?: boolean }[] = [
-    { key: "screen", label: "Screening", sub: !canScreen ? (short ? "Not for short form" : "Needs a roleplay or questions") : st.screening ? [hasQuestions && "Quiz", st.screeningCall && sc && `call with ${screener}`].filter(Boolean).join(" + ") || "On" : "Everyone takes everything",
+    { key: "screen", label: "Screening", sub: !canScreen ? (short ? "Not for short form" : "Add a screening actor") : st.screening ? [hasQuestions && "Quiz", st.screeningCall && screener && `call with ${screener.persona.name}`].filter(Boolean).join(" + ") || "On" : "Everyone takes everything",
       on: canScreen && st.screening, can: canScreen,
-      set: (v) => updateSettings(course.id, v ? { screening: true, screeningCall: !!sc, screeningScenarioId: st.screeningScenarioId ?? sc?.id, baseline: true } : { screening: false, screeningCall: false }) },
+      set: (v) => updateSettings(course.id, v ? { screening: true, screeningCall: !!screener, baseline: true } : { screening: false, screeningCall: false }) },
     { key: "content", label: course.format === "short" ? "Cards" : `${course.modules.length} ${unit}${course.modules.length === 1 ? "" : "s"}`, sub: required ? `${required} for everyone` : "In order", on: true, can: false, fixed: true },
-    { key: "practice", label: "Practice", sub: sc ? `With ${doctor}, private` : "Add a roleplay", on: !!sc?.use.includes("practice"), can: !!sc,
-      set: (v) => sc && saveScenario(sc, { practice: v, final: st.assessmentScenarioId === sc.id }) },
-    { key: "final", label: "Final call", sub: sc ? `Pass ${st.passRoleplay} · ${st.attempts} attempts` : "Add a roleplay", on: !!sc && st.assessmentScenarioId === sc.id, can: !!sc,
-      set: (v) => sc && saveScenario(sc, { practice: sc.use.includes("practice"), final: v }) },
+    { key: "practice", label: "Practice", sub: finalSc ? `The final call with ${finalSc.persona.name}, private` : "Comes with a final-assessment actor", on: !!finalSc?.use.includes("practice"), can: !!finalSc,
+      set: (v) => finalSc && saveScenario(finalSc, { practice: v, final: true }) },
+    { key: "final", label: "Final assessment", sub: finalSc ? `${finalSc.persona.name} · pass ${st.passRoleplay} · ${st.attempts} attempts` : "Add a final-assessment actor", on: !!finalSc, can: false, fixed: true },
     { key: "cert", label: "Certificate", sub: st.completion.attestation ? "Signed attestation" : "On completion", on: true, can: false, fixed: true },
   ];
   return (

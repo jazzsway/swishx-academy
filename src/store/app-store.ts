@@ -10,12 +10,12 @@ import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/librar
 import { seed } from "@/data/seed";
 import { TODAY, registerUploads } from "@/data/org";
 import { registerScenarios } from "@/data/scenarios";
-import { FIELD_KIT_SCENARIO } from "@/data/courses/field-kit";
+import { FIELD_KIT_SCENARIO, FIELD_KIT_SCREENER } from "@/data/courses/field-kit";
 import { buildPath } from "@/lib/learning";
 import { POINTS, seedPoints } from "@/lib/points";
 
 /* Seeded roleplays are findable before saved state loads. */
-registerScenarios([FIELD_KIT_SCENARIO]);
+registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO]);
 
 /** The field structure is set up by the SwishX team; clients ask for changes rather than edit it. */
 export interface StructureRequest {
@@ -173,7 +173,7 @@ function initial() {
     structureRequests: [] as StructureRequest[],
     uploads: [] as Source[],
     /* The direct course's roleplay ships in the demo; trainers' own join it. */
-    scenarios: [FIELD_KIT_SCENARIO] as Scenario[],
+    scenarios: [FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO] as Scenario[],
   };
 }
 
@@ -230,7 +230,7 @@ export const useApp = create<AppState>()(
       updateUser: (userId, patch) => set((s) => ({ users: s.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
       setPresenter: (v) => set({ presenter: v }),
       requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
-      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCENARIO]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
+      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
       completeOnboarding: (userId) => set((s) => ({ onboarded: { ...s.onboarded, [userId]: true } })),
       setVoiceConsent: (userId, v) => set((s) => ({ voiceConsent: { ...s.voiceConsent, [userId]: v } })),
 
@@ -301,13 +301,12 @@ export const useApp = create<AppState>()(
           return {
             scenarios,
             ...mapCourse(s, sc.courseId, (c) => {
-              let settings = use.final
+              const settings = use.final
                 ? { ...c.settings, assessmentCall: true, assessmentScenarioId: sc.id, completion: { ...c.settings.completion, assessment: true } }
                 : c.settings.assessmentScenarioId === sc.id
                   ? { ...c.settings, assessmentCall: false, assessmentScenarioId: undefined, completion: { ...c.settings.completion, assessment: c.type === "personalised" } }
                   : c.settings;
-              /* A course that screens with a call and has no screening doctor yet uses this one. */
-              if (settings.screening && settings.screeningCall && !c.scenarioIds.includes(settings.screeningScenarioId ?? "")) settings = { ...settings, screeningScenarioId: sc.id };
+
               return { ...c, scenarioIds: c.scenarioIds.includes(sc.id) ? c.scenarioIds : [...c.scenarioIds, sc.id], settings };
             }),
           };
@@ -651,7 +650,7 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 27,
+      version: 28,
       migrate: () => initial() as unknown as AppState,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,

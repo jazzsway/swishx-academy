@@ -116,8 +116,15 @@ export function DirectCourseWizard() {
       else window.setTimeout(() => {
         useApp.getState().setModules(id, mods);
         /* Every course starts with a roleplay: from the roleplay documents, or from the course's own files. */
-        const sc = draftScenario({ courseId: id, productId, sources: rpDocs.length ? rpDocs : repFiles, sellingModelId: sellingId });
+        const docs = rpDocs.length ? rpDocs : repFiles;
+        const sc = draftScenario({ courseId: id, productId, sources: docs, sellingModelId: sellingId });
         useApp.getState().saveScenario(sc, { practice: true, final: true });
+        /* Screening is its own actor: a shorter first call with a different doctor. */
+        if (screening) {
+          const screener = { ...draftScenario({ courseId: id, productId, sources: docs, sellingModelId: sellingId, name: sc.persona.name === "Dr. Elena Ruiz" ? "Dr. Marcus Hale" : "Dr. Elena Ruiz" }), durationMin: 3, use: ["screening" as const] };
+          useApp.getState().saveScenario(screener, { practice: false, final: false });
+          useApp.getState().updateSettings(id, { screening: true, screeningCall: true, screeningScenarioId: screener.id, baseline: true });
+        }
         router.push(`/trainer/courses/${id}?fresh=1`);
       }, 1500);
     };

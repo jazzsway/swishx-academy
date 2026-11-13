@@ -22,7 +22,7 @@ export interface CallState {
 export function objectionsFor(scenario: Scenario, mode?: "screening" | "practice" | "assessment" | "test"): string[] {
   const all = scenario.objectionIds;
   const open = all.filter((id) => !objection(id)?.finalOnly);
-  if (mode === "screening") return open.slice(0, 2);
+  if (mode === "screening") return open;
   if (mode === "practice") return open;
   return all;
 }
