@@ -8,11 +8,10 @@ import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
-import { product, source } from "@/data/org";
+import { product } from "@/data/org";
 import type { Course, Scenario } from "@/data/types";
 import { courseMinutes } from "@/lib/learning";
 import { courseCardCount, moduleCards } from "@/lib/short-form";
-import { draftScenario } from "@/lib/roleplay-draft";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { VersionChip } from "@/components/patterns/academy";
@@ -170,7 +169,6 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
-  const saveScenario = useApp((s) => s.saveScenario);
   const custom = useApp((s) => s.scenarios);
   const setDraft = useCopilot((s) => s.setDraft);
   const setOpen = useCopilot((s) => s.setOpen);
@@ -189,12 +187,12 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
   const [modsOpen, setModsOpen] = useState<boolean | null>(null);
   const showMods = modsOpen ?? (onContent || course.modules.length <= 6);
 
+  /* New actors are drafted by the agent, in the chat, so the trainer watches it happen. */
   function addRoleplay() {
-    const docs = (course.roleplaySourceIds?.length ? course.roleplaySourceIds : course.sourceIds).map((x) => source(x)).filter((x): x is NonNullable<typeof x> => !!x);
-    const sc = draftScenario({ courseId: course.id, productId: course.productId, sources: docs });
-    saveScenario(sc, { practice: true, final: false });
-    router.push(`${base}/roleplay?sc=${sc.id}`);
+    setOpen(true);
+    router.push(`${base}/roleplay?draft=1`);
   }
+  const drafting = useCopilot((s) => s.drafting);
 
   const section = (label: string, extra?: ReactNode) => (
     <div className="flex items-center justify-between px-2 pb-1 pt-3">
@@ -259,7 +257,13 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
             </div>
           );
         })}
-        {scs.length === 0 && <Text size="caption" tone="subtle" className="px-2 py-1">No roleplay yet.</Text>}
+        {drafting && (
+          <div className="flex items-center gap-2.5 rounded-control px-2 py-1.5 opacity-70">
+            <span className="grid size-6 shrink-0 animate-pulse place-items-center rounded-full bg-tint text-[10px] font-extrabold text-brand-deep">…</span>
+            <span className="flex min-w-0 flex-col"><span className="truncate text-body font-semibold text-ink-2">{drafting}</span><span className="text-micro text-ink-3">Drafting…</span></span>
+          </div>
+        )}
+        {scs.length === 0 && !drafting && <Text size="caption" tone="subtle" className="px-2 py-1">No roleplay yet.</Text>}
         {editable && (
           <button type="button" onClick={addRoleplay} className="flex items-center gap-2 rounded-control px-2 py-1.5 text-body font-semibold text-brand-deep transition-colors hover:bg-tint">
             <Plus className="size-4" aria-hidden="true" />Add a roleplay
@@ -349,9 +353,11 @@ function JourneyStrip({ course, editable }: { course: Course; editable: boolean 
   const canScreen = !short && (hasQuestions || !!sc);
   const unit = course.origin === "direct" ? "file" : "module";
   const required = course.modules.filter((m) => m.required).length;
-  const doctor = sc?.persona.name.replace(/^Dr\.?\s*/, "Dr. ") ?? "";
+  const doctor = sc?.persona.name ?? "";
+  /* Screening can be a different actor from the final call. */
+  const screener = allScenarios().find((x) => x.id === st.screeningScenarioId)?.persona.name ?? doctor;
   const rows: { key: string; label: string; sub: string; on: boolean; can: boolean; set?: (v: boolean) => void; fixed?: boolean }[] = [
-    { key: "screen", label: "Screening", sub: !canScreen ? (short ? "Not for short form" : "Needs a roleplay or questions") : st.screening ? [hasQuestions && "Quiz", st.screeningCall && sc && `call with ${doctor}`].filter(Boolean).join(" + ") || "On" : "Everyone takes everything",
+    { key: "screen", label: "Screening", sub: !canScreen ? (short ? "Not for short form" : "Needs a roleplay or questions") : st.screening ? [hasQuestions && "Quiz", st.screeningCall && sc && `call with ${screener}`].filter(Boolean).join(" + ") || "On" : "Everyone takes everything",
       on: canScreen && st.screening, can: canScreen,
       set: (v) => updateSettings(course.id, v ? { screening: true, screeningCall: !!sc, screeningScenarioId: st.screeningScenarioId ?? sc?.id, baseline: true } : { screening: false, screeningCall: false }) },
     { key: "content", label: course.format === "short" ? "Cards" : `${course.modules.length} ${unit}${course.modules.length === 1 ? "" : "s"}`, sub: required ? `${required} for everyone` : "In order", on: true, can: false, fixed: true },

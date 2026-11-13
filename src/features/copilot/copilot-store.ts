@@ -15,6 +15,9 @@ interface CopilotUi {
   /** Text a page puts in the composer for the trainer to finish, e.g. guidance for an open question. */
   draft: string;
   setDraft: (v: string) => void;
+  /** A roleplay the agent is drafting right now, shown as a placeholder in the course rail. */
+  drafting: string | null;
+  setDrafting: (v: string | null) => void;
 }
 
 export const useCopilot = create<CopilotUi>((set) => ({
@@ -30,4 +33,6 @@ export const useCopilot = create<CopilotUi>((set) => ({
   },
   draft: "",
   setDraft: (draft) => set({ draft }),
+  drafting: null,
+  setDrafting: (drafting) => set({ drafting }),
 }));
