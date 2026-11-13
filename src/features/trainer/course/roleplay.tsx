@@ -139,20 +139,6 @@ export function RoleplaySetup() {
   const pick = (f: CallFocus) => setSelected(isSel(f) ? null : f);
   const addToChat = (f: CallFocus) => { setAttached(f); setSelected(null); useCopilot.getState().setOpen(true); };
 
-  /* Picking a type moves it from whichever actor had it; an actor can't be both. */
-  function setType(type: Role) {
-    const r = rolesOf(sc!, course!);
-    const hasQuestions = course!.items.some((i) => i.pool === "screening");
-    if (type === "screening") {
-      if (r.final) saveScenario(sc!, { practice: false, final: false });
-      updateSettings(course!.id, { screening: true, screeningCall: true, screeningScenarioId: sc!.id, baseline: true });
-    } else {
-      saveScenario(sc!, { practice: true, final: true });
-      if (r.screening) updateSettings(course!.id, hasQuestions ? { screeningCall: false } : { screening: false, screeningCall: false });
-    }
-  }
-  const holder = (role: "screening" | "final") => scs.find((x) => x.id !== sc.id && rolesOf(x, course)[role]);
-
   const node = { isSel, flashing, pick, addToChat, canEdit, flashN: flash.n };
 
   return (
@@ -168,6 +154,9 @@ export function RoleplaySetup() {
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <Text as="h1" size="display" weight="extrabold" tracking="tight">{sc.persona.name}</Text>
+              {roles.final && <span className="rounded-chip bg-brand px-2.5 py-1 text-caption font-bold text-white">Final assessment</span>}
+              {roles.final && roles.practice && <span className="rounded-chip bg-tint px-2.5 py-1 text-caption font-bold text-brand-deep">Reps can practise it</span>}
+              {roles.screening && <span className="rounded-chip bg-info-bg px-2.5 py-1 text-caption font-bold text-info">Screening call · not graded</span>}
               {!sc.custom && <Chip size="sm" iconLeft={<Lock className="size-3" aria-hidden="true" />}>Approved package</Chip>}
             </div>
             <Text size="body-lg" tone="muted">{sc.persona.specialty} · {sc.persona.setting} · about {sc.durationMin} min</Text>
@@ -182,29 +171,6 @@ export function RoleplaySetup() {
             </Link>
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-hair bg-subtle/50 px-5 py-3">
-          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">This actor is the</Text>
-          <div className="grid w-full gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Actor type">
-            {([
-              { type: "screening" as const, label: "Screening call", hint: "Before the content. Not graded; decides what each rep can skip.", other: holder("screening") },
-              { type: "final" as const, label: "Final assessment", hint: "Scored, ends the course. Reps can practise it, except held-back objections.", other: holder("final") },
-            ]).map((o) => {
-              const on = roles[o.type];
-              return (
-                <button key={o.type} type="button" role="radio" aria-checked={on} disabled={!editable} onClick={() => !on && setType(o.type)}
-                  className={cn("squircle flex items-start gap-3 rounded-panel border p-3 text-left transition-colors disabled:cursor-default", on ? "border-brand bg-tint/60 ring-1 ring-brand" : "border-hair-2 bg-card hover:bg-subtle")}>
-                  <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border", on ? "border-brand bg-brand text-white" : "border-hair-3")}>{on && <Check className="size-3" aria-hidden="true" />}</span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-body-lg font-semibold text-ink">{o.label}</span>
-                    <span className="text-caption text-ink-3">{o.hint}</span>
-                    {!on && o.other && <span className="text-caption font-semibold text-brand-deep">Now {o.other.persona.name}. Picking this moves it here.</span>}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {!roles.screening && !roles.final && <Text size="caption" tone="warn" weight="semibold">Not used yet: pick a type so reps meet this actor.</Text>}
         </div>
       </section>
 
@@ -472,7 +438,16 @@ function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
 
 interface Turn { id: string; from: "you" | "ai"; text: string; focus?: string; undo?: Scenario; undone?: boolean; steps?: string[]; at?: number; opens?: string }
 
-const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Add a final-assessment doctor"];
+const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Make it a 4-minute call"];
+
+/** A course has a final-assessment roleplay, and a screening roleplay when screening is on. These are the ones it lacks. */
+export function missingRoles(c: Course): Role[] {
+  const inCourse = allScenarios().filter((x) => c.scenarioIds.includes(x.id));
+  const out: Role[] = [];
+  if (!inCourse.some((x) => c.settings.assessmentScenarioId === x.id)) out.push("final");
+  if (c.settings.screening && !inCourse.some((x) => rolesOf(x, c).screening)) out.push("screening");
+  return out;
+}
 const ADD_ACTOR = /\b(add|create|new|another)\b.*\b(roleplay|actor|doctor|scenario|np|nurse)\b/;
 
 /**
@@ -490,7 +465,7 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
   const docs = sc?.custom?.sourceIds.length ?? 0;
   const [turns, setTurns] = useState<Turn[]>(() => [{
     id: "hello", from: "ai",
-    text: !sc ? "This course has no roleplay actors yet. Tell me who to add, e.g. \"add a screening doctor\" or \"add a final-assessment doctor\"."
+    text: !sc ? "This course has no roleplay yet. I'll draft the final-assessment roleplay" + (course.settings.screening ? ", and a screening one," : "") + " from your documents."
       : !sc.custom ? `${sc.persona.name} comes from the product's approved roleplay package, so I can't change it. Make an editable copy and I'll reshape it however you like.`
       : fresh ? `I drafted ${sc.persona.name}'s call from ${docs ? `your ${docs} roleplay ${docs === 1 ? "document" : "documents"}` : "the course's files"}: ${sc.custom.objections.length} objections, a ${sc.rubric.length}-part rubric${sc.custom.sellingModelId ? " from your selling model" : ""}, and ${sc.custom.prohibited.length} never-say rules. Tell me what to change, or select a step and add it here.`
       : `Tell me how to change ${sc.persona.name}'s call. Select a step in the diagram or list to change just that part.`,
@@ -501,15 +476,26 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns, thinking]);
   useEffect(() => { if (attached) document.getElementById("roleplay-chat")?.focus(); }, [attached]);
   const started = useRef(false);
-  useEffect(() => { if (autoDraft && !started.current) { started.current = true; send("Add a roleplay actor"); } }); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!autoDraft || started.current) return;
+    started.current = true;
+    const m = missingRoles(course);
+    if (m.length) send(m[0] === "screening" ? "Add the screening roleplay" : "Add the final-assessment roleplay");
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   const obs = sc?.custom?.objections ?? [];
 
   /** A new actor: drafted in steps the trainer can watch, then opened. */
   function addActor(prompt: string) {
     const l = prompt.toLowerCase();
     const c0 = useApp.getState().courses.find((c) => c.id === course.id) ?? course;
-    const hasScreener = allScenarios().some((x) => c0.scenarioIds.includes(x.id) && rolesOf(x, c0).screening);
-    const role: Role = /screen/.test(l) ? "screening" : /final|assess/.test(l) ? "final" : c0.settings.screening && !hasScreener ? "screening" : "final";
+    const missing = missingRoles(c0);
+    const want: Role | undefined = /screen/.test(l) ? "screening" : /final|assess/.test(l) ? "final" : missing[0];
+    if (!want || !missing.includes(want)) {
+      setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }, { id: `a${Date.now()}`, from: "ai", text: !missing.length ? "This course already has its roleplays: the final assessment" + (c0.settings.screening ? " and the screening call." : ". Turn screening on in the rep journey to add a screening call.") : `This course already has a ${want === "screening" ? "screening" : "final-assessment"} roleplay. Tell me what to change in it instead.` }]);
+      setText("");
+      return;
+    }
+    const role: Role = want;
     const used = new Set(allScenarios().filter((x) => course.scenarioIds.includes(x.id)).map((x) => x.persona.name));
     const name = (/\bnp\b|nurse/.test(l) ? DOCTORS.filter((d) => d.startsWith("NP")) : DOCTORS.filter((d) => d.startsWith("Dr"))).find((d) => !used.has(d)) ?? DOCTORS.find((d) => !used.has(d)) ?? "Dr. Sam Rivera";
     const docs = (course.roleplaySourceIds?.length ? course.roleplaySourceIds : course.sourceIds).map((x) => source(x)?.title).filter(Boolean);
@@ -585,7 +571,7 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
           </div>
         ))}
         {onCopy && <Button size="sm" variant="secondary" className="self-start" onClick={onCopy}>Make an editable copy</Button>}
-        {turns.length === 1 && <Suggestions items={sc?.custom ? PROMPTS : ["Add a screening doctor", "Add a final-assessment doctor"]} onPick={send} variant="list" />}
+        {turns.length === 1 && <Suggestions items={sc?.custom ? PROMPTS : missingRoles(course).map((r) => (r === "final" ? "Add the final-assessment roleplay" : "Add the screening roleplay"))} onPick={send} variant="list" />}
         {thinking && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
         <div ref={endRef} />
       </div>

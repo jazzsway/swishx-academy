@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { VersionChip } from "@/components/patterns/academy";
 import { Portal } from "@/components/ui/portal";
 import { RoleCopilot } from "@/features/copilot/copilot-panel";
+import { missingRoles } from "./roleplay";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { BLOCK_META } from "@/features/shared/block-view";
 import { useCourse } from "./use-course";
@@ -264,11 +265,12 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
           </div>
         )}
         {scs.length === 0 && !drafting && <Text size="caption" tone="subtle" className="px-2 py-1">No roleplay yet.</Text>}
-        {editable && (
-          <button type="button" onClick={addRoleplay} className="flex items-center gap-2 rounded-control px-2 py-1.5 text-body font-semibold text-brand-deep transition-colors hover:bg-tint">
-            <Plus className="size-4" aria-hidden="true" />Add a roleplay
+        {/* Only a missing roleplay can be added: the final assessment, and screening when it's on. */}
+        {editable && !drafting && missingRoles(course).map((r) => (
+          <button key={r} type="button" onClick={addRoleplay} className="flex items-center gap-2 rounded-control px-2 py-1.5 text-body font-semibold text-brand-deep transition-colors hover:bg-tint">
+            <Plus className="size-4" aria-hidden="true" />{r === "final" ? "Add the final-assessment roleplay" : "Add the screening roleplay"}
           </button>
-        )}
+        ))}
       </div>
 
       {(!direct || nQuestions > 0) && (
