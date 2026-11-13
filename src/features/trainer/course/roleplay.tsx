@@ -78,7 +78,7 @@ export function RoleplaySetup() {
   const removeScenario = useApp((s) => s.removeScenario);
   const updateCourse = useApp((s) => s.updateCourse);
   const updateSettings = useApp((s) => s.updateSettings);
-  const [view, setView] = useState<"diagram" | "list">("diagram");
+  const [view, setView] = useState<"diagram" | "list">("list");
   const [selected, setSelected] = useState<CallFocus | null>(null);
   const [attached, setAttached] = useState<CallFocus | null>(null);
   const [flash, setFlash] = useState<{ keys: string[]; n: number }>({ keys: [], n: 0 });
@@ -190,9 +190,15 @@ export function RoleplaySetup() {
 
       {/* The builder: the same call as a diagram or a list. */}
       <section aria-label="Scenario builder" className="squircle overflow-hidden rounded-card border border-hair bg-card">
-        <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2.5">
-          <Seg value={view} onChange={(v) => setView(v as "diagram" | "list")} items={[["diagram", "Diagram"], ["list", "List"]]} label="View" />
-          <Text size="caption" tone="subtle" className="ml-auto hidden md:block">{canEdit ? "Select a step, then add it to the chat" : "Read-only"}</Text>
+        <div className="flex flex-wrap items-end gap-3 border-b border-hair px-5 py-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Scenario</Text>
+            <Text as="h2" size="title" weight="bold">The call, step by step</Text>
+            <Text size="caption" tone="subtle">
+              {obs.filter((o) => !o.moment).length} objections · {obs.filter((o) => o.moment).length} moments to handle · about {sc.durationMin} min · {canEdit ? "select a step to change it in the chat" : "read-only"}
+            </Text>
+          </div>
+          <Seg value={view} onChange={(v) => setView(v as "diagram" | "list")} items={[["list", "List"], ["diagram", "Diagram"]]} label="View" />
         </div>
         {view === "diagram"
           ? <Diagram sc={sc} obs={obs} rules={rules} inCall={inCall} callsOf={callsOf} passMark={course.settings.passRoleplay} n={node} onClear={() => setSelected(null)} />
@@ -394,51 +400,101 @@ function Mini({ tone, text }: { tone: "ok" | "muted" | "danger"; text: string })
 
 /* ── List ────────────────────────────────────────────────────────────────── */
 
-/** The same call in playback order: each step, with what it leads to indented underneath. */
+/**
+ * The call as a script, stage by stage: how she opens, what she raises (and what happens when the rep
+ * handles or misses each), how she closes, what's never allowed, and what it's scored on.
+ */
 function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
-  const Row = ({ f, num, title, body, tag, dark, dim, children }: { f: CallFocus; num: ReactNode; title: string; body?: string; tag?: string; dark?: boolean; dim?: boolean; children?: ReactNode }) => {
+  const cfg = configOf(sc);
+  const she = cfg.voice.gender === "male" ? "He" : "She";
+  const regular = obs.filter((o) => !o.moment);
+  const variety = cfg.variety.pick ? `${she} raises ${cfg.variety.pick} of the ${regular.length} objections${cfg.variety.shuffle ? ", in a random order" : ""}; moments always come up.` : cfg.variety.shuffle ? `In a random order; moments always come up.` : "In this order.";
+  const Stage = ({ num, title, note, children }: { num: ReactNode; title: string; note?: string; children: ReactNode }) => (
+    <section className="border-b border-hair last:border-0">
+      <div className="flex items-center gap-2.5 bg-subtle/60 px-5 py-2">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-ink text-micro font-bold text-white">{num}</span>
+        <Text size="body" weight="bold">{title}</Text>
+        {note && <Text size="caption" tone="subtle" className="truncate">· {note}</Text>}
+      </div>
+      <div className="flex flex-col">{children}</div>
+    </section>
+  );
+  const Pick = ({ f, children, dim, className }: { f: CallFocus; children: ReactNode; dim?: boolean; className?: string }) => {
     const sel = n.isSel(f);
     return (
-      <li data-node={keyOf(f)} className={cn("border-b border-hair transition-opacity last:border-0", dim && "opacity-30")}>
-        <div className={cn("flex items-start gap-3 px-4 py-3", sel && "bg-tint")} key={n.flashing(f) ? n.flashN : 0}>
-          <button type="button" onClick={() => n.pick(f)} className={cn("flex min-w-0 flex-1 items-start gap-3 text-left", n.flashing(f) && "node-flash rounded-control")}>
-            <span className="grid size-7 shrink-0 place-items-center rounded-glyph bg-subtle text-caption font-bold text-ink-3">{num}</span>
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="flex flex-wrap items-center gap-2"><span className="text-body-lg font-semibold text-ink">{title}</span>{tag && <span className={cn("rounded-glyph px-1.5 py-0.5 text-[10px] font-bold", dark ? "bg-ink text-white" : "bg-subtle text-ink-3")}>{tag}</span>}</span>
-              {body && <span className="text-body text-ink-2">{body}</span>}
-            </span>
-          </button>
-          {sel && n.canEdit && <AddPill onClick={() => n.addToChat(f)} />}
-        </div>
-        {children && <div className="flex flex-col gap-1.5 pb-3 pl-14 pr-4">{children}</div>}
-      </li>
+      <div data-node={keyOf(f)} key={n.flashing(f) ? n.flashN : 0} className={cn("group relative border-t border-hair first:border-0 transition-opacity", dim && "opacity-30", sel && "bg-tint", n.flashing(f) && "node-flash")}>
+        <button type="button" onClick={() => n.pick(f)} className={cn("flex w-full flex-col gap-2 px-5 py-3 text-left transition-colors", !sel && "hover:bg-subtle/60", className)}>{children}</button>
+        {sel && n.canEdit && <div className="absolute right-4 top-3"><AddPill onClick={() => n.addToChat(f)} /></div>}
+      </div>
     );
   };
-  const Child = ({ tone, title, text }: { tone: "ok" | "warn" | "muted" | "danger"; title: string; text: string }) => (
-    <div className={cn("flex items-start gap-2 rounded-control px-2.5 py-1.5 text-caption", tone === "ok" ? "bg-ok-bg/70" : tone === "warn" ? "bg-warn-bg/70" : tone === "danger" ? "bg-danger-bg/70" : "bg-subtle")}>
-      <b className={cn("shrink-0", tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-ink-3")}>↳ {title}</b><span className="text-ink-2">{text}</span>
-    </div>
+  const Quote = ({ who, text }: { who: string; text: string }) => (
+    <span className="flex items-start gap-2 text-body-lg leading-snug text-ink"><span className="mt-0.5 shrink-0 text-caption font-bold uppercase tracking-wider text-ink-4">{who}</span>“{text}”</span>
   );
-  let step = 1;
   return (
-    <ol className="flex flex-col">
-      <Row f={{ kind: "opening" }} num={step++} title="Doctor opens" body={`“${sc.persona.opening}”`} />
-      <Row f={{ kind: "rule", id: rules[0]?.id ?? "" }} num={<ShieldAlert className="size-3.5 text-danger" />} title="At any point · never say" tag={`${rules.length} rules`}>
-        {rules.map((r) => <Child key={r.id} tone={r.critical ? "danger" : "warn"} title={r.critical ? "Call fails" : "Flagged"} text={`${r.label}: ${r.explanation}`} />)}
-      </Row>
-      {obs.map((o, i) => (
-        <Row key={o.id} f={{ kind: "objection", id: o.id }} num={step++} title={o.moment ? `Moment · ${o.label} · must handle` : `Objection ${obs.slice(0, i + 1).filter((x) => !x.moment).length} · ${o.label}`} body={`“${o.line}”`} tag={callsOf(o).join(" · ") || "Not in use"} dark={o.finalOnly && roles_final(callsOf(o))} dim={!inCall(o)}>
-          <Child tone="ok" title="Handled" text={`“${o.handled}” · listens for ${o.keywords.slice(0, 3).join(", ")}`} />
-          <Child tone="warn" title="Missed" text={`“${o.pushback}”`} />
-          <Child tone={o.moment ? "danger" : "muted"} title="Then" text={o.moment ? "Handled on the second try, or a critical flag that fails the call" : "Handled on the second try, or the doctor moves on"} />
-          {o.answer && <Child tone="ok" title="Good answer" text={o.answer} />}
-        </Row>
-      ))}
-      <Row f={{ kind: "close" }} num={step++} title="Doctor closes" body={`“${sc.persona.closing}”`} />
-      <Row f={{ kind: "rubric" }} num={<Flag className="size-3.5 text-ok" />} title={`Scorecard · pass ${passMark}`}>
-        {sc.rubric.map((r) => <Child key={r.id} tone="muted" title={`${r.weight}%`} text={r.label} />)}
-      </Row>
-    </ol>
+    <div className="flex flex-col">
+      <Stage num={1} title="Opening">
+        <Pick f={{ kind: "opening" }}><Quote who={`${she} says`} text={sc.persona.opening} /></Pick>
+      </Stage>
+
+      <Stage num={2} title="The conversation" note={variety}>
+        {obs.map((o) => {
+          const k = obs.slice(0, obs.indexOf(o) + 1).filter((x) => !x.moment).length;
+          const calls = callsOf(o);
+          return (
+            <Pick key={o.id} f={{ kind: "objection", id: o.id }} dim={!inCall(o)} className={o.moment ? "bg-warn-bg/40" : undefined}>
+              <span className="flex flex-wrap items-center gap-2 pr-28">
+                <span className={cn("grid h-6 min-w-6 place-items-center rounded-glyph px-1.5 text-micro font-bold", o.moment ? "bg-warn text-white" : "bg-brand text-white")}>{o.moment ? <ShieldAlert className="size-3.5" aria-hidden="true" /> : k}</span>
+                <span className="text-body-lg font-bold text-ink">{o.moment ? `Moment · ${o.label}` : o.label}</span>
+                <span className={cn("rounded-glyph px-1.5 py-0.5 text-[10px] font-bold", o.moment ? "bg-warn-bg text-warn" : o.finalOnly && roles_final(calls) ? "bg-ink text-white" : "bg-subtle text-ink-3")}>{o.moment ? "Must handle" : calls.join(" · ") || "Not in use"}</span>
+              </span>
+              <Quote who={`${she} says`} text={o.line} />
+              <span className="grid gap-2 sm:grid-cols-2">
+                <span className="flex flex-col gap-1 rounded-control border border-ok-line bg-ok-bg/60 px-3 py-2">
+                  <span className="flex items-center gap-1 text-micro font-bold uppercase tracking-wider text-ok"><Check className="size-3" aria-hidden="true" />{o.moment === "ae" ? "If the rep reports it" : o.moment === "offlabel" ? "If the rep refers it" : "If the rep handles it"}</span>
+                  <span className="text-body text-ink-2">“{o.handled}”</span>
+                  <span className="flex flex-wrap gap-1 pt-0.5">{o.keywords.slice(0, 4).map((w) => <span key={w} className="rounded-glyph bg-card px-1.5 text-micro font-semibold text-ok">{w}</span>)}</span>
+                </span>
+                <span className="flex flex-col gap-1 rounded-control border border-warn-line bg-warn-bg/60 px-3 py-2">
+                  <span className="flex items-center gap-1 text-micro font-bold uppercase tracking-wider text-warn"><RotateCcw className="size-3" aria-hidden="true" />If the rep misses it</span>
+                  <span className="text-body text-ink-2">“{o.pushback}”</span>
+                  <span className={cn("text-caption", o.moment ? "font-semibold text-danger" : "text-ink-3")}>{o.moment ? "Then one more chance, or a critical flag that fails the call" : "Then one more chance, or she moves on".replace("she", she.toLowerCase())}</span>
+                </span>
+              </span>
+              {o.answer && <span className="flex items-start gap-1.5 text-caption text-ink-3"><Check className="mt-0.5 size-3.5 shrink-0 text-ok" aria-hidden="true" /><span><b className="text-ink-2">A good answer:</b> {o.answer}</span></span>}
+            </Pick>
+          );
+        })}
+      </Stage>
+
+      <Stage num={3} title="Close">
+        <Pick f={{ kind: "close" }}><Quote who={`${she} says`} text={sc.persona.closing} /></Pick>
+      </Stage>
+
+      <Stage num={<ShieldAlert className="size-3.5" />} title="Throughout the call · never say" note={`${rules.filter((r) => r.critical).length} fail the call`}>
+        {rules.map((r) => (
+          <Pick key={r.id} f={{ kind: "rule", id: r.id }}>
+            <span className="flex items-start gap-3 pr-28">
+              <span className={cn("mt-0.5 shrink-0 rounded-glyph px-1.5 py-0.5 text-[10px] font-bold", r.critical ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn")}>{r.critical ? "Fails the call" : "Flagged"}</span>
+              <span className="flex flex-col"><span className="text-body font-semibold text-ink">{r.label}</span><span className="text-caption text-ink-3">{r.explanation}</span></span>
+            </span>
+          </Pick>
+        ))}
+      </Stage>
+
+      <Stage num={<Flag className="size-3.5" />} title="Scored on" note={`pass ${passMark}`}>
+        <Pick f={{ kind: "rubric" }}>
+          <span className="flex flex-col gap-2 pr-28">
+            {sc.rubric.map((r) => (
+              <span key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                <span className="text-body text-ink-2">{r.label}</span><b className="text-body tabular-nums text-ink">{r.weight}%</b>
+                <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-black/[0.06]"><span className="block h-full rounded-full bg-brand" style={{ width: `${Math.min(100, r.weight * 2.5)}%` }} /></span>
+              </span>
+            ))}
+          </span>
+        </Pick>
+      </Stage>
+    </div>
   );
 }
 
