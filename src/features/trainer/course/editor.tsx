@@ -197,7 +197,7 @@ export function CourseEditor() {
       </div>
 
       {/* Locked versions get the trainer's general copilot instead: there's nothing to edit. */}
-      {editable && <CopilotOverride>
+      {editable && course.origin !== "direct" && <CopilotOverride>
         <ChatPanel courseId={course.id} moduleId={mod?.id} editable={editable} fresh={fresh} issues={issues.length} onApply={apply} />
       </CopilotOverride>}
 

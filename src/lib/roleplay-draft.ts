@@ -106,8 +106,10 @@ export function draftConfig(o: { productId?: string; sources: Source[]; sellingM
     ...(pi ? [{ sourceId: pi.id, use: "Her own questions on dosing and safety, and checking what the rep says" }] : []),
     ...(va ? [{ sourceId: va.id, use: "The pages the rep may show her; she reacts to them", pages: "2–4" }] : []),
   ];
+  /* A document can be both a roleplay source and the product's PI or visual aid: list it once, by its first use. */
+  const once = materials.filter((m, i) => materials.findIndex((x) => x.sourceId === m.sourceId) === i);
   return {
-    materials, showPages: va ? { sourceId: va.id, pages: [2, 3, 4] } : undefined,
+    materials: once, showPages: va ? { sourceId: va.id, pages: [2, 3, 4] } : undefined,
     callType: "Follow-up visit", place: "In the office", difficulty: "standard",
     variety: { pick: o.regular > 2 ? o.regular - 1 : undefined, shuffle: true },
     fairBalance: true, endEarly: { critical: true, monologue: true },
@@ -117,7 +119,7 @@ export function draftConfig(o: { productId?: string; sources: Source[]; sellingM
 
 /** An actor's config, with sensible defaults for doctors that shipped before configs existed. */
 export function configOf(sc: Scenario): ActorConfig {
-  if (sc.config) return sc.config;
+  if (sc.config) return { ...sc.config, materials: sc.config.materials.filter((m, i, all) => all.findIndex((x) => x.sourceId === m.sourceId) === i) };
   return {
     materials: (sc.custom?.sourceIds ?? []).map((id) => ({ sourceId: id, use: id === sc.custom?.sellingModelId ? "How the call is scored" : "Her objections and reactions" })),
     callType: sc.context, place: "In the office", difficulty: "standard", variety: { shuffle: false }, fairBalance: true, endEarly: { critical: true, monologue: false },

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, ChevronRight, Mic, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Mic, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -13,13 +12,11 @@ import type { Course, Scenario } from "@/data/types";
 import { CHARACTERS, characterOf, draftFromPrompt, evenTo100, personInitials, screeningOf, weightsOf, withWeights } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
 import { Button, IconButton } from "@/components/ui/button";
-import { CopilotOverride } from "@/features/copilot/copilot-panel";
-import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
+import { askForScenario, useTrainingChat } from "./training-chat-store";
 
 /** One colour per competency slot, the same in the bar and its legend. */
 const SEG = ["bg-brand", "bg-info", "bg-ok", "bg-warn", "bg-ink-3", "bg-brand-2"];
-const IDEAS = ["A practice nurse worried about who teaches the injections", "A tough pharmacist asking about storage and the formulary", "A practice manager pushing back on prior auth paperwork"];
 
 const useOf = (c: Course, sc: Scenario) => ({ practice: sc.use.includes("practice"), final: c.settings.assessmentScenarioId === sc.id });
 
@@ -47,13 +44,12 @@ export function CompetencyBar({ sc, compact }: { sc: Scenario; compact?: boolean
  * character and its own competency weights. A scenario is added by describing it to the agent.
  */
 export function ScenarioList({ course, editable }: { course: Course; editable: boolean }) {
-  const router = useRouter();
-  const search = useSearchParams();
   const custom = useApp((s) => s.scenarios);
   const updateSettings = useApp((s) => s.updateSettings);
   const drafting = useCopilot((s) => s.drafting);
-  const [ask, setAsk] = useState(0);
-  const [fresh, setFresh] = useState<string | null>(null);
+  /* The scenario the agent just added, shown where it lands. */
+  const fresh = useTrainingChat((s) => s.added);
+  useEffect(() => { if (fresh) window.setTimeout(() => document.querySelector(`a[href$="sc=${fresh}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }, [fresh]);
   const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const base = `/trainer/courses/${course.id}`;
   const screen = screeningOf(course, scs);
@@ -74,7 +70,7 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
           <Text size="body-lg" tone="subtle">Reps take these back to back in one call. Each has one character and is scored on its own competencies.</Text>
         </div>
         {scs.length > 0 && <Link href={`${base}/roleplay/test?run=all`} className="inline-flex h-10 items-center gap-2 rounded-control border border-hair-2 bg-card px-3.5 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle"><Mic className="size-4" aria-hidden="true" />Test the full call</Link>}
-        {editable && <Button onClick={() => { useCopilot.getState().setOpen(true); setAsk(ask + 1); }}><Plus className="size-4" aria-hidden="true" />Add scenario</Button>}
+        {editable && <Button onClick={askForScenario}><Plus className="size-4" aria-hidden="true" />Add scenario</Button>}
       </div>
 
       {course.settings.screening && scs.length > 0 && (
@@ -134,17 +130,14 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
         )}
       </ol>
       {editable && !drafting && (
-        <button type="button" onClick={() => { useCopilot.getState().setOpen(true); setAsk(ask + 1); }}
+        <button type="button" onClick={askForScenario}
           className="squircle flex items-center justify-center gap-2 rounded-card border border-dashed border-hair-3 p-4 text-body font-semibold text-brand-deep transition-colors hover:border-brand hover:bg-tint">
           <Plus className="size-4" aria-hidden="true" />Add scenario<span className="font-normal text-ink-3">· describe it to the agent</span>
         </button>
       )}
-      {editable && <CopilotOverride><ScenarioChat course={course} scs={scs} ask={ask} fresh={search.get("fresh") === "1"} onAdded={(id) => { setFresh(id); window.setTimeout(() => document.querySelector(`a[href$="sc=${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }} onOpen={(id) => router.push(`${base}/roleplay?sc=${id}`)} /></CopilotOverride>}
     </div>
   );
 }
-
-interface Turn { id: string; from: "you" | "ai"; text: string; steps?: string[]; at?: number; opens?: string }
 
 /** Drafts a scenario from what the trainer wrote, in steps they can watch, and adds it to the training. */
 export function useAddScenario(course: Course) {
@@ -169,73 +162,6 @@ export function useAddScenario(course: Course) {
     };
     window.setTimeout(tick, 650);
   };
-}
-
-function ScenarioChat({ course, scs, ask, fresh, onAdded, onOpen }: { course: Course; scs: Scenario[]; ask: number; fresh: boolean; onAdded: (id: string) => void; onOpen: (id: string) => void }) {
-  const add = useAddScenario(course);
-  const [turns, setTurns] = useState<Turn[]>(() => [{
-    id: "hello", from: "ai",
-    text: fresh && scs.length
-      ? `I drafted ${scs.length} scenarios from ${course.brief ? "your brief" : "your files"}${course.roleplaySourceIds?.length ? " and demo-call documents" : ""}: ${scs.map((x) => `“${x.title}”`).join(", ")}. Each has one character and its own competency weights. Open one to change it, or describe another to add.`
-      : scs.length ? "Describe a scenario to add: who the rep meets, what happens, and what you want to test. Open a scenario to change it." : "This training has no scenarios yet. Describe the first one: who the rep meets, what happens, and what you want to test.",
-  }]);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [turns]);
-  useEffect(() => {
-    if (!ask) return;
-    setTurns((t) => [...t, { id: `a${Date.now()}`, from: "ai", text: "Tell me about the scenario: who the rep meets (a doctor, nurse, practice manager or pharmacist), what happens on the call, and what you want to test." }]);
-    window.setTimeout(() => document.getElementById("scenario-chat")?.focus(), 60);
-  }, [ask]);
-
-  function send(prompt: string) {
-    if (!prompt.trim() || busy) return;
-    const id = `a${Date.now()}`;
-    setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }, { id, from: "ai", text: "", steps: [], at: 0 }]);
-    setText("");
-    setBusy(true);
-    add(prompt, (steps, at) => setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps, at } : x))), (sc) => {
-      const ws = weightsOf(sc).map((w) => `${competency(w.competency)?.name.toLowerCase()} (${w.pct}%)`).join(", ");
-      setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps: undefined, text: `Added “${sc.title}” with ${sc.persona.name}, scored on ${ws}. Open it to see the call and change the weights, or describe another.`, opens: sc.id } : x)));
-      setBusy(false);
-      onAdded(sc.id);
-    });
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-hair bg-tint/60 px-4 py-2.5">
-        <Mic className="size-4 text-brand-deep" aria-hidden="true" />
-        <Text size="caption" weight="semibold" tone="muted" className="truncate">Scenarios · {course.title}</Text>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {turns.map((t) => (
-          <div key={t.id} className={cn("flex flex-col gap-1.5", t.from === "you" && "items-end")}>
-            {t.steps ? (
-              <div className="flex max-w-[92%] flex-col gap-1 rounded-panel bg-subtle px-3.5 py-2.5 text-body">
-                {t.steps.map((st, k) => (
-                  <span key={st} className={cn("flex items-center gap-2", k > (t.at ?? 0) && "opacity-35")}>
-                    {k < (t.at ?? 0) ? <Check className="size-3.5 shrink-0 text-ok" aria-hidden="true" /> : <span className={cn("size-2 shrink-0 rounded-full", k === t.at ? "animate-pulse bg-brand" : "bg-hair-3")} />}
-                    {st}{k === t.at ? "…" : ""}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className={cn("max-w-[92%] rounded-panel px-3.5 py-2.5 text-body leading-relaxed", t.from === "you" ? "bg-ink text-white" : "bg-subtle text-ink")}>{t.text}</div>
-            )}
-            {t.opens && <Button size="sm" variant="secondary" className="self-start" onClick={() => onOpen(t.opens!)}>Open it<ArrowRight className="size-3.5" aria-hidden="true" /></Button>}
-          </div>
-        ))}
-        {turns.length <= 2 && !busy && <Suggestions items={IDEAS} onPick={send} variant="list" />}
-        <div ref={endRef} />
-      </div>
-      <div className="flex flex-col gap-2 border-t border-hair p-3">
-        <Composer id="scenario-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy}
-          placeholder="Describe a scenario, e.g. a nurse who asks about missed doses and reports a reaction" hint="SwishX picks the character and the competency weights; you can change both." />
-      </div>
-    </div>
-  );
 }
 
 /**

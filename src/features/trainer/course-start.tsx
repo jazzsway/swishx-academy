@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { Text } from "@/components/ui/text";
 import { Modal } from "@/components/ui/modal";
 import { NewCourseWizard } from "./new-course";
-import { DirectCourseWizard } from "./direct-course";
+import { useEffect } from "react";
 
 /**
  * New course starts with one question: build it straight from the trainer's own files,
@@ -18,8 +18,17 @@ export function NewCourseStart() {
   const search = useSearchParams();
   const path = search.get("path");
   if (path === "swishx") return <NewCourseWizard />;
-  if (path === "direct") return <DirectCourseWizard />;
+  if (path === "direct") return <RedirectToSetup product={search.get("product") ?? undefined} />;
   return <PathChooser />;
+}
+
+/* With your own material, setup is its own full-screen project with the agent; SwishX's path keeps its wizard. */
+const pathHref = (id: string, productId?: string) => (id === "direct" ? `/trainer/courses/start${productId ? `?product=${productId}` : ""}` : `/trainer/courses/new?path=${id}${productId ? `&product=${productId}` : ""}`);
+
+function RedirectToSetup({ product }: { product?: string }) {
+  const router = useRouter();
+  useEffect(() => { router.replace(pathHref("direct", product)); }, [router, product]);
+  return null;
 }
 
 const PATHS = [
@@ -32,7 +41,7 @@ export function NewCourseModal({ open, onClose, productId }: { open: boolean; on
   const router = useRouter();
   return (
     <Modal open={open} onClose={onClose} size="xl" title="How do you want to build it?" description="Both come with AI roleplay scenarios. You can't switch later.">
-      <PathCards onPick={(id) => { onClose(); router.push(`/trainer/courses/new?path=${id}${productId ? `&product=${productId}` : ""}`); }} />
+      <PathCards onPick={(id) => { onClose(); router.push(pathHref(id, productId)); }} />
     </Modal>
   );
 }
@@ -49,7 +58,7 @@ function PathChooser() {
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">How do you want to build it?</Text>
         <Text size="body-lg" tone="subtle">Both come with AI roleplay scenarios. You can&apos;t switch later.</Text>
       </div>
-      <PathCards onPick={(id) => router.push(`/trainer/courses/new?path=${id}${product ? `&product=${product}` : ""}`)} />
+      <PathCards onPick={(id) => router.push(pathHref(id, product ?? undefined))} />
     </div>
   );
 }

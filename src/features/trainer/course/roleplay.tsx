@@ -21,6 +21,7 @@ import { useCourse } from "./use-course";
 import { SourcePreview } from "../source-preview";
 import { CHARACTERS, characterOf, personInitials } from "@/lib/scenario-set";
 import { DeleteScenario, ScenarioList, WeightsEditor, useAddScenario } from "./scenarios";
+import { useTrainingChat } from "./training-chat-store";
 
 type Role = "screening" | "final";
 const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind === "config" ? "config" : f.kind);
@@ -91,6 +92,13 @@ export function RoleplaySetup() {
   const scs = useMemo(() => (course ? allScenarios().filter((x) => course.scenarioIds.includes(x.id)) : []), [course, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const sc = scs.find((x) => x.id === search.get("sc")) ?? scs[0];
   useEffect(() => { setSelected(null); setAttached(null); setConfirmRemove(false); }, [sc?.id]);
+  /* On a training with the trainer's own material the shared chat makes the edits; show what it changed. */
+  const chatFlash = useTrainingChat((s) => s.flash);
+  useEffect(() => {
+    if (!chatFlash.n) return;
+    setFlash((f) => ({ keys: chatFlash.keys, n: f.n + 1 }));
+    if (chatFlash.keys[0]) window.setTimeout(() => document.querySelector(`[data-node="${chatFlash.keys[0]}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }), 80);
+  }, [chatFlash]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
     document.addEventListener("keydown", k);
@@ -105,7 +113,7 @@ export function RoleplaySetup() {
   const direct = course.origin === "direct";
   if (direct && !search.get("sc")) return <ScenarioList course={course} editable={editable} />;
 
-  const chat = editable && (
+  const chat = editable && !direct && (
     <CopilotOverride>
       <RoleplayChat key={sc?.id ?? "none"} sc={sc} course={course} autoDraft={autoDraft} direct={direct} attached={attached} onDetach={() => setAttached(null)}
         onEdited={(keys) => {
@@ -147,7 +155,12 @@ export function RoleplaySetup() {
   const isSel = (f: CallFocus) => !!selected && keyOf(selected) === keyOf(f);
   const flashing = (f: CallFocus) => flash.keys.includes(keyOf(f));
   const pick = (f: CallFocus) => setSelected(isSel(f) ? null : f);
-  const addToChat = (f: CallFocus) => { setAttached(f); setSelected(null); useCopilot.getState().setOpen(true); };
+  const addToChat = (f: CallFocus) => {
+    if (direct) useTrainingChat.getState().setFocus({ scId: sc.id, focus: f, label: label(f, sc, obs) });
+    else setAttached(f);
+    setSelected(null);
+    useCopilot.getState().setOpen(true);
+  };
 
   const node = { isSel, flashing, pick, addToChat, canEdit, flashN: flash.n };
 
