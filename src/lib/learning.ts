@@ -43,7 +43,7 @@ export function buildPath(
     }
     if (kind === "full") {
       moduleIds.push(m.id);
-      reasons[m.id] = "Full course";
+      reasons[m.id] = "Full training";
       continue;
     }
     if (focus.has(m.competency)) {

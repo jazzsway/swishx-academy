@@ -53,7 +53,7 @@ export function TrainerHome() {
     const last = stuck.filter((p) => courseOf(p).settings.attempts - p.attempts.length <= 1);
     if (stuck.length) out.push({ tone: last.length ? "danger" : "warn", title: `${stuck.length} rep${stuck.length === 1 ? "" : "s"} didn't pass their final`, sub: last.length ? `${last.length} on their last attempt. A coaching note before the retake helps.` : "Each has a retake path built from what held them back.", cta: "See who", href: "/trainer/analytics" });
     const overdue = s.progress.filter(isOverdue);
-    if (overdue.length) out.push({ tone: "warn", title: `${overdue.length} reps overdue across ${new Set(overdue.map((p) => p.courseId)).size} courses`, sub: `${overdue.filter((p) => p.state === "not_started").length} haven't started`, cta: "Nudge all",
+    if (overdue.length) out.push({ tone: "warn", title: `${overdue.length} reps overdue across ${new Set(overdue.map((p) => p.courseId)).size} trainings`, sub: `${overdue.filter((p) => p.state === "not_started").length} haven't started`, cta: "Nudge all",
       onClick: () => { let n = 0; for (const p of overdue) if (s.nudge(p.id, "u-maya")) n++; showToast(n ? `Nudged ${n} reps` : "Already nudged in the last 48 hours"); } });
     const idle = s.progress.filter((p) => p.state === "not_started" && !opensLater(p) && !isOverdue(p) && -daysFromToday(p.assignedAt) >= WEEK);
     if (idle.length) out.push({ tone: "faint", title: `${idle.length} assigned a week ago and not started`, sub: "Not overdue yet. A reminder now keeps them on track.", cta: "Nudge",
@@ -93,7 +93,7 @@ export function TrainerHome() {
           <Text as="h1" size="hero" weight="extrabold" tracking="tight">Good morning, Maya</Text>
           <Text as="p" size="subhead" tone="muted">{summary}.</Text>
         </div>
-        <Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create course</Button>
+        <Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create training</Button>
         <NewCourseModal open={creating} onClose={() => setCreating(false)} />
       </div>
 
@@ -133,7 +133,7 @@ export function TrainerHome() {
         </Card>
       </div>
 
-      <Card title="Deadlines" eyebrow="Courses rolling out, soonest due first">
+      <Card title="Deadlines" eyebrow="Trainings rolling out, soonest due first">
         {deadlines.length === 0 ? <Text tone="subtle">No upcoming deadlines.</Text> : (
           <ul className="-mx-2 flex flex-col">
             {deadlines.map((r) => <RolloutRow key={r.id} r={r} />)}
@@ -167,7 +167,7 @@ export function TrainerHome() {
                   <span className="grid size-9 shrink-0 place-items-center rounded-control bg-subtle text-ink-3"><PencilLine className="size-4" aria-hidden="true" /></span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <Text size="body-lg" weight="semibold" truncate>{c.title} <span className="font-normal text-ink-3">v{current(c).version}</span></Text>
-                    <Text size="caption" tone="subtle">{c.modules.length} modules · {courseMinutes(c)} min · updated {fmtDate(c.updatedAt)}{lv ? ` · v${lv.version} stays live meanwhile` : ""}</Text>
+                    <Text size="caption" tone="subtle">{c.modules.length} lessons · {courseMinutes(c)} min · updated {fmtDate(c.updatedAt)}{lv ? ` · v${lv.version} stays live meanwhile` : ""}</Text>
                   </span>
                   <Chip size="sm" tone={red ? "danger" : "ok"}>{red ? `${red} to fix before publishing` : "Ready to publish"}</Chip>
                   <ChevronRight className="size-4 shrink-0 text-ink-4 group-hover:text-ink" aria-hidden="true" />

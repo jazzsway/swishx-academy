@@ -29,7 +29,7 @@ function events(p: Progress, users: Map<string, User>) {
   const e: { at: string; text: string }[] = [{ at: p.assignedAt, text: `Assigned (${ASSIGN_LABEL[p.assignType].toLowerCase()}) · v${p.version}${p.dueAt ? ` · due ${fmtDate(p.dueAt)}` : ""}` }];
   if (p.startedAt) e.push({ at: p.startedAt, text: "Started" });
   if (p.screening) e.push({ at: p.screening.at, text: `Screening completed · ${p.screening.overall}%${p.screening.call ? ` · call ${p.screening.call.score}%` : ""}` });
-  if (p.path) e.push({ at: p.path.builtAt, text: `${p.path.kind === "remediation" ? "Retake path" : p.path.kind === "full" ? "Started the full course" : "Personalised path"} · ${p.path.moduleIds.length} modules` });
+  if (p.path) e.push({ at: p.path.builtAt, text: `${p.path.kind === "remediation" ? "Retake path" : p.path.kind === "full" ? "Started the full training" : "Personalised path"} · ${p.path.moduleIds.length} lessons` });
   p.attempts.forEach((a, i) => e.push({ at: a.at, text: `Assessment attempt ${i + 1} · ${a.overall}% · ${a.passed ? "passed" : `not passed${a.reason ? ` (${a.reason})` : ""}`}` }));
   if (p.attestedAt && p.attestName !== "on file") e.push({ at: p.attestedAt, text: `Attested · typed “${p.attestName}”` });
   if (p.verify) e.push({ at: p.verify.requestedAt, text: "Verification requested" });
@@ -100,7 +100,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
             <div className="flex min-w-0 flex-col gap-5">
               <BeforeAfter s={s} mine={mine} first={u.first} onOpen={setTab} />
               <SkillsThenNow s={s} mine={mine} />
-              <Card title="Assigned courses" eyebrow={`${mine.length} course${mine.length === 1 ? "" : "s"} · ${mine.filter((x) => x.state === "certified").length} certified${mine.some(isOverdue) ? ` · ${mine.filter(isOverdue).length} overdue` : ""}`}>
+              <Card title="Assigned trainings" eyebrow={`${mine.length} training${mine.length === 1 ? "" : "s"} · ${mine.filter((x) => x.state === "certified").length} certified${mine.some(isOverdue) ? ` · ${mine.filter(isOverdue).length} overdue` : ""}`}>
                 <ul className="-mx-2 flex flex-col">
                   {sorted.map((x) => {
                     const c = s.courses.find((y) => y.id === x.courseId);
@@ -153,7 +153,7 @@ export function RepDetail({ userId, viewer }: { userId: string; viewer: "trainer
                 { k: "Assigned", v: `${fmtDate(p.assignedAt, true)} · ${ASSIGN_LABEL[p.assignType]}` },
                 { k: "Due", v: <span className={isOverdue(p) ? "text-danger" : undefined}>{fmtDate(p.dueAt, true)}</span> },
                 { k: "Time spent", v: `${p.minutesSpent} min` },
-                ...(p.path ? [{ k: "Path", v: `${p.path.moduleIds.length} of ${mods.length} modules · ~${pathMinutes(mods, p.path.moduleIds)} min` }] : []),
+                ...(p.path ? [{ k: "Path", v: `${p.path.moduleIds.length} of ${mods.length} lessons · ~${pathMinutes(mods, p.path.moduleIds)} min` }] : []),
                 ...(p.certifiedAt ? [{ k: "Certified", v: `${fmtDate(p.certifiedAt, true)} · valid to ${fmtDate(p.certExpiresAt, true)}` }] : []),
               ]} />
             </Card>

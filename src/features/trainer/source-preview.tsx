@@ -54,7 +54,7 @@ export function SourcePreview({ s, onClose }: { s: Source; onClose: () => void }
       <div className="flex flex-col gap-4">
         {MLR && <div className="flex flex-wrap items-center gap-2">
           <ApprovalChip s={s} />
-          <Text size="caption" tone="subtle">{isApproved(s) ? `${s.docNumber} · SwishX can cite it as is.` : "SwishX can use it, but every sentence that cites it is flagged in checks, and the file goes to MLR with the course."}</Text>
+          <Text size="caption" tone="subtle">{isApproved(s) ? `${s.docNumber} · SwishX can cite it as is.` : "SwishX can use it, but every sentence that cites it is flagged in checks, and the file goes to MLR with the training."}</Text>
         </div>}
         {s.uploaded ? <UploadedFile s={s} /> : <ApprovedDocument s={s} />}
       </div>

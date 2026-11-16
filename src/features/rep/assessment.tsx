@@ -17,6 +17,7 @@ import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Meter, EmptyState } from "@/components/patterns/academy";
 import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
+import { ScenarioSession } from "./scenario-session";
 import { modulesOf } from "./use-rep";
 
 /** One question per competency first, then the rest; up to two written answers, asked last. */
@@ -46,6 +47,8 @@ export function Assessment() {
   const [result, setResult] = useState<Attempt | null>(null);
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
+  /* A training with the trainer's own material: its assessment is the scenario call. */
+  if (c.origin === "direct" && c.scenarioIds.length) return <ScenarioSession courseId={c.id} />;
   const st = c.settings;
   const sc = st.assessmentScenarioId ? getScenario(st.assessmentScenarioId) : undefined;
   const attemptNo = p.attempts.length + 1;
@@ -256,7 +259,7 @@ function ResultView({ result, sc, pass, base, callOnly, attemptNo, attempts, lef
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-4 pb-8 pt-5">
-      <Link href={`/rep/course/${courseId}`} aria-label="Back to the course" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
+      <Link href={`/rep/course/${courseId}`} aria-label="Back to the training" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
 
       {/* The verdict, on one scale with the pass mark. */}
       <section className={cn("squircle relative overflow-hidden rounded-card p-5", result.passed ? "bg-ok text-white" : "bg-ink text-white")}>
@@ -366,7 +369,7 @@ function ResultView({ result, sc, pass, base, callOnly, attemptNo, attempts, lef
             {reviewCount > 0 && (
               <Link href={`/rep/course/${courseId}`} className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card p-3.5 transition-colors hover:bg-subtle">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><RotateCcw className="size-4.5" aria-hidden="true" /></span>
-                <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold">{direct ? `Go back over ${reviewCount === 1 ? "a file" : `${reviewCount} files`}` : `Your retake path: ${reviewCount} module${reviewCount === 1 ? "" : "s"}`}</Text><Text size="caption" tone="subtle">{direct ? "The ones that cover what you missed" : "Built from what held you back"}</Text></span>
+                <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold">{direct ? `Go back over ${reviewCount === 1 ? "a file" : `${reviewCount} files`}` : `Your retake path: ${reviewCount} lesson${reviewCount === 1 ? "" : "s"}`}</Text><Text size="caption" tone="subtle">{direct ? "The ones that cover what you missed" : "Built from what held you back"}</Text></span>
                 <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
               </Link>
             )}

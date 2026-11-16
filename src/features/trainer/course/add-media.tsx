@@ -96,7 +96,7 @@ function AiVideo({ module, onClose, onAdd }: { module: Module; onClose: () => vo
   const steps = ["Write the script from cited sentences", "Storyboard scenes", "Render with voiceover", "Add captions & chapters"];
   const { at, start } = useSteps(steps.length, () => { onAdd(videoFromModule(module, "ai"), "AI video added · watch it before you publish"); onClose(); });
   return (
-    <Modal open onClose={onClose} title="Generate a short video" description={`A 1–3 minute explainer for “${module.title}”, made with the SwishX video engine. The script uses only this module's cited sentences.`}
+    <Modal open onClose={onClose} title="Generate a short video" description={`A 1–3 minute explainer for “${module.title}”, made with the SwishX video engine. The script uses only this lesson's cited sentences.`}
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={at >= 0} onClick={start}><AgentIcon className="size-4" aria-hidden="true" />Generate</Button></>}>
       <div className="flex flex-col gap-3">
         <div className="squircle rounded-panel border border-hair bg-subtle px-4 py-3"><Text size="body" tone="muted">AI-generated video is new content. It shows up in checks so you watch it once before you publish.</Text></div>

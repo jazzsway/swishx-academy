@@ -23,6 +23,7 @@ import { BLOCK_META } from "@/features/shared/block-view";
 import { useCourse } from "./use-course";
 import { questionCount } from "./question-index";
 import { runChecks } from "./checks";
+import { DirectTopBar, StepRail } from "./step-rail";
 
 const PANEL_MIN = 320;
 const PANEL_MAX = 560;
@@ -58,7 +59,7 @@ function Workspace({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", k);
   }, [toggle]);
 
-  if (!data) return <div className="grid h-full place-items-center"><Text tone="subtle">Course not found. <Link href="/trainer/courses" className="text-brand-deep underline">Back to courses</Link></Text></div>;
+  if (!data) return <div className="grid h-full place-items-center"><Text tone="subtle">Training not found. <Link href="/trainer/courses" className="text-brand-deep underline">Back to trainings</Link></Text></div>;
 
   function startResize(e: React.PointerEvent) {
     const x0 = e.clientX, w0 = width;
@@ -74,14 +75,16 @@ function Workspace({ children }: { children: ReactNode }) {
     window.addEventListener("pointerup", up);
   }
 
+  /* A training with the trainer's own material is built in three steps down the left; the others keep the course rail. */
+  const direct = data.course.origin === "direct";
   return (
     <div className={cn("flex h-dvh flex-col bg-canvas", resizing && "select-none")}>
-      <TopBar />
+      {direct ? <DirectTopBar /> : <TopBar />}
       <div className="flex min-h-0 flex-1">
-        {sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
+        {direct ? <StepRail course={data.course} /> : sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
         <main className="min-w-0 flex-1 overflow-y-auto bg-subtle/60 [scrollbar-width:thin]" id="workspace-canvas">
           <div className="page-enter mx-auto flex w-full max-w-[980px] flex-col gap-4 px-5 py-6 lg:px-8">
-            {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay")) && (
+            {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay") || pathname.endsWith("/details")) && (
               <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
                 <Lock className="size-4 text-ink-3" aria-hidden="true" />
                 <Text size="body" tone="muted" className="flex-1">v{data.cur.version} is live and locked. Editing creates v{data.cur.version + 1} as a draft; v{data.cur.version} stays live until you publish it.</Text>
@@ -136,7 +139,7 @@ function TopBar() {
         </span>
       </div>
       {/* The course's sections, as tabs: Build is the workspace; the rest are full-width pages. */}
-      <nav aria-label="Course sections" className="mx-auto hidden h-full items-stretch gap-1 md:flex">
+      <nav aria-label="Training sections" className="mx-auto hidden h-full items-stretch gap-1 md:flex">
         {tabs.map((t) => {
           const on = section === t.id;
           return (
@@ -159,7 +162,7 @@ function TopBar() {
         <Button size="sm" onClick={() => router.push(cur.state === "published" ? `${base}/assign` : `${base}/review`)}>{cur.state === "published" ? "Assign" : "Publish"}</Button>
         {/* Closing the course, as a project closes in the SwishX for Biz studios: a draft asks to keep it or discard it. */}
         <span className="mx-0.5 h-5 w-px bg-hair-2" aria-hidden="true" />
-        <button type="button" onClick={() => (cur.state === "published" ? router.push("/trainer/courses") : setLeaving(true))} aria-label="Close course" title="Close course"
+        <button type="button" onClick={() => (cur.state === "published" ? router.push("/trainer/courses") : setLeaving(true))} aria-label="Close training" title="Close training"
           className="grid size-9 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><X className="size-4.5" /></button>
       </div>
       {leaving && <LeaveDialog course={course} hasLive={!!lv} draftVersion={cur.version} onCancel={() => setLeaving(false)} />}
@@ -224,10 +227,10 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
   );
 
   return (
-    <nav aria-label="Course" className="hidden w-[256px] shrink-0 flex-col overflow-y-auto border-r border-hair bg-canvas px-2.5 pb-4 [scrollbar-width:thin] md:flex">
+    <nav aria-label="Training" className="hidden w-[256px] shrink-0 flex-col overflow-y-auto border-r border-hair bg-canvas px-2.5 pb-4 [scrollbar-width:thin] md:flex">
       <JourneyStrip course={course} editable={editable} />
-      {section(`${course.modules.length} module${course.modules.length === 1 ? "" : "s"}`,
-        <button type="button" onClick={() => setModsOpen(!showMods)} aria-expanded={showMods} aria-label={showMods ? "Fold the modules" : "Show the modules"} className="grid size-5 place-items-center rounded-glyph text-ink-3 hover:bg-subtle hover:text-ink">
+      {section(`${course.modules.length} lesson${course.modules.length === 1 ? "" : "s"}`,
+        <button type="button" onClick={() => setModsOpen(!showMods)} aria-expanded={showMods} aria-label={showMods ? "Fold the lessons" : "Show the lessons"} className="grid size-5 place-items-center rounded-glyph text-ink-3 hover:bg-subtle hover:text-ink">
           <ChevronDown className={cn("size-3.5 transition-transform", !showMods && "-rotate-90")} aria-hidden="true" />
         </button>)}
       <div className={cn("flex-col gap-0.5", showMods ? "flex" : "hidden")}>
@@ -247,9 +250,9 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
           );
         })}
         {editable && (
-          <button type="button" onClick={() => { setOpen(true); setDraft(direct ? "Add a file as a new module: " : "Add a module on "); router.push(base); }}
+          <button type="button" onClick={() => { setOpen(true); setDraft(direct ? "Add a file as a new lesson: " : "Add a lesson on "); router.push(base); }}
             className="flex items-center gap-2 rounded-control px-2 py-1.5 text-body font-semibold text-brand-deep transition-colors hover:bg-tint">
-            <Plus className="size-4" aria-hidden="true" />{direct ? "Add material" : "Add a module"}
+            <Plus className="size-4" aria-hidden="true" />{direct ? "Add material" : "Add a lesson"}
           </button>
         )}
       </div>
@@ -297,7 +300,7 @@ function Rail({ course, editable }: { course: Course; editable: boolean }) {
 }
 
 /** The docked agent: the page's own editing chat when it has one, the trainer's agent otherwise; plus the course's checks. */
-function AgentDock({ course }: { course: Course }) {
+export function AgentDock({ course }: { course: Course }) {
   const setSlot = useCopilot((s) => s.setSlot);
   const overridden = useCopilot((s) => s.overrides > 0);
   const setOpen = useCopilot((s) => s.setOpen);
@@ -402,7 +405,7 @@ const queueToast = (t: string) => { try { sessionStorage.setItem(TOAST_KEY, t); 
  * Leaving a draft course: keep it as a draft to carry on later, or discard it. Discarding a new course
  * removes it; discarding a new version goes back to the live one. Discard asks once more.
  */
-function LeaveDialog({ course, hasLive, draftVersion, onCancel }: { course: Course; hasLive: boolean; draftVersion: number; onCancel: () => void }) {
+export function LeaveDialog({ course, hasLive, draftVersion, onCancel }: { course: Course; hasLive: boolean; draftVersion: number; onCancel: () => void }) {
   const router = useRouter();
   const discardDraft = useApp((s) => s.discardDraft);
   const [confirming, setConfirming] = useState(false);
@@ -417,14 +420,14 @@ function LeaveDialog({ course, hasLive, draftVersion, onCancel }: { course: Cour
     <Portal>
       <div className="fixed inset-0 z-[70] grid place-items-center bg-ink/40 p-4 backdrop-blur-sm" role={confirming ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="leave-title" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
         <div className="select-pop relative w-full max-w-[420px] overflow-hidden rounded-card border border-hair bg-card shadow-modal">
-          <button type="button" aria-label="Stay in this course" onClick={onCancel} className="absolute right-3 top-3 grid size-8 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink"><X className="size-4" /></button>
+          <button type="button" aria-label="Stay in this training" onClick={onCancel} className="absolute right-3 top-3 grid size-8 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink"><X className="size-4" /></button>
           <div className="flex flex-col gap-1.5 p-5 pr-12">
             {confirming && <span className="mb-2 grid size-10 place-items-center rounded-full bg-warn-bg text-warn">{hasLive ? <Archive className="size-5" aria-hidden="true" /> : <Trash2 className="size-5" aria-hidden="true" />}</span>}
-            <Text as="h2" id="leave-title" size="title" weight="bold">{confirming ? (hasLive ? `Discard the v${draftVersion} draft?` : "Discard this course?") : "Leave this course?"}</Text>
+            <Text as="h2" id="leave-title" size="title" weight="bold">{confirming ? (hasLive ? `Discard the v${draftVersion} draft?` : "Discard this training?") : "Leave this training?"}</Text>
             <Text size="body" tone="muted">
               {confirming
                 ? hasLive ? `Your changes since v${draftVersion - 1} are thrown away. v${draftVersion - 1} stays live for reps.` : "It hasn't been published, so it's removed for good, roleplays included."
-                : "Save it as a draft to carry on later from Courses, or discard it."}
+                : "Save it as a draft to carry on later from Trainings, or discard it."}
             </Text>
           </div>
           <div className="flex flex-col gap-2 border-t border-hair bg-canvas/60 p-4">
@@ -436,7 +439,7 @@ function LeaveDialog({ course, hasLive, draftVersion, onCancel }: { course: Cour
             ) : (
               <>
                 <Button fullWidth onClick={save}><Save className="size-4" aria-hidden="true" />Save as draft</Button>
-                <Button fullWidth variant="secondary" onClick={() => setConfirming(true)}>{hasLive ? "Discard this draft" : "Discard course"}</Button>
+                <Button fullWidth variant="secondary" onClick={() => setConfirming(true)}>{hasLive ? "Discard this draft" : "Discard training"}</Button>
               </>
             )}
           </div>

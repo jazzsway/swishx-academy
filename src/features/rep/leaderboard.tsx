@@ -88,7 +88,7 @@ export function RepLeaderboard() {
             <div className="flex justify-between text-micro font-semibold text-white/60"><span>Bottom</span><span>Middle</span><span>Top</span></div>
           </div>
           <Text size="body" tone="inverse" className="opacity-85">
-            {st.gap ? `${st.gap.points} more points passes #${st.gap.rank}. Finishing one module with its quick check is worth 35.` : "You're top of your team. Keep the streak going."} {daysLeftInMonth()} days left in {monthName()}.
+            {st.gap ? `${st.gap.points} more points passes #${st.gap.rank}. Finishing one lesson with its quick check is worth 35.` : "You're top of your team. Keep the streak going."} {daysLeftInMonth()} days left in {monthName()}.
           </Text>
         </div>
       </section>
@@ -135,7 +135,7 @@ export function RepLeaderboard() {
               );
             })}
           </ul>
-        ) : <EmptyState title="No points yet this month" body="Finish a module or a practice call to get on the board." />}
+        ) : <EmptyState title="No points yet this month" body="Finish a lesson or a practice call to get on the board." />}
       </section>
     </div>
   );

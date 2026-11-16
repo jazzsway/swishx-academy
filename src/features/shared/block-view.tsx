@@ -14,7 +14,7 @@ import { Text } from "@/components/ui/text";
 import { Citation } from "@/components/patterns/academy";
 
 export const BLOCK_META: Record<Block["type"], { label: string; icon: typeof Check }> = {
-  lesson: { label: "Lesson", icon: BookOpenText },
+  lesson: { label: "Text", icon: BookOpenText },
   keypoints: { label: "Key points", icon: ListChecks },
   flashcards: { label: "Flashcards", icon: Layers },
   check: { label: "Knowledge check", icon: Check },

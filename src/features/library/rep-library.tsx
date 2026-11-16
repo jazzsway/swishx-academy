@@ -21,7 +21,7 @@ import { COMPARATIVE_HINTS, KIND_LABEL, OFF_LABEL_HINTS, libraryCourses, library
 
 const KIND_ICON = { playlist: ListVideo, graphic: ChartPie, reading: FileText, visualaid: Presentation, video: CirclePlay };
 const FILTERS = [
-  { id: "all", label: "All" }, { id: "course", label: "Courses" }, { id: "playlist", label: "Playlists" }, { id: "video", label: "Videos" },
+  { id: "all", label: "All" }, { id: "course", label: "Trainings" }, { id: "playlist", label: "Playlists" }, { id: "video", label: "Videos" },
   { id: "reading", label: "Reading" }, { id: "visualaid", label: "Visual aids" }, { id: "graphic", label: "Graphics" }, { id: "audio", label: "Audio" },
 ] as const;
 type Filter = (typeof FILTERS)[number]["id"];
@@ -36,7 +36,7 @@ function CourseCard({ c }: { c: Course }) {
     <Link href={`/rep/course/${c.id}`} className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4 transition-colors hover:bg-subtle">
       <div className="flex items-center gap-2">
         <span className="grid size-9 place-items-center rounded-control bg-tint text-brand-deep"><BookOpen className="size-4.5" aria-hidden="true" /></span>
-        <div className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold" truncate>{c.title}</Text><Text size="micro" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.modules.length} modules · {courseMinutes(c)} min</Text></div>
+        <div className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold" truncate>{c.title}</Text><Text size="micro" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.modules.length} lessons · {courseMinutes(c)} min</Text></div>
         {status && <Chip size="xs" tone={p?.state === "certified" ? "ok" : "brand"}>{status}</Chip>}
       </div>
       <Text size="body" tone="muted" clamp={2}>{c.objective}</Text>
@@ -108,7 +108,7 @@ export function LibraryHome() {
       <form onSubmit={(e) => { e.preventDefault(); setSubmitted(q); }} className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-ink-4" aria-hidden="true" />
         <label htmlFor="lib-search" className="sr-only">Search the Library</label>
-        <input id="lib-search" value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value) setSubmitted(""); }} placeholder="Search videos, readings, courses…"
+        <input id="lib-search" value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value) setSubmitted(""); }} placeholder="Search videos, readings, trainings…"
           className="squircle h-12 w-full rounded-control border border-hair-2 bg-card pl-10 pr-3 text-subhead outline-none focus:border-brand" />
       </form>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -143,7 +143,7 @@ export function LibraryHome() {
           {show("reading") && byKind("reading").length > 0 && <Shelf title="Reading room" count={byKind("reading").length}><div className="flex flex-col gap-2">{byKind("reading").map((m) => <MaterialCard key={m.id} m={m} />)}</div></Shelf>}
           {show("graphic") && byKind("graphic").length > 0 && <Shelf title="Graphics" count={byKind("graphic").length}><div className="grid grid-cols-2 gap-2.5">{byKind("graphic").map((m) => <GraphicTile key={m.id} m={m} />)}</div></Shelf>}
           {show("audio") && blockOf("audio").length > 0 && <Shelf title="Listen on the road" count={blockOf("audio").length}><div className="flex flex-col gap-2">{blockOf("audio").map(({ c, m, b }) => <BlockRow key={b.id} c={c} m={m.title} b={b} />)}</div></Shelf>}
-          {show("course") && <Shelf title="All courses" count={courses.length}><div className="flex flex-col gap-2.5">{courses.filter((c) => !team.includes(c)).map((c) => <CourseCard key={c.id} c={c} />)}</div></Shelf>}
+          {show("course") && <Shelf title="All trainings" count={courses.length}><div className="flex flex-col gap-2.5">{courses.filter((c) => !team.includes(c)).map((c) => <CourseCard key={c.id} c={c} />)}</div></Shelf>}
         </>
       )}
     </div>

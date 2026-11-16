@@ -31,7 +31,7 @@ function useCampaignProgress(c: Campaign) {
 }
 
 const startedMessage = (r: { created: number; linked: number; elsewhere: number }) =>
-  [`${r.created} new assignments`, r.linked ? `${r.linked} already had the course and joined` : "", r.elsewhere ? `${r.elsewhere} stay in another campaign` : ""].filter(Boolean).join(" · ");
+  [`${r.created} new assignments`, r.linked ? `${r.linked} already had the training and joined` : "", r.elsewhere ? `${r.elsewhere} stay in another campaign` : ""].filter(Boolean).join(" · ");
 
 export function CampaignList() {
   const router = useRouter();
@@ -195,7 +195,7 @@ export function NewCampaign() {
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6">
       <Link href="/trainer/campaigns" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Campaigns</Link>
-      <PageHeading title="New campaign" description={type === "label_update" ? "Everyone certified on the old version recertifies on the new one by the due date." : "Group courses, an audience and a deadline, and track readiness against a target."} />
+      <PageHeading title="New campaign" description={type === "label_update" ? "Everyone certified on the old version recertifies on the new one by the due date." : "Group trainings, an audience and a deadline, and track readiness against a target."} />
       <Card title="What">
         <div className="grid gap-2 sm:grid-cols-2">
           {(Object.keys(TYPE_META) as Campaign["type"][]).map((t) => {
@@ -210,14 +210,14 @@ export function NewCampaign() {
         </div>
         <Field label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Q1 onboarding cohort" />
         <div className="flex flex-col gap-2">
-          <Text size="label" weight="semibold" tone="muted">Courses (published only)</Text>
+          <Text size="label" weight="semibold" tone="muted">Trainings (published only)</Text>
           <div className="flex flex-wrap gap-2">{published.map((c) => <Chip key={c.id} size="lg" selected={courseIds.includes(c.id)} onClick={() => setCourseIds(courseIds.includes(c.id) ? courseIds.filter((x) => x !== c.id) : [...courseIds, c.id])}>{c.title}</Chip>)}</div>
         </div>
       </Card>
       <Card title="Who"><AudienceBuilder rules={rules} onChange={setRules} /></Card>
       <Card title="When">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Starts" type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} hint={startsLater ? "Courses are assigned on this date." : "Courses are assigned as soon as you start."} />
+          <Field label="Starts" type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} hint={startsLater ? "Trainings are assigned on this date." : "Trainings are assigned as soon as you start."} />
           <Field label="Due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           <Field label="Target certified %" type="number" value={target} onChange={(e) => setTarget(Number(e.target.value))} />
         </div>

@@ -172,7 +172,7 @@ export function CourseEditor() {
                 <Link href={`/trainer/courses/${course.id}/questions?module=${mod.id}`} className="squircle flex items-center gap-3 rounded-card border border-hair bg-card p-4 transition-colors hover:bg-subtle">
                   <span className="grid size-9 shrink-0 place-items-center rounded-control bg-subtle text-ink-2"><ListChecks className="size-4.5" aria-hidden="true" /></span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <Text size="body-lg" weight="semibold">{n} question{n === 1 ? "" : "s"} test this module</Text>
+                    <Text size="body-lg" weight="semibold">{n} question{n === 1 ? "" : "s"} test this lesson</Text>
                     <Text size="caption" tone="subtle">Knowledge checks, screening and final-assessment questions are in the Questions tab.</Text>
                   </span>
                   <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
@@ -185,14 +185,14 @@ export function CourseEditor() {
                 className="squircle flex items-center gap-3 rounded-card border border-dashed border-hair-3 p-4 text-left transition-colors hover:bg-subtle">
                 <span className="grid size-9 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><AgentIcon className="size-4.5" /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <Text size="body-lg" weight="semibold">{course.origin === "direct" ? "Arrange the course with the agent" : "Change this module with the SwishX AI Agent"}</Text>
-                  <Text size="caption" tone="subtle">{course.origin === "direct" ? "Move, rename or remove this module, or attach another file as a new module. Your files are never rewritten." : "Add a video, audio or PDF pages, split a recording into clips, rename it, or remove something. Attach your own files in the chat."}</Text>
+                  <Text size="body-lg" weight="semibold">{course.origin === "direct" ? "Arrange the training with the agent" : "Change this lesson with the SwishX AI Agent"}</Text>
+                  <Text size="caption" tone="subtle">{course.origin === "direct" ? "Move, rename or remove this lesson, or attach another file as a new lesson. Your files are never rewritten." : "Add a video, audio or PDF pages, split a recording into clips, rename it, or remove something. Attach your own files in the chat."}</Text>
                 </span>
               </button>
             )}
           </>
         ) : (
-          <div className="squircle rounded-card border border-dashed border-hair-2 p-10 text-center"><Text tone="subtle">No modules yet.</Text></div>
+          <div className="squircle rounded-card border border-dashed border-hair-2 p-10 text-center"><Text tone="subtle">No lessons yet.</Text></div>
         )}
       </div>
 
@@ -248,11 +248,11 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
     id: "hello", from: "ai",
     text: direct
       ? fresh
-        ? `I placed your ${data?.course.modules.length ?? 0} files as ${data?.course.modules.length ?? 0} modules, in your order, exactly as uploaded. No questions added. I also drafted a roleplay${roleplay ? ` with ${roleplay.persona.name}` : ""} from your ${data?.course.roleplaySourceIds?.length || "course"} ${data?.course.roleplaySourceIds?.length === 1 ? "document" : "documents"}. Open it under AI roleplay on the left to shape the call.`
-        : editable ? "I can reorder, rename or remove modules, and add your files. I don't write content into a direct course." : "This version is locked. To change it, start a new version."
+        ? `I placed your ${data?.course.modules.length ?? 0} files as ${data?.course.modules.length ?? 0} lessons, in your order, exactly as uploaded. No questions added. I also drafted a roleplay${roleplay ? ` with ${roleplay.persona.name}` : ""} from your ${data?.course.roleplaySourceIds?.length || "course"} ${data?.course.roleplaySourceIds?.length === 1 ? "document" : "documents"}. Open it under AI roleplay on the left to shape the call.`
+        : editable ? "I can reorder, rename or remove lessons, and add your files. I don't write content into a direct training." : "This version is locked. To change it, start a new version."
       : fresh
-      ? `I wrote ${data?.course.modules.length ?? 0} modules from ${data?.course.sourceIds.length ?? 0} sources, plus ${data?.course.items.length ?? 0} questions. ${issues ? `${issues} finding${issues > 1 ? "s" : ""} need${issues > 1 ? "" : "s"} your attention before review.` : "Everything is cited."}`
-      : editable ? "Ask me to change this course. I'll only use its sources, and every change waits for your OK." : "This version is locked. I can answer questions about it; to change it, start a new version.",
+      ? `I wrote ${data?.course.modules.length ?? 0} lessons from ${data?.course.sourceIds.length ?? 0} sources, plus ${data?.course.items.length ?? 0} questions. ${issues ? `${issues} finding${issues > 1 ? "s" : ""} need${issues > 1 ? "" : "s"} your attention before review.` : "Everything is cited."}`
+      : editable ? "Ask me to change this training. I'll only use its sources, and every change waits for your OK." : "This version is locked. I can answer questions about it; to change it, start a new version.",
   }]);
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -278,7 +278,7 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
       const mods = directModules(added, `d${Date.now().toString(36).slice(-4)}`);
       setTurns((t) => [...t,
         { id: `u${Date.now()}`, from: "you", text: `Attached ${files.map((f) => f.name).join(", ")}` },
-        { id: `a${Date.now()}`, from: "ai", text: `I'll add ${added.length === 1 ? "it" : "them"} as ${added.length === 1 ? "a new module" : `${added.length} new modules`} at the end, exactly as uploaded.`, changes: mods.map((m) => ({ kind: "addModule" as const, module: m })), status: "pending" },
+        { id: `a${Date.now()}`, from: "ai", text: `I'll add ${added.length === 1 ? "it" : "them"} as ${added.length === 1 ? "a new lesson" : `${added.length} new lessons`} at the end, exactly as uploaded.`, changes: mods.map((m) => ({ kind: "addModule" as const, module: m })), status: "pending" },
       ]);
       return;
     }
@@ -330,8 +330,8 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
                     {ch.kind === "items" && ch.items.map((it) => <span key={it.id} className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {it.question} <span className="text-micro font-bold">({it.format === "open" ? "written answer" : it.pool})</span></span>)}
                     {ch.kind === "insert" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ {ch.label}</span>}
                     {ch.kind === "move" && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
-                    {ch.kind === "addModule" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ Module: {ch.module.title} · {ch.module.minutes} min</span>}
-                    {(ch.kind === "removeBlock" || ch.kind === "removeModule" || ch.kind === "retire") && <span className="rounded-chip bg-danger-bg px-2 py-1 text-danger line-through decoration-danger/60">{ch.kind === "removeModule" ? "Module: " : ""}{ch.label}</span>}
+                    {ch.kind === "addModule" && <span className="rounded-chip bg-ok-bg px-2 py-1 text-ok">+ Lesson: {ch.module.title} · {ch.module.minutes} min</span>}
+                    {(ch.kind === "removeBlock" || ch.kind === "removeModule" || ch.kind === "retire") && <span className="rounded-chip bg-danger-bg px-2 py-1 text-danger line-through decoration-danger/60">{ch.kind === "removeModule" ? "Lesson: " : ""}{ch.label}</span>}
                     {ch.kind === "guide" && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                     {(ch.kind === "module" || ch.kind === "pool") && <span className="rounded-chip bg-tint px-2 py-1 text-brand-deep">{ch.label}</span>}
                   </div>
@@ -353,8 +353,8 @@ export function ChatPanel({ courseId, moduleId, editable, fresh, issues, onApply
       <div className="flex flex-col gap-2.5 border-t border-hair p-3">
         {started && <Suggestions items={suggestions.slice(0, 4)} onPick={send} variant="row" />}
         <Composer id="course-chat" value={text} onChange={setText} onSend={() => send(text)} busy={thinking} onAttach={attach}
-          placeholder={direct ? "Move, rename or remove a module, or attach a file" : moduleId ? "Ask for a change, e.g. add a short video to this module" : "Ask for a change"}
-          hint={direct ? "Nothing is written into your files. Changes wait for your OK." : `Uses only this course's ${data.course.sourceIds.length} sources. Changes wait for your OK.`} />
+          placeholder={direct ? "Move, rename or remove a lesson, or attach a file" : moduleId ? "Ask for a change, e.g. add a short video to this lesson" : "Ask for a change"}
+          hint={direct ? "Nothing is written into your files. Changes wait for your OK." : `Uses only this training's ${data.course.sourceIds.length} sources. Changes wait for your OK.`} />
       </div>
     </div>
   );

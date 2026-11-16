@@ -72,7 +72,7 @@ export function ProductPicker({ value, onChange }: { value: ProductScope; onChan
 
   return (
     <div className="flex flex-col gap-3">
-      <Segmented aria-label="What is this course about">
+      <Segmented aria-label="What is this training about">
         <SegmentedButton active={value.mode === "product"} onClick={() => set({ mode: "product" })}>A product</SegmentedButton>
         <SegmentedButton active={value.mode === "area"} onClick={() => onChange({ mode: "area", variants: [], indications: [], therapyAreas: value.mode === "area" ? value.therapyAreas : [] })}>A therapy area</SegmentedButton>
         <SegmentedButton active={value.mode === "company"} onClick={() => onChange({ mode: "company", variants: [], indications: [], therapyAreas: [] })}>Company training</SegmentedButton>
@@ -85,7 +85,7 @@ export function ProductPicker({ value, onChange }: { value: ProductScope; onChan
           <PickSearch value={areaQ} onChange={setAreaQ} placeholder="Search therapy areas (e.g. Dermatology, Oncology, Cardiology)…" />
           <ChipMultiSelect size="md" options={ALL_THERAPY_AREAS.filter((a) => a.toLowerCase().includes(areaQ.trim().toLowerCase())).map((a) => ({ id: a, label: a }))}
             selected={value.therapyAreas} onToggle={(a) => set({ therapyAreas: value.therapyAreas.includes(a) ? value.therapyAreas.filter((x) => x !== a) : [...value.therapyAreas, a] })} />
-          <Text size="caption" tone="subtle">{value.therapyAreas.length ? `${value.therapyAreas.length} therapy area${value.therapyAreas.length > 1 ? "s" : ""}: disease-state training with no product claims.` : "Pick one or more. Disease-state courses make no product claims."}</Text>
+          <Text size="caption" tone="subtle">{value.therapyAreas.length ? `${value.therapyAreas.length} therapy area${value.therapyAreas.length > 1 ? "s" : ""}: disease-state training with no product claims.` : "Pick one or more. Disease-state trainings make no product claims."}</Text>
         </div>
       )}
 
@@ -98,7 +98,7 @@ export function ProductPicker({ value, onChange }: { value: ProductScope; onChan
               <p className="mt-0.5 text-label text-ink-4">Search {PRODUCTS.length} products by brand, molecule, indication or therapy area.</p>
               {withCourses.length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  <span className="self-center text-caption text-ink-3">Has courses:</span>
+                  <span className="self-center text-caption text-ink-3">Has trainings:</span>
                   {withCourses.map((x) => <Chip key={x.id} size="md" onClick={() => pick(x)}>{x.brand}</Chip>)}
                 </div>
               )}

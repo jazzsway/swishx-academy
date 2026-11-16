@@ -45,17 +45,17 @@ const uid = () => Math.random().toString(36).slice(2, 8);
 
 export const SUGGESTIONS = [
   "Fix all citation and wording issues",
-  "Add a short video to this module",
+  "Add a short video to this lesson",
   "Add an audio version",
   "Add PDF pages for reps to read",
-  "Add a module on dosing",
-  "Shorten this module",
+  "Add a lesson on dosing",
+  "Shorten this lesson",
 ];
 
 /** Prompts for the Assessment tab, where the chat edits the question bank. */
 export const QUESTION_SUGGESTIONS = [
-  "Add an open question for this module",
-  "Add a quick check to this module",
+  "Add an open question for this lesson",
+  "Add a quick check to this lesson",
   "Which competencies have fewer than 6 questions?",
   "Add 3 harder questions on dosing",
   "Retire the questions nobody gets wrong",
@@ -64,7 +64,7 @@ export const QUESTION_SUGGESTIONS = [
 const quoted = (p: string) => p.match(/["“']([^"”']{3,})["”']/)?.[1];
 const BLOCK_WORDS: [RegExp, Block["type"][]][] = [
   [/video|clip|recording/, ["video"]], [/audio|listen/, ["audio"]], [/pdf|reading|pages/, ["document"]],
-  [/visual aid|walkthrough/, ["visualaid"]], [/check|quiz/, ["check"]], [/key ?points/, ["keypoints"]], [/lesson|text/, ["lesson"]],
+  [/visual aid|walkthrough/, ["visualaid"]], [/check|quiz/, ["check"]], [/key ?points/, ["keypoints"]], [/\btext\b|reading/, ["lesson"]],
 ];
 const MODULE_TOPICS: [RegExp, string][] = [
   [/dos(e|ing)|inject|administ/, "c-dosing"], [/safety|isi|fair balance/, "c-safety"], [/efficacy|trial|lumen|results/, "c-efficacy"],
@@ -89,28 +89,28 @@ function editAction(p: string, raw: string, course: Course, mod: Module): ChatTu
       if (index >= 0) return say(`Here's the edit in ${m.title}. It keeps the original citation; checks will flag it if the source doesn't support the new wording.`,
         [{ kind: "para", moduleId: m.id, blockId: b.id, index, before: b.paragraphs![index], after: { ...b.paragraphs![index], text: swap[2] } }]);
     }
-    return say("I couldn't find that sentence in this course. Copy a few words of it exactly, in quotes.");
+    return say("I couldn't find that sentence in this training. Copy a few words of it exactly, in quotes.");
   }
 
-  if (add && /module/.test(p) && !/this module|to (the )?module/.test(p)) {
+  if (add && /module|lesson/.test(p) && !/this (module|lesson)|to (the )?(module|lesson)/.test(p)) {
     const comp = MODULE_TOPICS.find(([re]) => re.test(p))?.[1];
     const pick = LUMORA_LAUNCH_MODULES.find((m) => m.competency === comp && !course.modules.some((x) => x.title === m.title));
-    if (!course.productId || course.productId !== "p-lumora" || !pick) return say(comp ? `Your sources don't have enough on ${competency(comp).name.toLowerCase()} for a new module. Add a document that covers it under Materials first.` : "Tell me what the module should cover, for example “Add a module on dosing”.");
+    if (!course.productId || course.productId !== "p-lumora" || !pick) return say(comp ? `Your sources don't have enough on ${competency(comp).name.toLowerCase()} for a new lesson. Add a document that covers it under Materials first.` : "Tell me what the lesson should cover, for example “Add a lesson on dosing”.");
     const id = `${course.id.slice(-4)}m${uid()}`;
     const module: Module = { ...pick, id, blocks: pick.blocks.map((b, i) => ({ ...b, id: `${id}-b${i + 1}` })) };
-    return say(`A ${module.minutes}-minute module, “${module.title}”, written from your sources and cited by page. It goes at the end; ask me to move it if you want it earlier.`, [{ kind: "addModule", module }]);
+    return say(`A ${module.minutes}-minute lesson, “${module.title}”, written from your sources and cited by page. It goes at the end; ask me to move it if you want it earlier.`, [{ kind: "addModule", module }]);
   }
 
-  if (remove && /module/.test(p) && /this module|the module/.test(p)) {
+  if (remove && /module|lesson/.test(p) && /this (module|lesson)|the (module|lesson)/.test(p)) {
     if (mod.required) return say(`${mod.title} is required for everyone, so I can't remove it. Safety and fair balance always stay in.`);
     return say(`I'll remove “${mod.title}” (${mod.minutes} min). Reps who already finished it keep their progress.`, [{ kind: "removeModule", moduleId: mod.id, label: mod.title }]);
   }
 
-  const rename = raw.match(/(?:rename|call)\s+(?:this|the)?\s*module\s+(?:to\s+)?["“]?(.+?)["”]?$/i) ?? (/(rename|title)/.test(p) ? [null, quoted(raw)] : null);
-  if (rename?.[1]) return say(`Renaming the module to “${rename[1]}”.`, [{ kind: "module", moduleId: mod.id, patch: { title: rename[1] }, label: `Title → ${rename[1]}` }]);
+  const rename = raw.match(/(?:rename|call)\s+(?:this|the)?\s*(?:module|lesson)\s+(?:to\s+)?["“]?(.+?)["”]?$/i) ?? (/(rename|title)/.test(p) ? [null, quoted(raw)] : null);
+  if (rename?.[1]) return say(`Renaming the lesson to “${rename[1]}”.`, [{ kind: "module", moduleId: mod.id, patch: { title: rename[1] }, label: `Title → ${rename[1]}` }]);
 
   if (/(personalis|optional|not required|skip if they know)/.test(p)) {
-    if (mod.competency === "c-safety") return say("Safety modules stay required for everyone. Reps can't screen out of safety content.");
+    if (mod.competency === "c-safety") return say("Safety lessons stay required for everyone. Reps can't screen out of safety content.");
     return say(`Reps who already know ${competency(mod.competency).name.toLowerCase()} will skip “${mod.title}” after screening.`, [{ kind: "module", moduleId: mod.id, patch: { required: false }, label: "Personalisable: reps can test out" }]);
   }
   if (/required|everyone (takes|must)|mandatory/.test(p) && !add) {
@@ -129,24 +129,24 @@ function editAction(p: string, raw: string, course: Course, mod: Module): ChatTu
     const b = (type && mod.blocks.find((x) => type.includes(x.type))) || mod.blocks.find((x) => quoted(raw) && x.title.toLowerCase().includes(quoted(raw)!.toLowerCase()));
     if (!b) return null;
     if (mod.required && (b.type === "lesson" || b.type === "keypoints")) return say(`${mod.title} is required for everyone, so its teaching stays. I can remove media or checks from it.`);
-    if (mod.blocks.length <= 1) return say(`That's the only piece in ${mod.title}. Remove the module instead?`);
+    if (mod.blocks.length <= 1) return say(`That's the only piece in ${mod.title}. Remove the lesson instead?`);
     return say(`I'll remove “${b.title}” from ${mod.title}.`, [{ kind: "removeBlock", moduleId: mod.id, blockId: b.id, label: b.title }]);
   }
 
   if (add && /audio|listen|podcast/.test(p)) {
     const a = audioBlock(mod);
-    return a ? block(a, `An audio version of ${mod.title}. It reads the module's cited text aloud, so there's nothing new to check.`) : say(`${mod.title} has no lesson text to read aloud yet.`);
+    return a ? block(a, `An audio version of ${mod.title}. It reads the lesson's cited text aloud, so there's nothing new to check.`) : say(`${mod.title} has no lesson text to read aloud yet.`);
   }
   if (add && /visual aid|walkthrough|detailer/.test(p)) {
-    if (!va) return say("This course has no visual aid in its materials. Add one under Materials and I'll build a walkthrough.");
+    if (!va) return say("This training has no visual aid in its materials. Add one under Materials and I'll build a walkthrough.");
     return block(visualAidBlock(mod, va, Object.keys(VA_PAGES[va]).map(Number).slice(0, 3)), "A walkthrough of the first three visual-aid pages, with what to say on each. Check the talking points before you publish.");
   }
   if (add && /pdf|pages|reading|read the/.test(p)) {
-    if (!pi) return say("None of this course's documents can be shown page by page yet.");
+    if (!pi) return say("None of this training's documents can be shown page by page yet.");
     return block(documentBlock(mod, pi, Object.keys(DOC_PAGES[pi]).map(Number).slice(0, 2), ""), "Two pages for reps to read in the app, view-only. They count toward completion once every page is opened.");
   }
   if (add && /video/.test(p)) {
-    return block(videoFromModule(mod, "ai"), `A short explainer video for ${mod.title}, scripted only from the module's cited sentences. Watch it once before you publish.`);
+    return block(videoFromModule(mod, "ai"), `A short explainer video for ${mod.title}, scripted only from the lesson's cited sentences. Watch it once before you publish.`);
   }
   return null;
 }
@@ -170,7 +170,7 @@ function openQuestionFor(course: Course, mod: Module): Item {
 function questionAction(p: string, raw: string, course: Course, mod?: Module): ChatTurn | null {
   if (mod && /(open|written|subjective|own words)/.test(p) && /question/.test(p) && /(add|write|draft|create|new)/.test(p)) {
     const it = openQuestionFor(course, mod);
-    return { id: uid(), from: "ai", text: `A written-answer question for ${mod.title}. I drafted a suggested answer and ${it.guide!.mustCover.length} points a good answer must cover, all from the module's cited sentences. Tell me what a right answer must say, and I'll mark against that too.`, changes: [{ kind: "items", items: [it] }], status: "pending" };
+    return { id: uid(), from: "ai", text: `A written-answer question for ${mod.title}. I drafted a suggested answer and ${it.guide!.mustCover.length} points a good answer must cover, all from the lesson's cited sentences. Tell me what a right answer must say, and I'll mark against that too.`, changes: [{ kind: "items", items: [it] }], status: "pending" };
   }
   const guide = raw.match(/^for\s+["“']([^"”']{3,})["”'][^,]*,\s*(.+)$/i);
   if (guide) {
@@ -244,7 +244,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
     for (const b of mod.blocks) {
       if (b.paragraphs && b.paragraphs.length >= 2) {
         const index = b.paragraphs.length - 1;
-        return { id: uid(), from: "ai", text: `I'd cut the last sentence of "${b.title}" in ${mod.title}. It repeats a point made elsewhere in the module. That saves about 1 minute.`, changes: [{ kind: "para", moduleId: mod.id, blockId: b.id, index, before: b.paragraphs[index] }], status: "pending" };
+        return { id: uid(), from: "ai", text: `I'd cut the last sentence of "${b.title}" in ${mod.title}. It repeats a point made elsewhere in the lesson. That saves about 1 minute.`, changes: [{ kind: "para", moduleId: mod.id, blockId: b.id, index, before: b.paragraphs[index] }], status: "pending" };
       }
     }
     return { id: uid(), from: "ai", text: `${mod.title} is already as short as it can be without losing a cited point.` };
@@ -262,7 +262,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
     return { id: uid(), from: "ai", text: "Three harder dosing questions, each with an answer key, rationale and PI page. Two go to the assessment pool, one to screening.", changes: [{ kind: "items", items }], status: "pending" };
   }
 
-  return { id: uid(), from: "ai", text: "I make every change to this course. For example: add a video, audio or PDF pages, split a recording into clips, add or remove a module, rename it, make it required, change a sentence (Change “…” to “…”), add checks or questions, or retire a question. Every change waits for your OK." };
+  return { id: uid(), from: "ai", text: "I make every change to this training. For example: add a video, audio or PDF pages, split a recording into clips, add or remove a lesson, rename it, make it required, change a sentence (Change “…” to “…”), add checks or questions, or retire a question. Every change waits for your OK." };
 }
 
 export function applyChanges(course: Course, changes: Change[]): { modules: Module[]; items: Item[] } {
@@ -310,10 +310,10 @@ export function applyChanges(course: Course, changes: Change[]): { modules: Modu
 
 /** Prompts for a direct course: the agent arranges the trainer's files, it doesn't write. */
 export const DIRECT_SUGGESTIONS = [
-  "Move this module to the start",
-  "Rename this module",
-  "Remove this module",
-  "What will reps see in this module?",
+  "Move this lesson to the start",
+  "Rename this lesson",
+  "Remove this lesson",
+  "What will reps see in this lesson?",
 ];
 
 /**
@@ -324,32 +324,32 @@ export function directRespond(prompt: string, course: Course, moduleId?: string)
   const p = prompt.toLowerCase();
   const id = `a${Date.now()}`;
   const mods = course.modules;
-  const n = Number(p.match(/module\s*(\d+)/)?.[1]);
+  const n = Number(p.match(/(?:module|lesson)\s*(\d+)/)?.[1]);
   const mod = (n && mods[n - 1]) || mods.find((m) => m.id === moduleId) || mods[0];
   const pos = mods.findIndex((m) => m.id === mod?.id);
-  if (!mod) return { id, from: "ai", text: "There are no modules yet. Attach a file with the paperclip and I'll add it as module 1." };
+  if (!mod) return { id, from: "ai", text: "There are no lessons yet. Attach a file with the paperclip and I'll add it as lesson 1." };
   const to = /\b(start|first|top|beginning)\b/.test(p) ? 0 : /\b(end|last|bottom)\b/.test(p) ? mods.length - 1
     : /\bup\b|earlier|before/.test(p) ? pos - 1 : /\bdown\b|later|after/.test(p) ? pos + 1 : Number(p.match(/(?:to|position)\s*(\d+)/)?.[1]) - 1;
   if (/move|reorder|put|first|last|start|earlier|later/.test(p) && Number.isFinite(to) && to >= 0) {
-    if (to === pos) return { id, from: "ai", text: `${mod.title} is already module ${pos + 1}.` };
-    return { id, from: "ai", text: `I'll move "${mod.title}" from module ${pos + 1} to module ${to + 1}. Everything else keeps its order.`, changes: [{ kind: "move", moduleId: mod.id, to, label: `Move "${mod.title}" to module ${to + 1}` }], status: "pending" };
+    if (to === pos) return { id, from: "ai", text: `${mod.title} is already lesson ${pos + 1}.` };
+    return { id, from: "ai", text: `I'll move "${mod.title}" from lesson ${pos + 1} to lesson ${to + 1}. Everything else keeps its order.`, changes: [{ kind: "move", moduleId: mod.id, to, label: `Move "${mod.title}" to lesson ${to + 1}` }], status: "pending" };
   }
   const name = prompt.match(/(?:rename|call)[^"“]*["“]([^"”]+)["”]/i)?.[1] ?? prompt.match(/rename .*? to (.+)$/i)?.[1];
   if (/rename|call it|title/.test(p)) {
-    if (!name) return { id, from: "ai", text: `What should "${mod.title}" be called? Say it in quotes, like: rename this module to "Dosing at a glance".` };
-    return { id, from: "ai", text: `Renaming module ${pos + 1}. The file inside stays exactly as it is.`, changes: [{ kind: "module", moduleId: mod.id, patch: { title: name.trim().replace(/[.]$/, "") }, label: `"${mod.title}" → "${name.trim().replace(/[.]$/, "")}"` }], status: "pending" };
+    if (!name) return { id, from: "ai", text: `What should "${mod.title}" be called? Say it in quotes, like: rename this lesson to "Dosing at a glance".` };
+    return { id, from: "ai", text: `Renaming lesson ${pos + 1}. The file inside stays exactly as it is.`, changes: [{ kind: "module", moduleId: mod.id, patch: { title: name.trim().replace(/[.]$/, "") }, label: `"${mod.title}" → "${name.trim().replace(/[.]$/, "")}"` }], status: "pending" };
   }
   if (/remove|delete|drop/.test(p)) {
-    if (mods.length === 1) return { id, from: "ai", text: "This is the only module. Add another file first, then remove this one." };
-    return { id, from: "ai", text: `I'll take "${mod.title}" out of the course. The file stays in your uploads if you want it back.`, changes: [{ kind: "removeModule", moduleId: mod.id, label: mod.title }], status: "pending" };
+    if (mods.length === 1) return { id, from: "ai", text: "This is the only lesson. Add another file first, then remove this one." };
+    return { id, from: "ai", text: `I'll take "${mod.title}" out of the training. The file stays in your uploads if you want it back.`, changes: [{ kind: "removeModule", moduleId: mod.id, label: mod.title }], status: "pending" };
   }
   if (/what will|what do reps|see in/.test(p)) {
     const b = mod.blocks[0];
-    return { id, from: "ai", text: `Module ${pos + 1} shows reps "${b?.title ?? mod.title}" exactly as uploaded. It counts as done once they've ${b?.type === "file" && (b.file?.format === "video" || b.file?.format === "audio") ? "played 90% of it" : "seen every page"}. There's no quiz in it.` };
+    return { id, from: "ai", text: `Lesson ${pos + 1} shows reps "${b?.title ?? mod.title}" exactly as uploaded. It counts as done once they've ${b?.type === "file" && (b.file?.format === "video" || b.file?.format === "audio") ? "played 90% of it" : "seen every page"}. There's no quiz in it.` };
   }
-  if (/add|upload|attach|file/.test(p)) return { id, from: "ai", text: "Attach the file with the paperclip below. I'll add it as a new module at the end, exactly as it is, and you can move it from there." };
+  if (/add|upload|attach|file/.test(p)) return { id, from: "ai", text: "Attach the file with the paperclip below. I'll add it as a new lesson at the end, exactly as it is, and you can move it from there." };
   if (/roleplay|doctor|call|objection/.test(p)) return { id, from: "ai", text: "The roleplay has its own place: pick it under AI roleplay on the left and I'll edit the call there." };
   if (/write|summar|question|quiz|check|lesson|generate|explain/.test(p))
-    return { id, from: "ai", text: "This is a direct course, so I don't write content or add questions to your material. I can reorder, rename or remove modules, add your files, and shape the roleplay." };
-  return { id, from: "ai", text: `I can move, rename or remove modules, and add your files as new modules. Try "move this module to the start" or rename this module to "Dosing at a glance".` };
+    return { id, from: "ai", text: "This is a direct training, so I don't write content or add questions to your material. I can reorder, rename or remove lessons, add your files, and shape the roleplay." };
+  return { id, from: "ai", text: `I can move, rename or remove lessons, and add your files as new lessons. Try "move this lesson to the start" or rename this lesson to "Dosing at a glance".` };
 }

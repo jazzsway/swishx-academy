@@ -39,7 +39,7 @@ export function TrainerAnalytics() {
   const inScope = scope === "all" ? published : published.filter((c) => c.id === scope);
   const ps = s.progress.filter((p) => inScope.some((c) => c.id === p.courseId) && (region === "all" || users.get(p.userId)?.regionId === region));
   const courseOf = (p: Progress) => s.courses.find((c) => c.id === p.courseId)!;
-  const scopeName = `${scope === "all" ? "All courses" : inScope[0]?.title}${region === "all" ? "" : ` · ${REGIONS.find((r) => r.id === region)?.name}`}`;
+  const scopeName = `${scope === "all" ? "All trainings" : inScope[0]?.title}${region === "all" ? "" : ` · ${REGIONS.find((r) => r.id === region)?.name}`}`;
 
   /* 1 · Is it working: only people with a screening and a final count towards gain. */
   const measured = ps.filter((p) => p.screening && p.attempts.length);
@@ -98,10 +98,10 @@ export function TrainerAnalytics() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Analytics" description="Is training working, who's getting through, who's learning most this month, and where to act. Filter by course or region; open a person in Teams."
+      <PageHeading title="Analytics" description="Is training working, who's getting through, who's learning most this month, and where to act. Filter by training or region; open a person in Teams."
         actions={<>
-          <select aria-label="Course" value={scope} onChange={(e) => setScope(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
-            <option value="all">All courses</option>
+          <select aria-label="Training" value={scope} onChange={(e) => setScope(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
+            <option value="all">All trainings</option>
             {published.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
           <select aria-label="Region" value={region} onChange={(e) => setRegion(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
@@ -209,17 +209,17 @@ export function TrainerAnalytics() {
               </div>
             ))}
           </div>
-          {practiceOnly > 0 && <Text size="caption" tone="subtle">{practiceOnly} assignment{practiceOnly === 1 ? " is" : "s are"} practice only: those reps skip the modules, so their gain comes from practice calls alone.</Text>}
+          {practiceOnly > 0 && <Text size="caption" tone="subtle">{practiceOnly} assignment{practiceOnly === 1 ? " is" : "s are"} practice only: those reps skip the lessons, so their gain comes from practice calls alone.</Text>}
         </Card>
       )}
 
       {/* 4 · Courses */}
-      <Card title="Courses" eyebrow="Lowest certification first">
+      <Card title="Trainings" eyebrow="Lowest certification first">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-body">
             <thead>
               <tr className="border-b border-hair text-left text-caption text-ink-3">
-                <th scope="col" className="py-2 pr-3 font-semibold">Course</th>
+                <th scope="col" className="py-2 pr-3 font-semibold">Training</th>
                 <th scope="col" className="px-3 py-2 font-semibold">Assigned</th>
                 <th scope="col" className="px-3 py-2 font-semibold">Started</th>
                 <th scope="col" className="w-[24%] px-3 py-2 font-semibold">Certified</th>
@@ -299,7 +299,7 @@ export function TrainerAnalytics() {
                   <li key={x.q} className="flex items-start gap-2.5 border-b border-hair py-2.5 last:border-0">
                     <SearchX className={cn("mt-0.5 size-4 shrink-0", off || cmp ? "text-danger" : "text-warn")} aria-hidden="true" />
                     <span className="flex min-w-0 flex-col"><Text size="body" weight="semibold">“{x.q}” <span className="font-normal text-ink-3">· {x.count}×</span></Text>
-                      <Text size="caption" tone="subtle">{off ? "Off-label interest. Remind reps about Medical Information requests." : cmp ? "Comparison interest. No head-to-head data; remind reps not to compare." : "Nothing covers this yet. A candidate for your next course."}</Text></span>
+                      <Text size="caption" tone="subtle">{off ? "Off-label interest. Remind reps about Medical Information requests." : cmp ? "Comparison interest. No head-to-head data; remind reps not to compare." : "Nothing covers this yet. A candidate for your next training."}</Text></span>
                   </li>
                 );
               })}

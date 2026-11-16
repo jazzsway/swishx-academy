@@ -54,7 +54,7 @@ export function Records() {
   const district = (u: User) => s.districts.find((d) => d.id === u.districtId)?.name ?? "";
 
   function exportCsv() {
-    const head = ["Rep", "Email", "District", "Course", "How assigned", "Version", "State", "Assigned", "Due", "Screening", "Attempts", "Final score", "Verified by", "Attested", "Certified", "Valid until"];
+    const head = ["Rep", "Email", "District", "Training", "How assigned", "Version", "State", "Assigned", "Due", "Screening", "Attempts", "Final score", "Verified by", "Attested", "Certified", "Valid until"];
     const lines = people.flatMap(({ u, ps }) => ps.map((p) => {
       const last = p.attempts.at(-1);
       return [u.name, u.email, district(u), courseOf(p).title, ASSIGN_LABEL[p.assignType], `v${p.version}`, STATE_LABEL[p.state], p.assignedAt, p.dueAt ?? "", p.screening?.overall ?? "", p.attempts.length, last?.overall ?? "", s.users.find((x) => x.id === p.verify?.by)?.name ?? "", p.attestedAt?.slice(0, 10) ?? "", p.certifiedAt ?? "", p.certExpiresAt ?? ""]
@@ -79,12 +79,12 @@ export function Records() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Teams" description="Every rep in your field teams and how they're doing. Open a person to see their progress, what improved, and each course."
+      <PageHeading title="Teams" description="Every rep in your field teams and how they're doing. Open a person to see their progress, what improved, and each training."
         actions={<Button variant="secondary" onClick={exportCsv}><Download className="size-4" aria-hidden="true" />Export CSV</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[260px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search people" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" /></div>
-        <select aria-label="Course" value={courseId} onChange={(e) => setCourseId(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
-          <option value="all">All courses</option>
+        <select aria-label="Training" value={courseId} onChange={(e) => setCourseId(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">
+          <option value="all">All trainings</option>
           {s.courses.filter((c) => s.progress.some((p) => p.courseId === c.id)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
         <select aria-label="Region" value={region} onChange={(e) => setRegion(e.target.value)} className="h-11 rounded-control border border-hair-2 bg-card px-3 text-body-lg">

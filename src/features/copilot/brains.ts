@@ -130,7 +130,7 @@ export const trainerBrain = {
   },
   prompts(ctx: Ctx) {
     if (pageCourse(ctx)) return ["Is this ready to publish?", "Where is the question bank thin?", "How is the rollout going?"];
-    return ["Who's overdue?", "Where are reps weakest?", "What's expiring soon?", "Build a course for Arthelis"];
+    return ["Who's overdue?", "Where are reps weakest?", "What's expiring soon?", "Build a training for Arthelis"];
   },
   answer(prompt: string, ctx: Ctx): CoReply {
     const p = prompt.toLowerCase();
@@ -138,12 +138,12 @@ export const trainerBrain = {
     const c = pageCourse(ctx);
 
     const brand = PRODUCTS.find((x) => p.includes(x.brand.toLowerCase()));
-    if (has(p, "build", "create", "new course", "draft a", "make a course")) {
+    if (has(p, "build", "create", "new training", "new course", "draft a", "make a training", "make a course")) {
       return {
         text: brand
-          ? `I'll start the course builder on ${brand.brand}. It drafts only from ${brand.brand}'s Prescribing Information and the sources you tick, and cites every sentence by page.`
+          ? `I'll start the training builder on ${brand.brand}. It drafts only from ${brand.brand}'s Prescribing Information and the sources you tick, and cites every sentence by page.`
           : "Tell me the product, or start the builder and pick it there. I draft only from the sources you tick, and cite every sentence by page.",
-        actions: [{ label: brand ? `Start the ${brand.brand} course` : "Open the course builder", href: `/trainer/courses/new${brand ? `?product=${brand.id}` : ""}` }],
+        actions: [{ label: brand ? `Start the ${brand.brand} training` : "Open the training builder", href: `/trainer/courses/new${brand ? `?product=${brand.id}` : ""}` }],
       };
     }
     if (c && has(p, "publish", "ready", "check", "issue", "finding")) return courseHealth(c);
@@ -201,12 +201,12 @@ export const trainerBrain = {
       return { text: q.length ? `${plural(q.length, "thing")} in your queue, most urgent first.` : "Your queue is clear.", items: q };
     }
     return {
-      text: "I can help you build and ship courses and keep the rollout on track. Try one of these:",
+      text: "I can help you build and ship trainings and keep the rollout on track. Try one of these:",
       items: [
-        { title: "Build a course for a product", sub: "“Build a course for Arthelis”" },
+        { title: "Build a training for a product", sub: "“Build a training for Arthelis”" },
         { title: "Find who's behind and nudge them", sub: "“Who's overdue?”" },
         { title: "Spot skill gaps", sub: "“Where are reps weakest?”" },
-        { title: "Check a course before you publish", sub: "Open a course, then “Is this ready to publish?”" },
+        { title: "Check a training before you publish", sub: "Open a training, then “Is this ready to publish?”" },
       ],
     };
   },
@@ -390,7 +390,7 @@ function repModule(ctx: Ctx): { course: Course; module: Module } | undefined {
 const cite = (sid?: string, page?: number) => (sid ? `${source(sid)?.title ?? "Source"}${page ? `, p. ${page}` : ""}` : undefined);
 
 export const repBrain = {
-  scope: "Answers only from approved course content. Off during screening and assessments.",
+  scope: "Answers only from approved training content. Off during screening and assessments.",
   briefing(ctx: Ctx): Briefing {
     const step = repNext(ctx);
     const mine = ctx.s.progress.filter((p) => p.userId === ctx.me.id);
@@ -407,10 +407,10 @@ export const repBrain = {
   prompts(ctx: Ctx) {
     const onCourse = !!pageCourse(ctx);
     return [
-      onCourse ? "Explain this module simply" : "What should I do next?",
+      onCourse ? "Explain this lesson simply" : "What should I do next?",
       "Help me with the cost objection",
       "Can I talk about use in teens?",
-      "When are my courses due?", // v1-hidden: "Quiz me for 2 minutes"
+      "When are my trainings due?", // v1-hidden: "Quiz me for 2 minutes"
     ];
   },
   answer(prompt: string, ctx: Ctx): CoReply {
@@ -428,13 +428,13 @@ export const repBrain = {
     }
     if (has(p, "explain", "summar", "module", "key point", "simply", "what is this")) {
       const r = repModule(ctx);
-      if (!r) return { text: "Open a course and I'll explain the module you're on, using its approved key points." };
+      if (!r) return { text: "Open a training and I'll explain the lesson you're on, using its approved key points." };
       const pts = r.module.blocks.flatMap((b) => b.points ?? []).slice(0, 4);
       const paras = pts.length ? pts : r.module.blocks.flatMap((b) => b.paragraphs ?? []).slice(0, 3);
       return {
         text: `${r.module.title}, in short: ${r.module.summary} Here are the approved key points, word for word:`,
         items: paras.map((x) => ({ title: x.text, sub: cite(x.cite?.sourceId, x.cite?.page) })),
-        actions: [{ label: "Open the module", href: `/rep/course/${r.course.id}/learn?module=${r.module.id}` }],
+        actions: [{ label: "Open the lesson", href: `/rep/course/${r.course.id}/learn?module=${r.module.id}` }],
       };
     }
     const ob = OBJECTIONS.find((o) => o.keywords.some((k) => p.includes(k)) || o.label.toLowerCase().split(/\W+/).some((w) => w.length > 3 && p.includes(w)));
@@ -471,7 +471,7 @@ export const repBrain = {
       text: "I can explain what you're learning, help you prepare for objections and keep you on track. I only use approved content.",
       items: [
         { title: "“What should I do next?”" },
-        { title: "“Explain this module simply”", sub: "On any course or module" },
+        { title: "“Explain this lesson simply”", sub: "On any training or lesson" },
         { title: "“Help me with the cost objection”" },
       ],
     };

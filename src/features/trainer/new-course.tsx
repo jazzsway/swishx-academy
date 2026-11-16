@@ -37,14 +37,14 @@ const nextStep = (n: number) => SHOWN[SHOWN.indexOf(n) + 1] ?? n;
 
 /** Personalised skips what a rep already knows; linear takes everyone through everything. */
 export const COURSE_TYPE = { // v1-hidden: only read by the commented-out course type picker
-  personalised: { label: "Personalised", hint: "A short screening first. Each rep gets only the modules they need, plus safety, then a final assessment and roleplay call.", useFor: "For skills: launches, objection handling." },
-  linear: { label: "Same for everyone", hint: "Every module in order, with quick checks along the way. No screening and no final assessment.", useFor: "For must-read content: label updates, compliance policy." },
+  personalised: { label: "Personalised", hint: "A short screening first. Each rep gets only the lessons they need, plus safety, then a final assessment and roleplay call.", useFor: "For skills: launches, objection handling." },
+  linear: { label: "Same for everyone", hint: "Every lesson in order, with quick checks along the way. No screening and no final assessment.", useFor: "For must-read content: label updates, compliance policy." },
 } as const;
 
 /** Sets depth and tone of what SwishX writes. Who must take it is decided later, at assignment. */
 const WRITTEN_FOR = {
   reps: { label: "Field reps", hint: "Experienced reps. Assumes they know the disease area." },
-  new_hires: { label: "New hires", hint: "Starts from the basics. Pairs with foundation courses." },
+  new_hires: { label: "New hires", hint: "Starts from the basics. Pairs with foundation trainings." },
   managers: { label: "Managers", hint: "The coaching angle: what to listen for in the field." },
 } as const;
 
@@ -236,10 +236,10 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What should reps be able to do?</Text>
-            <Text tone="subtle" size="body-lg">Describe the outcome. SwishX builds the course from your materials.</Text>
+            <Text tone="subtle" size="body-lg">Describe the outcome. SwishX builds the training from your materials.</Text>
           </div>
           <div className="flex flex-col gap-2">
-            <Text size="label" weight="semibold" tone="muted">What is this course about?</Text>
+            <Text size="label" weight="semibold" tone="muted">What is this training about?</Text>
             <ProductPicker value={scope} onChange={setScope} />
           </div>
           <Field label="Objective" multiline rows={3} value={objective} onChange={(e) => setObjective(e.target.value)} placeholder="What reps should be able to do by the end, e.g. handle the cost objection without promising coverage." />
@@ -247,7 +247,7 @@ export function NewCourseWizard() {
             className="-mt-2 flex items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline">
             <Wand2 className="size-4" aria-hidden="true" />Make it measurable
           </button>
-          <Field label="Course title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
+          <Field label="Training title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lumora: handling access & cost objections" />
           <ScreeningPicker value={screening && form !== "short"} onChange={setScreening} kind={form === "short" ? "short" : "long"} />
           <div className="flex flex-col gap-2">
             <Text size="label" weight="semibold" tone="muted">Type of content</Text>
@@ -303,12 +303,12 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">What do you already have?</Text>
-            <Text tone="subtle" size="body-lg">Add the materials you already have, and the source material SwishX should build the rest of the course from.</Text>
+            <Text tone="subtle" size="body-lg">Add the materials you already have, and the source material SwishX should build the rest of the training from.</Text>
           </div>
 
           <section className="flex flex-col gap-3" aria-labelledby="in-course-h">
             <div className="flex flex-col gap-0.5">
-              <Text as="h2" id="in-course-h" size="title" weight="bold">Put in the course{showItems.length ? <span className="font-semibold text-ink-3"> · {showItems.length}</span> : null}</Text>
+              <Text as="h2" id="in-course-h" size="title" weight="bold">Put in the training{showItems.length ? <span className="font-semibold text-ink-3"> · {showItems.length}</span> : null}</Text>
               <Text size="body" tone="subtle">Ready-made materials reps see as they are. SwishX also analyses them to write questions and assessments.</Text>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
@@ -320,13 +320,13 @@ export function NewCourseWizard() {
           <section className="flex flex-col gap-3 border-t border-hair pt-5" aria-labelledby="source-h">
             <div className="flex flex-col gap-0.5">
               <Text as="h2" id="source-h" size="title" weight="bold">Source material for SwishX<span className="font-semibold text-ink-3"> · {background.length}</span></Text>
-              <Text size="body" tone="subtle">SwishX uses these to create the rest of the course: lessons, questions and media. Reps don&apos;t see them directly.</Text>
+              <Text size="body" tone="subtle">SwishX uses these to create the rest of the training: lessons, questions and media. Reps don&apos;t see them directly.</Text>
             </div>
-            {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">Add the Prescribing Information. SwishX needs it for any product course.</div>}
+            {!hasPI && <div className="squircle rounded-panel border border-danger-line bg-danger-bg px-4 py-3 text-body font-semibold text-danger">Add the Prescribing Information. SwishX needs it for any product training.</div>}
             <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
               {background.map((s) => {
                 const pi = s.id === prod?.piSourceId;
-                return <MaterialTile key={`s-${s.id}`} s={s} sub={pi ? "Always included for a product course" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : s.type}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
+                return <MaterialTile key={`s-${s.id}`} s={s} sub={pi ? "Always included for a product training" : `${s.uploaded ? FORMAT_LABEL[s.uploaded.format] : s.type}${s.pages ? ` · ${s.pages} pages` : ""}`} locked={pi}
                   place={placeOf(s)} onPlace={(p) => setPlaces({ ...places, [s.id]: p })} onPreview={() => setPreview(s)} onRemove={pi ? undefined : () => unpick(s)} />;
               })}
               <Dropzone label="Add your own source material" kinds="PDF, documents or data" onFiles={(files) => addFiles(files, "background")} />
@@ -348,7 +348,7 @@ export function NewCourseWizard() {
           </section>
 
           <Text size="caption" tone="subtle" className="flex items-start gap-1.5 border-t border-hair pt-3">
-            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />In one go: your ready-made materials go straight into the course, and SwishX uses the source material to create whatever else the course needs.
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />In one go: your ready-made materials go straight into the training, and SwishX uses the source material to create whatever else the training needs.
           </Text>
           {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
         </Card>
@@ -390,7 +390,7 @@ export function NewCourseWizard() {
         <Card>
           <div className="flex flex-col gap-1">
             <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Check the outline before SwishX writes it</Text>
-            <Text tone="subtle" size="body-lg">Reorder, rename or remove modules. Nothing is written until you generate.</Text>
+            <Text tone="subtle" size="body-lg">Reorder, rename or remove lessons. Nothing is written until you generate.</Text>
           </div>
           <div className="squircle flex flex-col gap-2.5 rounded-panel bg-subtle px-4 py-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -415,7 +415,7 @@ export function NewCourseWizard() {
           {outlineLoading && (
             <div className="flex flex-col gap-2.5">
               {[0, 1, 2, 3].map((i) => <div key={i} className="shimmer h-[72px] rounded-panel border border-hair bg-subtle" />)}
-              <Text size="body" tone="subtle" className="dot-cycle">Reading {learnIds.length} files and placing {showItems.length} of yours in the course<span>.</span><span>.</span><span>.</span></Text>
+              <Text size="body" tone="subtle" className="dot-cycle">Reading {learnIds.length} files and placing {showItems.length} of yours in the training<span>.</span><span>.</span><span>.</span></Text>
             </div>
           )}
           {outline && (
@@ -424,7 +424,7 @@ export function NewCourseWizard() {
                 <li key={m.id} className="squircle flex items-start gap-3 rounded-panel border border-hair bg-card p-3.5">
                   <span className="grid size-8 shrink-0 place-items-center rounded-control bg-tint text-body font-bold text-brand-deep">{i + 1}</span>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <input aria-label={`Module ${i + 1} title`} value={m.title} onChange={(e) => setOutline(outline.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))}
+                    <input aria-label={`Lesson ${i + 1} title`} value={m.title} onChange={(e) => setOutline(outline.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))}
                       className="w-full rounded-chip bg-transparent text-body-lg font-semibold outline-none focus:bg-subtle" />
                     <Text size="caption" tone="subtle">{m.summary}</Text>
                     <div className="flex flex-wrap gap-1.5">
@@ -439,7 +439,7 @@ export function NewCourseWizard() {
                     <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => { const o = [...outline]; [o[i - 1], o[i]] = [o[i], o[i - 1]]; setOutline(o); }} className="grid size-7 place-items-center rounded-full text-ink-3 hover:bg-subtle disabled:opacity-30"><ChevronUp className="size-4" /></button>
                     <button type="button" aria-label="Move down" disabled={i === outline.length - 1} onClick={() => { const o = [...outline]; [o[i + 1], o[i]] = [o[i], o[i + 1]]; setOutline(o); }} className="grid size-7 place-items-center rounded-full text-ink-3 hover:bg-subtle disabled:opacity-30"><ChevronDown className="size-4" /></button>
                   </div>
-                  <button type="button" aria-label="Remove module" disabled={m.required} title={m.required ? "Safety modules can't be removed" : undefined}
+                  <button type="button" aria-label="Remove lesson" disabled={m.required} title={m.required ? "Safety lessons can't be removed" : undefined}
                     onClick={() => setOutline(outline.filter((x) => x.id !== m.id))} className="grid size-8 place-items-center rounded-full text-ink-3 hover:bg-danger-bg hover:text-danger disabled:opacity-30"><Trash2 className="size-4" /></button>
                 </li>
               ))}
@@ -450,7 +450,7 @@ export function NewCourseWizard() {
             return (
               <div className="flex flex-col gap-2">
                 <Text size="body" tone="subtle">
-                  {outline.length} modules · {form === "short" ? `${courseCardCount(outline)} cards, about ${Math.max(2, Math.round(courseCardCount(outline) * 0.35))} min` : `about ${mins} min`} · {showItems.length ? `${showItems.length} of your pieces placed, SwishX writes the rest` : "all written by SwishX"}
+                  {outline.length} lessons · {form === "short" ? `${courseCardCount(outline)} cards, about ${Math.max(2, Math.round(courseCardCount(outline) * 0.35))} min` : `about ${mins} min`} · {showItems.length ? `${showItems.length} of your pieces placed, SwishX writes the rest` : "all written by SwishX"}
                 </Text>
                 {shapeNote.left.length > 0 && <Text size="caption" tone="subtle">Left out to keep it short: {shapeNote.left.join(", ")}.{/* v1-hidden: Add them to the Library if reps should still find them. */}</Text>}
                 {shapeNote.added.length > 0 && <Text size="caption" tone="subtle">Added for depth, from the same sources: {shapeNote.added.join(", ")}.</Text>}
@@ -462,8 +462,8 @@ export function NewCourseWizard() {
 
       {step === 4 && outline && (
         <Card>
-          <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Writing your course</Text>
-          <Text tone="subtle" size="body-lg">{form === "short" ? "Breaking every module into cards, each one cited to a source page. Quick checks come next." : "Every sentence is cited to a source page. Questions and the roleplay rubric come next."}</Text>
+          <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Writing your training</Text>
+          <Text tone="subtle" size="body-lg">{form === "short" ? "Breaking every lesson into cards, each one cited to a source page. Quick checks come next." : "Every sentence is cited to a source page. Questions and the roleplay rubric come next."}</Text>
           <ol className="flex flex-col gap-2">
             {outline.map((m, i) => (
               <li key={m.id} className={cn("squircle flex items-center gap-3 rounded-panel border p-3.5 transition-colors", i < genIndex ? "border-ok-line bg-ok-bg" : i === genIndex ? "shimmer border-tint-line bg-tint" : "border-hair bg-card")}>
@@ -487,12 +487,12 @@ export function NewCourseWizard() {
           <div className="flex items-center gap-3 rounded-control bg-ink px-4 py-2.5 text-white shadow-float">
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
               {step === 0 && "Next: add your materials"}
-              {step === 1 && `${showItems.length} in the course · ${background.length} source material${background.length === 1 ? "" : "s"}`}
+              {step === 1 && `${showItems.length} in the training · ${background.length} source material${background.length === 1 ? "" : "s"}`}
               {step === 2 && `${comps.length} competencies`}
-              {step === 3 && (outline ? "Ready to write the course" : "Draft the outline first")}
+              {step === 3 && (outline ? "Ready to write the training" : "Draft the outline first")}
             </Text>
             <Button disabled={!canNext} onClick={() => (step === 3 ? generate() : setStep(nextStep(step)))}>
-              {step === 3 ? <><AgentIcon className="size-4" aria-hidden="true" />Generate course</> : <>Continue<ArrowRight className="size-4" aria-hidden="true" /></>}
+              {step === 3 ? <><AgentIcon className="size-4" aria-hidden="true" />Generate training</> : <>Continue<ArrowRight className="size-4" aria-hidden="true" /></>}
             </Button>
           </div>
         </div>
@@ -534,7 +534,7 @@ function MaterialTile({ s, sub, place, onPlace, onPreview, onRemove, locked }: {
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="line-clamp-2 text-body font-semibold leading-snug text-ink" title={s.title}>{s.title}</span>
           <span className="text-caption text-ink-3">{sub}</span>
-          {place === "both" && <span className="pt-1"><Chip size="xs" tone="brand">In the course and source</Chip></span>}
+          {place === "both" && <span className="pt-1"><Chip size="xs" tone="brand">In the training and source</Chip></span>}
           {locked && <span className="flex items-center gap-1 pt-1 text-caption text-ink-3"><Lock className="size-3" aria-hidden="true" />Required</span>}
         </span>
         <div className="relative -mr-1 shrink-0">

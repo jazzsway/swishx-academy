@@ -87,7 +87,7 @@ export function WatchClip() {
   const clips = useClips();
   const clip = clips.find((c) => c.block.id === blockId && c.course.id === courseId);
   const p = s.progress.find((x) => x.userId === me.id && x.courseId === courseId);
-  if (!clip) return <div className="p-4"><EmptyState title="Video not available" body="It may have expired or isn't in your courses." /></div>;
+  if (!clip) return <div className="p-4"><EmptyState title="Video not available" body="It may have expired or isn't in your trainings." /></div>;
   const inPath = !!p?.path?.moduleIds.includes(clip.module.id);
   const done = p?.completedBlocks.includes(clip.block.id);
   const ver = clip.course.versions.find((v) => v.version === p?.version);
@@ -101,7 +101,7 @@ export function WatchClip() {
       <div className="flex flex-col gap-1">
         <Text as="h1" size="display" weight="extrabold" className="leading-tight">{clip.block.title}</Text>
         <Text size="caption" tone="subtle">{clip.course.title} · {clip.module.title}{ver?.docNumber ? ` · ${ver.docNumber}` : ""}</Text>
-        <Text size="body" tone={done ? "ok" : "muted"} weight={done ? "semibold" : undefined}>{done ? "Watched · counted in your course" : inPath ? "Watching 90% counts toward your path." : "Refresher. Not part of your current path."}</Text>
+        <Text size="body" tone={done ? "ok" : "muted"} weight={done ? "semibold" : undefined}>{done ? "Watched · counted in your training" : inPath ? "Watching 90% counts toward your path." : "Refresher. Not part of your current path."}</Text>
       </div>
       {next.length > 0 && (
         <section className="flex flex-col gap-3 pb-4">

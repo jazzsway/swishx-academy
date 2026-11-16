@@ -13,7 +13,7 @@ import { Card, Stat, Avatar } from "@/components/patterns/academy";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 
 const COLS: { kind: PointKind; label: string }[] = [
-  { kind: "module", label: "Modules" }, { kind: "check", label: "Checks" }, { kind: "practice", label: "Practice" }, { kind: "streak", label: "Streak days" },
+  { kind: "module", label: "Lessons" }, { kind: "check", label: "Checks" }, { kind: "practice", label: "Practice" }, { kind: "streak", label: "Streak days" },
 ];
 const TOP = 10;
 
@@ -64,7 +64,7 @@ export function LeaderboardSection({ region }: { region: string }) {
       <div className="grid gap-x-6 gap-y-3 border-b border-hair px-5 pb-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Learning this month" value={`${rows.length ? Math.round((active / rows.length) * 100) : 0}%`} sub={`${active} of ${rows.length} reps have points`} tone="ok" />
         <Stat label="Median" value={`${median} pts`} sub="Half are above this" />
-        <Stat label="Top 10% starts at" value={`${top10} pts`} sub={`About ${Math.max(1, Math.round(top10 / 35))} modules with their checks`} />
+        <Stat label="Top 10% starts at" value={`${top10} pts`} sub={`About ${Math.max(1, Math.round(top10 / 35))} lessons with their checks`} />
         <Stat label="Not on the board yet" value={rows.length - active} tone={rows.length - active ? "warn" : "default"} sub="No learning or practice this month" />
       </div>
 

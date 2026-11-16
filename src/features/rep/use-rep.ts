@@ -59,6 +59,10 @@ export interface NextStep {
 export function nextStepFor(p: Progress, c: Course): NextStep | null {
   const base = `/rep/course/${c.id}`;
   if (p.state === "certified" || p.state === "awaiting_verify") return null;
+  /* A training with the trainer's own material ends in the scenario call: every scenario, back to back. */
+  const scenarioCall = c.origin === "direct" && c.scenarioIds.length > 0;
+  if (scenarioCall && !p.attempts.at(-1)?.passed && (p.mode === "practice" || p.state === "assessment"))
+    return { progress: p, course: c, eyebrow: p.mode === "practice" ? `${c.title} · scenarios only` : c.title, title: "Take the scenario call", why: `${c.scenarioIds.length} people, back to back in one call. Stop and continue any time.`, cta: p.state === "assessment" ? "Continue the call" : "Start the call", href: `${base}/assessment`, minutes: 15 };
   if (p.mode === "practice" && !p.attempts.at(-1)?.passed)
     return c.settings.completion.assessment
       ? { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Take the final assessment", why: "You're assigned practice only. Rehearse the call first, as often as you like.", cta: "Start assessment", href: `${base}/assessment`, minutes: 10 }
@@ -68,7 +72,7 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
       ? (c.items.some((i) => i.pool === "screening")
         ? { progress: p, course: c, eyebrow: c.title, title: "Take your screening", why: "About 15 minutes. It skips what you already know.", cta: "Start screening", href: `${base}/screening`, minutes: 15 }
         : { progress: p, course: c, eyebrow: c.title, title: "Start with a screening call", why: "About 5 minutes. It skips the files you already know.", cta: "Start the call", href: `${base}/screening`, minutes: 5 })
-      : { progress: p, course: c, eyebrow: c.title, title: "Start the course", why: c.format === "short" ? `${modulesOf(c).length} modules of swipeable cards` : `${modulesOf(c).length} short modules`, cta: "Start", href: `${base}/learn`, minutes: modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) };
+      : { progress: p, course: c, eyebrow: c.title, title: "Start the training", why: c.format === "short" ? `${modulesOf(c).length} lessons of swipeable cards` : `${modulesOf(c).length} short lessons`, cta: "Start", href: `${base}/learn`, minutes: modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) };
   if (p.state === "screening") return { progress: p, course: c, eyebrow: c.title, title: "Finish your screening", why: "Pick up where you left off.", cta: "Continue screening", href: `${base}/screening`, minutes: 10 };
   const nb = nextBlock(p, c);
   if (nb) {
@@ -76,14 +80,15 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
     const reason = p.path?.reasons[nb.module.id];
     const pr = pathProgress(p, c);
     return {
-      progress: p, course: c, eyebrow: `${c.title} · module ${pr.modulesDone + 1} of ${pr.modules}`, title: nb.module.title,
-      why: p.state === "needs_coaching" ? "Your manager asked you to work on this." : p.state === "remediation" ? "Part of your retake path." : reason?.startsWith("Required") ? "Required for everyone." : score !== undefined ? `In your path because you scored ${score} on ${competency(nb.module.competency)?.name.toLowerCase()}.` : "Next in your course.",
+      progress: p, course: c, eyebrow: `${c.title} · lesson ${pr.modulesDone + 1} of ${pr.modules}`, title: nb.module.title,
+      why: p.state === "needs_coaching" ? "Your manager asked you to work on this." : p.state === "remediation" ? "Part of your retake path." : reason?.startsWith("Required") ? "Required for everyone." : score !== undefined ? `In your path because you scored ${score} on ${competency(nb.module.competency)?.name.toLowerCase()}.` : "Next in your training.",
       cta: "Continue", href: `${base}/learn?module=${nb.module.id}`, minutes: pr.minutesLeft,
     };
   }
   const last = p.attempts.at(-1);
   if (p.state === "assessment" && last?.passed) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "One last step before certification.", cta: "Sign", href: `${base}/attest` };
-  if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "You've finished every module.", cta: "Sign", href: `${base}/attest` };
+  if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "You've finished every lesson.", cta: "Sign", href: `${base}/attest` };
+  if (scenarioCall) return { progress: p, course: c, eyebrow: c.title, title: "Take the scenario call", why: `Your lessons are done. ${c.scenarioIds.length} people, back to back in one call.`, cta: "Start the call", href: `${base}/assessment`, minutes: 15 };
   return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: c.items.some((i) => i.pool === "assessment") ? "Your path is done. Quiz plus a short call." : "Your path is done. One scored call.", cta: "Start assessment", href: `${base}/assessment`, minutes: 15 };
 }
 

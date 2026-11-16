@@ -71,14 +71,14 @@ export function runChecks(course: Course): Finding[] {
 
   const unapproved = course.sourceIds.map((id) => source(id)).filter((x) => x && !isApproved(x));
   if (false && unapproved.length) // v1-hidden: MLR approval of sources
-    f.push({ id: "src-unapproved", severity: "orange", title: `${unapproved.length} source${unapproved.length > 1 ? "s" : ""} not yet MLR-approved`, detail: `${unapproved.map((x) => x!.title).join(", ")}. Each goes to MLR with this course; sentences citing it get reviewed line by line.` });
+    f.push({ id: "src-unapproved", severity: "orange", title: `${unapproved.length} source${unapproved.length > 1 ? "s" : ""} not yet MLR-approved`, detail: `${unapproved.map((x) => x!.title).join(", ")}. Each goes to MLR with this training; sentences citing it get reviewed line by line.` });
 
   /* A direct course is the trainer's own approved files, so this is a reminder, not a blocker. */
   if (course.origin === "direct") {
     if (course.productId && !course.modules.some((m) => m.competency === "c-safety" || m.blocks.some((b) => b.document?.sourceId === product(course.productId)?.piSourceId)))
-      f.push({ id: "safety-direct", severity: "orange", title: "No safety file in the course", detail: "Your files go in as they are. If none of them carries the safety information, add the Prescribing Information or your ISI as a module." });
+      f.push({ id: "safety-direct", severity: "orange", title: "No safety file in the training", detail: "Your files go in as they are. If none of them carries the safety information, add the Prescribing Information or your ISI as a lesson." });
   } else if (course.productId && !course.modules.some((m) => m.required && m.competency === "c-safety"))
-    f.push({ id: "safety-missing", severity: "red", title: "Missing required safety module", detail: "Product courses need at least one safety block marked Required for everyone.", fixable: false });
+    f.push({ id: "safety-missing", severity: "red", title: "Missing required safety lesson", detail: "Product trainings need at least one safety block marked Required for everyone.", fixable: false });
 
   if (course.type === "personalised") {
     for (const cid of course.competencyIds) {

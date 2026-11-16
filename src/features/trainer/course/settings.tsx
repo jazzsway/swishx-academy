@@ -15,7 +15,7 @@ import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
 import { allScenarios } from "@/data/scenarios";
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-2 border-b border-hair py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <div className="flex max-w-[52ch] flex-col gap-0.5"><Text size="body-lg" weight="semibold">{label}</Text>{hint && <Text size="caption" tone="subtle">{hint}</Text>}</div>
@@ -24,7 +24,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
-function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
+export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)}
       className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-40 ${on ? "bg-brand" : "bg-black/15"}`}>
@@ -33,7 +33,7 @@ function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: (v: 
   );
 }
 
-function Num({ value, onChange, suffix, disabled, label }: { value: number; onChange: (n: number) => void; suffix?: string; disabled?: boolean; label: string }) {
+export function Num({ value, onChange, suffix, disabled, label }: { value: number; onChange: (n: number) => void; suffix?: string; disabled?: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="w-24"><Field aria-label={label} type="number" size="sm" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} /></div>
@@ -71,7 +71,7 @@ export function CourseSettingsTab() {
         <Card title="Essentials" eyebrow="The decisions that matter">
           <div className="-mt-2 flex flex-col">
             {(personalised || hasScenario) && (
-              <Row label="Screen before learning" hint={personalised ? "Reps skip modules they already know." : "A short call with the course's doctor first. Reps skip the files they already know; anything marked for everyone stays."}>
+              <Row label="Screen before learning" hint={personalised ? "Reps skip lessons they already know." : "A short call with the training's doctor first. Reps skip the files they already know; anything marked for everyone stays."}>
                 <Toggle label="Screening" on={s.screening} disabled={d} onChange={(v) => set(personalised ? { screening: v } : { screening: v, screeningCall: v, screeningScenarioId: s.screeningScenarioId ?? course.scenarioIds[0], baseline: v })} />
               </Row>
             )}
@@ -123,7 +123,7 @@ export function CourseSettingsTab() {
             {personalised && (
               <div className="flex flex-col gap-2 py-4">
                 <Text size="body-lg" weight="semibold">Screening unlocks after</Text>
-                <Text size="caption" tone="subtle">{others.length ? "Reps must be certified on these first." : "No other published courses for this audience yet."}</Text>
+                <Text size="caption" tone="subtle">{others.length ? "Reps must be certified on these first." : "No other published trainings for this audience yet."}</Text>
                 <div className="flex flex-wrap gap-2">{others.map((o) => (
                   <Chip key={o.id} size="lg" selected={course.prerequisites.includes(o.id)} onClick={() => updateCourse(course.id, { prerequisites: course.prerequisites.includes(o.id) ? course.prerequisites.filter((x) => x !== o.id) : [...course.prerequisites, o.id] })}>{o.title}</Chip>
                 ))}</div>

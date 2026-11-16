@@ -34,7 +34,7 @@ export function TrainerLibrary() {
 
   const rows: Row[] = useMemo(() => [
     ...s.courses.filter((c) => live(c)).map((c) => ({
-      id: c.id, title: c.title, kind: "Course", isCourse: true, visibility: c.visibility, views: s.libraryViews[c.id] ?? 0, doc: live(c)?.docNumber,
+      id: c.id, title: c.title, kind: "Training", isCourse: true, visibility: c.visibility, views: s.libraryViews[c.id] ?? 0, doc: live(c)?.docNumber,
       audience: product(c.productId)?.brand ? `${product(c.productId)!.brand} · ${DIVISIONS.find((d) => d.id === product(c.productId)!.divisionId)?.name}` : c.divisionId ? DIVISIONS.find((d) => d.id === c.divisionId)!.name : "All divisions",
     })),
     ...s.materials.map((m) => ({
@@ -88,7 +88,7 @@ export function TrainerLibrary() {
                     <SearchX className={cn("mt-0.5 size-4.5 shrink-0", off || cmp ? "text-danger" : "text-warn")} aria-hidden="true" />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <Text size="body-lg" weight="semibold">“{x.q}” <span className="font-normal text-ink-3">· {x.count} searches</span></Text>
-                      <Text size="caption" tone="subtle">{off ? "Looks like interest in an unapproved use. Remind reps how to submit a Medical Information request; don't create content." : cmp ? "Looks like interest in comparisons. There are no head-to-head data, so remind reps not to compare; don't create content." : "No approved content covers this. A candidate for your next course or reading."}</Text>
+                      <Text size="caption" tone="subtle">{off ? "Looks like interest in an unapproved use. Remind reps how to submit a Medical Information request; don't create content." : cmp ? "Looks like interest in comparisons. There are no head-to-head data, so remind reps not to compare; don't create content." : "No approved content covers this. A candidate for your next training or reading."}</Text>
                     </div>
                   </li>
                 );
@@ -128,7 +128,7 @@ const PIECE_TYPES: { id: string; label: string; types: Block["type"][] }[] = [
   { id: "video", label: "Videos", types: ["video"] },
   { id: "reading", label: "Readings", types: ["document", "visualaid", "graphic"] },
   { id: "audio", label: "Audio", types: ["audio"] },
-  { id: "lesson", label: "Lessons", types: ["lesson", "keypoints"] },
+  { id: "lesson", label: "Text", types: ["lesson", "keypoints"] },
 ];
 
 /** Playlists only order approved blocks from published courses, so nothing new goes to MLR. */
@@ -155,14 +155,14 @@ function PlaylistBuilder({ onClose, onDone }: { onClose: () => void; onDone: (ti
   const minutes = picked.reduce((a, x) => a + (resolveBlock(s, x.courseId, x.blockId)?.block.minutes ?? 0), 0);
 
   return (
-    <Modal open onClose={onClose} title="New playlist" description="Pick approved pieces from published courses and put them in order. Playlists don't add new content, so they don't need their own MLR review." size="xl"
+    <Modal open onClose={onClose} title="New playlist" description="Pick approved pieces from published trainings and put them in order. Playlists don't add new content, so they don't need their own MLR review." size="xl"
       footer={<><Text size="body" tone="subtle" className="mr-auto">{picked.length} pieces · {minutes} min</Text><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!title.trim() || picked.length < 2} onClick={() => {
         s.addMaterial({ kind: "playlist", title: title.trim(), description: desc.trim() || `${picked.length} approved pieces`, productId: products.size === 1 ? [...products][0] : undefined, visibility: "audience", items: picked } as Omit<Material, "id" | "createdAt" | "ownerId">);
         onDone(title.trim()); onClose();
       }}>Publish playlist</Button></>}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3">
-          <Field iconLeft={<Search className="size-4" />} placeholder="Search pieces, modules or courses" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search pieces" />
+          <Field iconLeft={<Search className="size-4" />} placeholder="Search pieces, lessons or trainings" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search pieces" />
           <div className="flex flex-wrap gap-1.5">
             <Chip size="sm" selected={prod === "all"} onClick={() => setProd("all")}>All products</Chip>
             {prods.map((id) => <Chip key={id} size="sm" selected={prod === id} onClick={() => setProd(id)}>{id === "company" ? "Company" : product(id)?.brand}</Chip>)}

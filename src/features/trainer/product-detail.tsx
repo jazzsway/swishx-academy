@@ -89,7 +89,7 @@ export function ProductDetail() {
     { key: "overview", label: "Overview", icon: LayoutGrid },
     { key: "claims", label: "Scientific claims", icon: ListChecks, count: claims.length },
     { key: "sources", label: "Sources", icon: FileText, count: sources.length },
-    { key: "courses", label: "Courses", icon: BookOpen, count: courses.length },
+    { key: "courses", label: "Trainings", icon: BookOpen, count: courses.length },
     { key: "media", label: "Media", icon: Film, count: media.length + materials.length },
   ];
 
@@ -111,7 +111,7 @@ export function ProductDetail() {
             <span className="text-body text-ink-3"><em>{p.generic}</em> · {DIVISIONS.find((d) => d.id === p.divisionId)?.name} · {p.form}</span>
           </div>
           <div className="flex items-center gap-5">
-            <Stat value={courses.length} label="Courses" />
+            <Stat value={courses.length} label="Trainings" />
             <Stat value={claims.length ? `${taughtCount}/${claims.length}` : "—"} label="Scientific claims taught" />
             <Stat value={ps.length ? `${pct(k.certified, k.total)}%` : "—"} label="Reps certified" />
           </div>
@@ -120,9 +120,9 @@ export function ProductDetail() {
 
       {tab === "overview" && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <Section title="Approved label" sub="Every course on this product is checked against this wording. Anything outside it is flagged as off-label.">
+          <Section title="Approved label" sub="Every training on this product is checked against this wording. Anything outside it is flagged as off-label.">
             {p.indications.length === 0 && (
-              <div className="squircle rounded-panel border border-warn-line bg-warn-bg px-4 py-3"><Text weight="semibold" tone="warn">No approved label yet. Product courses can&apos;t be built until it&apos;s approved.</Text></div>
+              <div className="squircle rounded-panel border border-warn-line bg-warn-bg px-4 py-3"><Text weight="semibold" tone="warn">No approved label yet. Product trainings can&apos;t be built until it&apos;s approved.</Text></div>
             )}
             {p.indications.map((i) => (
               <div key={i.short} className="squircle flex flex-col gap-1.5 rounded-panel border border-hair bg-card p-4 shadow-hair">
@@ -162,15 +162,15 @@ export function ProductDetail() {
                     </div>
                   )}
                 </>
-              ) : <Text size="body" tone="subtle">Nobody is assigned a course on {p.brand} yet.</Text>}
+              ) : <Text size="body" tone="subtle">Nobody is assigned a training on {p.brand} yet.</Text>}
             </div>
             <button type="button" onClick={() => setTab("claims")} className="squircle flex flex-col gap-2 rounded-panel border border-hair bg-card p-4 text-left shadow-hair hover:shadow-soft">
               <Text size="subhead" weight="bold">Scientific claims coverage</Text>
               {claims.length ? (
                 <>
-                  <Text size="body" tone="muted">{taughtCount} of {claims.length} approved claims are taught in a course.</Text>
+                  <Text size="body" tone="muted">{taughtCount} of {claims.length} approved claims are taught in a training.</Text>
                   <Meter value={pct(taughtCount, claims.length)} height={6} tone={taughtCount === claims.length ? "ok" : "brand"} label="Scientific claims taught" />
-                  {claims.length > taughtCount && <Text size="caption" weight="semibold" tone="warn">{claims.length - taughtCount} not in any course yet</Text>}
+                  {claims.length > taughtCount && <Text size="caption" weight="semibold" tone="warn">{claims.length - taughtCount} not in any training yet</Text>}
                 </>
               ) : <Text size="body" tone="subtle">No approved scientific claims on file yet.</Text>}
             </button>
@@ -180,7 +180,7 @@ export function ProductDetail() {
 
       {tab === "sources" && (
         <Section title="Sources" sub="The documents SwishX may cite when it writes about this product, including anything you've uploaded. Scientific claims come from these.">
-          {sources.length === 0 ? <EmptyState title="No sources yet" body="Upload the Prescribing Information when you create the first course." /> : (
+          {sources.length === 0 ? <EmptyState title="No sources yet" body="Upload the Prescribing Information when you create the first training." /> : (
             <div className="flex flex-col gap-2">
               {sources.map((x) => {
                 const Icon = x.uploaded ? FORMAT_ICON[x.uploaded.format] : FileText;
@@ -188,7 +188,7 @@ export function ProductDetail() {
                 return (
                   <button key={x.id} type="button" onClick={() => setPreview(x)} className="squircle flex flex-wrap items-center gap-3.5 rounded-panel border border-hair bg-card p-3.5 text-left shadow-hair transition-all hover:shadow-soft">
                     <span className="grid size-9 place-items-center rounded-control bg-subtle text-ink-3"><Icon className="size-4" aria-hidden="true" /></span>
-                    <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">{x.title}</Text><Text size="caption" tone="subtle">{sourceMeta(x)} · cited by {used} course{used === 1 ? "" : "s"}</Text></span>
+                    <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">{x.title}</Text><Text size="caption" tone="subtle">{sourceMeta(x)} · cited by {used} training{used === 1 ? "" : "s"}</Text></span>
                     <ApprovalChip s={x} />
                     <span className="inline-flex items-center gap-1 text-body font-bold text-brand">Preview <ChevronRight className="size-4" aria-hidden="true" /></span>
                   </button>
@@ -200,12 +200,12 @@ export function ProductDetail() {
       )}
 
       {tab === "claims" && (
-        <Section title="Scientific claims" sub={`Every statement in ${p.brand}'s product documents, and whether your courses teach and test it.`}>
+        <Section title="Scientific claims" sub={`Every statement in ${p.brand}'s product documents, and whether your trainings teach and test it.`}>
           {claims.length === 0 ? <EmptyState title="No approved scientific claims on file" body="They come from the product's approved documents. Add them under Sources." /> : (
             <>
               <div className="squircle flex flex-wrap items-center gap-x-6 gap-y-2 rounded-panel border border-hair bg-card px-4 py-3 shadow-hair">
                 <Text size="body-lg"><strong className="tabular-nums">{taughtCount}</strong> of {claims.length} taught</Text>
-                <Text size="body-lg" tone={claims.length > taughtCount ? "warn" : "subtle"}><strong className="tabular-nums">{claims.length - taughtCount}</strong> not in any course</Text>
+                <Text size="body-lg" tone={claims.length > taughtCount ? "warn" : "subtle"}><strong className="tabular-nums">{claims.length - taughtCount}</strong> not in any training</Text>
                 <Text size="body-lg" tone="subtle"><strong className="tabular-nums text-ink">{claims.filter((c) => c.tested).length}</strong> tested by questions</Text>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +229,7 @@ export function ProductDetail() {
                         <button type="button" onClick={() => src && setPreview(src)} className="font-semibold text-brand-deep hover:underline">{src?.title}, p. {c.page}{src?.docNumber ? ` · ${src.docNumber}` : ""}</button>
                         {c.taughtIn.length
                           ? <span className="text-ink-3">Taught in {c.taughtIn.join("; ")}</span>
-                          : <span className="font-semibold text-warn">Not taught in any course</span>}
+                          : <span className="font-semibold text-warn">Not taught in any training</span>}
                         <span className="ml-auto text-ink-3">{c.tested ? `Tested by ${c.tested} question${c.tested > 1 ? "s" : ""}` : "No questions yet"}</span>
                       </div>
                     </div>
@@ -242,9 +242,9 @@ export function ProductDetail() {
       )}
 
       {tab === "courses" && (
-        <Section title="Courses" sub="What your team is learning about this product, and how far they've got."
-          actions={<><Button onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />New course</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} productId={p.id} /></>}>
-          {courses.length === 0 ? <EmptyState title="No courses yet" body={`Build the first ${p.brand} course from its Prescribing Information.`} /> : (
+        <Section title="Trainings" sub="What your team is learning about this product, and how far they've got."
+          actions={<><Button onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />New training</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} productId={p.id} /></>}>
+          {courses.length === 0 ? <EmptyState title="No trainings yet" body={`Build the first ${p.brand} training from its Prescribing Information.`} /> : (
             <div className="flex flex-col gap-2">
               {courses.map((c) => {
                 const cp = s.progress.filter((x) => x.courseId === c.id);
@@ -276,8 +276,8 @@ export function ProductDetail() {
       )}
 
       {tab === "media" && (
-        <Section title="Media & materials" sub="Videos and other media used in courses about this product. Everything here comes from approved content.">
-          {media.length + materials.length === 0 ? <EmptyState title="Nothing yet" body="Media you add to courses for this product shows up here." /> : (
+        <Section title="Media & materials" sub="Videos and other media used in trainings about this product. Everything here comes from approved content.">
+          {media.length + materials.length === 0 ? <EmptyState title="Nothing yet" body="Media you add to trainings for this product shows up here." /> : (
             <div className="grid gap-3 sm:grid-cols-2">
               {materials.map((m) => (
                 <Link key={m.id} href="/trainer/library" className="squircle flex items-start gap-3 rounded-panel border border-hair bg-card p-4 shadow-hair hover:shadow-soft">

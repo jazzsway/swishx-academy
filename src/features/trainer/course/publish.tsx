@@ -63,7 +63,7 @@ export function PublishAndVersions() {
               </div>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hair pt-4">
-              <Text size="body" tone="subtle">{reds.length ? `Fix the red items first.${reds.some((f) => f.fixable !== false && f.moduleId) ? " SwishX can fix wording and citations: open the module and use Fix with AI." : ""}` : lv ? `v${lv.version} stays live until you publish.` : "Once published, you can assign it."}</Text>
+              <Text size="body" tone="subtle">{reds.length ? `Fix the red items first.${reds.some((f) => f.fixable !== false && f.moduleId) ? " SwishX can fix wording and citations: open the lesson and use Fix with AI." : ""}` : lv ? `v${lv.version} stays live until you publish.` : "Once published, you can assign it."}</Text>
               <Button size="lg" disabled={reds.length > 0} onClick={() => { app.publish(course.id, lv ? transition : "minor"); setPublished({ recert: !!lv && transition === "recertify" }); }}>Publish v{cur.version}</Button>
             </div>
           </Card>
@@ -122,7 +122,7 @@ export function PublishAndVersions() {
         </>}>
         <div className="flex flex-col items-center gap-3 py-2 text-center">
           <div className="success-pop grid size-14 place-items-center rounded-full bg-ok-bg text-ok"><CircleCheck className="size-7" aria-hidden="true" /></div>
-          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify on this one. They're back on their list, due in 14 days." : "Reps assigned to this course now see the new version."}</Text>
+          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify on this one. They're back on their list, due in 14 days." : "Reps assigned to this training now see the new version."}</Text>
         </div>
       </Modal>
 

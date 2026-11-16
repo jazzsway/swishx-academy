@@ -7,6 +7,8 @@ import { fileLength } from "@/features/media/file-view";
 import { modulesOf, pathModules } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
+import { screeningOf } from "@/lib/scenario-set";
+import { scenarioStatus } from "./scenario-session";
 import type { Course, Module, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 
@@ -35,7 +37,7 @@ export function PracticeCalls({ c, p }: { c: Course; p: Progress }) {
           <span className="relative flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-white px-3 text-body font-bold text-ink transition-transform group-active:scale-95"><Mic className="size-4" aria-hidden="true" />Practise</span>
         </Link>
       ))}
-      <Text size="caption" tone="subtle">{practiceOnly ? "You're assigned practice only: skip the modules, rehearse as often as you like, then take the final test." : "Rehearse as often as you like before the final call. Choose assisted or unassisted when you start."}</Text>
+      <Text size="caption" tone="subtle">{practiceOnly ? "You're assigned practice only: skip the lessons, rehearse as often as you like, then take the final test." : "Rehearse as often as you like before the final call. Choose assisted or unassisted when you start."}</Text>
     </section>
   );
 }
@@ -77,7 +79,7 @@ export function PracticeOnlyNote() {
       <Mic className="mt-0.5 size-5 shrink-0 text-brand-deep" aria-hidden="true" />
       <div className="flex flex-col gap-0.5">
         <Text size="body-lg" weight="bold">Practice only</Text>
-        <Text size="body" tone="muted">Your trainer assigned this as practice: no modules to work through. Rehearse the call, then take the final test.</Text>
+        <Text size="body" tone="muted">Your trainer assigned this as practice: no lessons to work through. Rehearse the call, then take the final test.</Text>
       </div>
     </div>
   );
@@ -126,15 +128,18 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
 
   type Step = { key: string; done: boolean; current?: boolean; locked?: boolean; href?: string; icon: React.ReactNode; title: string; sub: string; tag?: string };
   const steps: Step[] = [];
-  const screener = allScenarios().find((x) => x.id === c.settings.screeningScenarioId) ?? sc;
-  if (screens && screener)
+  /* Screening is a short call built from the training's scenarios; the assessment is all of them, back to back. */
+  const run = scenarioStatus(c, p);
+  const screen = screeningOf(c, run.scs);
+  const screenTitle = screen.length > 1 ? `Screening call · ${screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}` : `Screening call with ${screen[0]?.persona.name ?? sc?.persona.name}`;
+  if (screens && screen.length)
     steps.push(screened
-      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${screener.persona.name}`,
-          sub: `Baseline ${p.screening!.overall} · ${skipped.length ? `you skip ${skipped.length} file${skipped.length === 1 ? "" : "s"}` : "every file stays in your path"}` }
-      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: `Screening call with ${screener.persona.name}`,
-          sub: "About 5 min · not graded · decides which files you can skip" });
+      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: screenTitle,
+          sub: `Baseline ${p.screening!.overall} · ${skipped.length ? `you skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"}` : "every lesson stays in your path"}` }
+      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: screenTitle,
+          sub: "About 3 min · not graded · decides which lessons you can skip" });
   if (practiceOnly) {
-    steps.push({ key: "skip", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${mods.length} files`, sub: "Skipped: you're assigned practice only", tag: "Skipped" });
+    steps.push({ key: "skip", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${mods.length} lessons`, sub: "Skipped: you're assigned the scenarios only", tag: "Skipped" });
   } else {
     needed.forEach((m) => {
       const meta = fileMeta(m);
@@ -142,26 +147,26 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
       const waiting = screens && !screened;
       steps.push({ key: m.id, done, current: !done && !waiting && m.id === nextFile?.id && p.state !== "not_started", href: waiting ? undefined : `/rep/course/${c.id}/learn?module=${m.id}`,
         icon: <meta.icon className="size-4" aria-hidden="true" />, title: m.title,
-        sub: `File ${mods.indexOf(m) + 1} · ${meta.label} · ${meta.len}${m.required ? " · for everyone" : ""}${waiting ? " · after your screening" : ""}` });
+        sub: `Lesson ${mods.indexOf(m) + 1} · ${meta.label} · ${meta.len}${m.required ? " · for everyone" : ""}${waiting ? " · after your screening" : ""}` });
     });
     if (skipped.length)
-      steps.push({ key: "tested-out", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${skipped.length} file${skipped.length === 1 ? "" : "s"} skipped`,
+      steps.push({ key: "tested-out", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${skipped.length} lesson${skipped.length === 1 ? "" : "s"} skipped`,
         sub: `You already know this: ${skipped.map((m) => m.title).join(", ")}`, tag: "Tested out" });
   }
-  if (sc && sc.use.includes("practice"))
-    steps.push({ key: "practice", done: practised, current: filesDone && !practised && !passed, href: `/rep/practice/call?scenario=${sc.id}`,
-      icon: <Mic className="size-4" aria-hidden="true" />, title: `Practise with ${sc.persona.name}`, sub: "Private · assisted or unassisted · as often as you like", tag: "Optional" });
-  if (c.settings.completion.assessment && sc)
-    steps.push({ key: "final", done: passed, current: filesDone && !passed && (practised || !sc.use.includes("practice")), locked: !filesDone, href: filesDone ? `/rep/course/${c.id}/assessment` : undefined,
-      icon: <Flag className="size-4" aria-hidden="true" />, title: `Final call with ${sc.persona.name}`,
-      sub: passed ? `Passed · ${p.attempts.filter((a) => a.passed).at(-1)?.overall ?? ""} out of 100` : `Scored · pass ${c.settings.passRoleplay} · ${c.settings.finalNoHints ? "no hints · " : ""}${Math.max(0, c.settings.attempts - fails)} of ${c.settings.attempts} attempts left` });
-  steps.push({ key: "cert", done: certified, icon: <Award className="size-4" aria-hidden="true" />, title: "Certified", sub: certified ? "Done. It's on your record." : "Sign once you pass the call" });
+  void practised; void fails;
+  if (run.scs.length) {
+    const started = run.passed.length + run.failed.length > 0;
+    steps.push({ key: "final", done: passed || run.allPassed, current: filesDone && !passed && !run.allPassed, locked: !filesDone, href: filesDone ? `/rep/course/${c.id}/assessment` : undefined,
+      icon: <Flag className="size-4" aria-hidden="true" />, title: `Scenario call · ${run.scs.length} people, back to back`,
+      sub: run.allPassed || passed ? `All ${run.scs.length} passed` : started ? `${run.passed.length} of ${run.scs.length} passed${run.failed.length ? ` · ${run.failed.length} to retry` : ""}${run.todo.length ? ` · ${run.todo.length} left` : ""}` : `Scored · pass ${c.settings.passRoleplay} on each · stop and continue any time` });
+  }
+  steps.push({ key: "cert", done: certified, icon: <Award className="size-4" aria-hidden="true" />, title: "Certified", sub: certified ? "Done. It's on your record." : "Sign once you pass every scenario" });
 
   return (
     <section className="flex flex-col gap-2" aria-label="Your journey">
       <div className="flex items-baseline justify-between gap-3">
         <Text as="h2" size="subhead" weight="bold">Your journey</Text>
-        <span className="flex items-center gap-1 rounded-chip bg-info-bg px-2 py-0.5 text-caption font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Your team&apos;s files, as they are</span>
+        <span className="flex items-center gap-1 rounded-chip bg-info-bg px-2 py-0.5 text-caption font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Your team&apos;s material, as it is</span>
       </div>
       <ol className="relative flex flex-col">
         {steps.map((st, i) => {

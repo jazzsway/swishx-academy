@@ -149,9 +149,9 @@ export function seedCourses(): Course[] {
         version("c-cardexa", 2, CARDEXA_V2_MODULES, {
           state: "changes", submittedAt: "2026-10-21", vaultId: "VV-104410", packageAt: "2026-10-20",
           comments: [
-            { id: "mc1", text: "Module 1: \"preferred option for all heart failure patients\" is unsupported and broader than the indication (HFrEF only). Remove.", resolved: false, moduleId: "cx2-1" },
-            { id: "mc2", text: "Module 2: add the source page for the eGFR <20 statement in the learner view.", resolved: false, moduleId: "cx2-2" },
-            { id: "mc3", text: "Module 3: include \"high-dose diuretics\" exactly as in section 5.2.", resolved: false, moduleId: "cx2-3" },
+            { id: "mc1", text: "Lesson 1: \"preferred option for all heart failure patients\" is unsupported and broader than the indication (HFrEF only). Remove.", resolved: false, moduleId: "cx2-1" },
+            { id: "mc2", text: "Lesson 2: add the source page for the eGFR <20 statement in the learner view.", resolved: false, moduleId: "cx2-2" },
+            { id: "mc3", text: "Lesson 3: include \"high-dose diuretics\" exactly as in section 5.2.", resolved: false, moduleId: "cx2-3" },
             { id: "mc4", text: "Assessment: question 1 distractor \"Angioedema\" could confuse; replace with a non-label term.", resolved: false },
           ],
           history: [

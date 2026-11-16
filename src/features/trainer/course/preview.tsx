@@ -51,8 +51,8 @@ export function PreviewAsRep() {
             </Segmented>
           </div>
         )}
-        <Card title={linear ? "Every rep takes the full course" : `${plan.moduleIds.length} of ${course.modules.length} modules · ~${pathMinutes(course.modules, plan.moduleIds)} min`}
-          eyebrow={linear ? "Same for everyone" : `Full course ${courseMinutes(course)} min`}>
+        <Card title={linear ? "Every rep takes the full training" : `${plan.moduleIds.length} of ${course.modules.length} lessons · ~${pathMinutes(course.modules, plan.moduleIds)} min`}
+          eyebrow={linear ? "Same for everyone" : `Full training ${courseMinutes(course)} min`}>
           {!linear && (
             <div className="flex flex-wrap gap-2">
               {course.competencyIds.map((c) => (
@@ -79,7 +79,7 @@ export function PreviewAsRep() {
               );
             })}
           </ol>
-          {!linear && <Text size="caption" tone="subtle">Order: your module order. {ordered.length ? `Starts with “${ordered[0].title}”.` : ""}</Text>}
+          {!linear && <Text size="caption" tone="subtle">Order: your lesson order. {ordered.length ? `Starts with “${ordered[0].title}”.` : ""}</Text>}
         </Card>
       </div>
       <div className="flex flex-col gap-3 lg:sticky lg:top-[84px] lg:self-start">

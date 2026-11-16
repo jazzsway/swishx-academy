@@ -56,7 +56,7 @@ export function MlrPackage() {
               <Text as="p" size="body" tone="muted" className="mt-1">Learners receive subsets of the approved blocks in this package, selected and ordered by their measured competency gaps. No other content is shown. Blocks marked “Required for everyone” are always included.</Text>
             </div>
           )}
-          {prev && <div className="flex flex-col gap-1"><Text size="caption" weight="bold" tone="subtle">Change summary vs v{prev.version}</Text><Text size="body">{cur.modules.length - prev.modules.length >= 0 ? `${cur.modules.length} modules (was ${prev.modules.length}).` : ""} See the block-level comparison in Review &amp; versions.</Text></div>}
+          {prev && <div className="flex flex-col gap-1"><Text size="caption" weight="bold" tone="subtle">Change summary vs v{prev.version}</Text><Text size="body">{cur.modules.length - prev.modules.length >= 0 ? `${cur.modules.length} lessons (was ${prev.modules.length}).` : ""} See the block-level comparison in Review &amp; versions.</Text></div>}
           {cur.acknowledged.length > 0 && <div className="flex flex-col gap-1"><Text size="caption" weight="bold" tone="subtle">Acknowledged warnings</Text><Text size="body">{cur.acknowledged.length} wording warning(s) acknowledged by the author.</Text></div>}
           <div className="flex flex-col gap-2"><Text size="caption" weight="bold" tone="subtle">Sources</Text><SourceList sourceIds={course.sourceIds} /></div>
           {footer}
@@ -67,7 +67,7 @@ export function MlrPackage() {
           {course.modules.map((m, i) => (
             <div key={m.id} className="flex flex-col gap-4 break-inside-avoid">
               <div className="flex items-baseline gap-2">
-                <Text size="title" weight="bold">Module {i + 1} · {m.title}</Text>
+                <Text size="title" weight="bold">Lesson {i + 1} · {m.title}</Text>
                 {m.required && <span className="rounded-glyph bg-warn-bg px-1.5 text-micro font-bold text-warn">Required for everyone</span>}
               </div>
               <Text size="caption" tone="subtle">{competency(m.competency)?.name} · {m.minutes} min · {m.summary}</Text>
@@ -138,6 +138,6 @@ function MediaInPackage({ b }: { b: Block }) {
       {b.visualaid.pages.map((p) => <Text key={p.page} size="body">p. {p.page} · Say: {p.say}{p.avoid ? ` · Avoid: ${p.avoid}` : ""}</Text>)}
     </div>
   );
-  if (b.audio) return <Text size="body" tone="muted">Audio: the approved text of this module read aloud by text-to-speech ({fmtTime(b.audio.durationSec)}). No new words.</Text>;
+  if (b.audio) return <Text size="body" tone="muted">Audio: the approved text of this lesson read aloud by text-to-speech ({fmtTime(b.audio.durationSec)}). No new words.</Text>;
   return null;
 }

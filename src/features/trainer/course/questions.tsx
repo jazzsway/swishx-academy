@@ -19,9 +19,9 @@ import { useCopilot } from "@/features/copilot/copilot-store";
 
 /* When a rep meets each kind of question, in the order they meet them. */
 const KINDS: { id: QuestionKind; label: string; when: string }[] = [
-  { id: "screening", label: "Screening", when: "Asked before the course starts, to skip what reps already know. No feedback." },
+  { id: "screening", label: "Screening", when: "Asked before the training starts, to skip what reps already know. No feedback." },
   { id: "chapter", label: "In-video questions", when: "The video pauses when the chapter ends. Reps answer before it carries on; a wrong answer offers to rewatch the chapter." },
-  { id: "check", label: "Module check", when: "At the end of the module. Reps see each answer straight away, and need the pass mark to finish the module, or re-read and retake." },
+  { id: "check", label: "Lesson check", when: "At the end of the lesson. Reps see each answer straight away, and need the pass mark to finish the lesson, or re-read and retake." },
   { id: "assessment", label: "Final assessment", when: "Drawn into the final assessment: multiple choice, plus written answers SwishX marks against the points below. Answer keys show after a pass or the last attempt." },
   { id: "practice", label: "Practice", when: "Practice mode only. Doesn't count toward certification." },
 ];
@@ -55,13 +55,13 @@ export function QuestionBank() {
           <ChatPanel courseId={course.id} moduleId={mod?.id} editable fresh={false} issues={0} onApply={apply} suggestions={QUESTION_SUGGESTIONS} />
         </CopilotOverride>
       )}
-      <nav aria-label="Modules" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 [scrollbar-width:thin]">
-        <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{course.modules.length} modules</Text>
+      <nav aria-label="Lessons" className="flex flex-col gap-1.5 lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 [scrollbar-width:thin]">
+        <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="px-2 pb-1">{course.modules.length} lessons</Text>
         {course.modules.map((m, i) => (
           <IndexRow key={m.id} n={i + 1} title={m.title} active={m.id === mod?.id} onClick={() => pick(m.id)} locked={m.required}
             meta={`${count(byModule.get(m.id)!.length)} · ${competency(m.competency)?.name}`} />
         ))}
-        {loose.length > 0 && <IndexRow n="+" title="Across the course" active={!mod} onClick={() => pick(LOOSE)} meta={`${count(loose.length)} · not tied to one module`} />}
+        {loose.length > 0 && <IndexRow n="+" title="Across the training" active={!mod} onClick={() => pick(LOOSE)} meta={`${count(loose.length)} · not tied to one lesson`} />}
 
         {course.items.length > 0 && (
           <div className="mt-3 rounded-panel border border-hair bg-card p-3">
@@ -83,8 +83,8 @@ export function QuestionBank() {
         <div className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <Text as="h2" size="display" weight="bold" tracking="tight">{mod?.title ?? "Across the course"}</Text>
-              <Text size="body-lg" tone="subtle">{mod ? `The questions that test “${mod.title}”.` : "Questions that test a competency no single module teaches."}</Text>
+              <Text as="h2" size="display" weight="bold" tracking="tight">{mod?.title ?? "Across the training"}</Text>
+              <Text size="body-lg" tone="subtle">{mod ? `The questions that test “${mod.title}”.` : "Questions that test a competency no single lesson teaches."}</Text>
             </div>
             {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
           </div>
@@ -99,7 +99,7 @@ export function QuestionBank() {
 
         {list.length === 0 && (
           <div className="squircle rounded-card border border-dashed border-hair-2 px-6 py-10 text-center">
-            <Text size="body" tone="muted">No questions test this module yet.{editable && " Ask the SwishX AI Agent to add a knowledge check from its sources."}</Text>
+            <Text size="body" tone="muted">No questions test this lesson yet.{editable && " Ask the SwishX AI Agent to add a knowledge check from its sources."}</Text>
           </div>
         )}
 

@@ -10,7 +10,7 @@ import { audioBlock, documentBlock, videoFromModule, visualAidBlock } from "./co
 export type Place = "course" | "background" | "both";
 
 export const PLACE_OPTIONS: { id: Place; label: string; hint: string }[] = [
-  { id: "course", label: "In the course", hint: "Reps see it as it is" },
+  { id: "course", label: "In the training", hint: "Reps see it as it is" },
   { id: "background", label: "Source material only", hint: "SwishX builds from it; reps don't see it" },
   { id: "both", label: "Both", hint: "Reps see it, and SwishX builds from it too" },
 ];
@@ -24,7 +24,7 @@ export function defaultPlace(s: Source): Place {
 /** How a rep gets this piece once it's in the course, in plain words. */
 export function howRepsGetIt(s: Source): string {
   const f = s.uploaded?.format;
-  if (f === "video") return "Video · plays inside the module it fits";
+  if (f === "video") return "Video · plays inside the lesson it fits";
   if (f === "audio") return "Audio · a listen block reps can play on the road";
   if (f === "image") return "Image · shown full screen, reps can zoom";
   if (f === "slides" || s.type === "Visual aid") return `Slides · reps walk through ${s.pages ? `the first ${Math.min(4, s.pages)} pages` : "the pages"}`;

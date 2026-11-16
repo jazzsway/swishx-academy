@@ -45,7 +45,7 @@ export function RepHome() {
     { label: "Prep for a meeting", sub: "Rehearse tomorrow's call", icon: <Mic className="size-5" aria-hidden="true" />, href: "/rep/practice/prep", tone: "brand" as const },
     { label: "Private AI roleplay", sub: practiceDoctor ? practiceDoctor.persona.name : "Talk to an AI doctor", icon: <Lock className="size-5" aria-hidden="true" />, href: practiceDoctor ? `/rep/practice/call?scenario=${practiceDoctor.id}` : "/rep/practice", tone: "ink" as const },
     { label: "Ask SwishX", sub: "Any product question", icon: <AgentIcon className="size-5" />, onClick: () => openAgent(true), tone: "tint" as const },
-    { label: "Listen on the road", sub: listen ? listen.m.title : "Audio from your modules", icon: <Headphones className="size-5" aria-hidden="true" />, href: listen ? `/rep/course/${listen.p.courseId}/learn?module=${listen.m.id}` : "/rep/learn", tone: "tint" as const },
+    { label: "Listen on the road", sub: listen ? listen.m.title : "Audio from your lessons", icon: <Headphones className="size-5" aria-hidden="true" />, href: listen ? `/rep/course/${listen.p.courseId}/learn?module=${listen.m.id}` : "/rep/learn", tone: "tint" as const },
   ];
 
   return (
@@ -96,7 +96,7 @@ export function RepHome() {
             {next.progress.path && (
               <div className="flex items-center gap-3">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-gradient-to-r from-brand-2 to-brand" style={{ width: `${pathProgress(next.progress, next.course).pct}%` }} /></div>
-                <Text size="caption" tone="inverse" className="opacity-75" tabular>{pathProgress(next.progress, next.course).modulesDone}/{pathProgress(next.progress, next.course).modules} modules</Text>
+                <Text size="caption" tone="inverse" className="opacity-75" tabular>{pathProgress(next.progress, next.course).modulesDone}/{pathProgress(next.progress, next.course).modules} lessons</Text>
               </div>
             )}
             <Link href={next.href} className="focus-ring flex h-12 items-center justify-center gap-2 rounded-control bg-white text-subhead font-bold text-ink transition-transform active:scale-[0.98]">
@@ -115,7 +115,7 @@ export function RepHome() {
 
       {active.length > 0 && (
         <section className="flex flex-col gap-2.5">
-          <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Your courses</Text><Link href="/rep/learn" className="text-body font-semibold text-brand-deep">See all</Link></div>
+          <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Your trainings</Text><Link href="/rep/learn" className="text-body font-semibold text-brand-deep">See all</Link></div>
           <div className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {active.map((p) => {
               const c = courseOf(p);
@@ -127,7 +127,7 @@ export function RepHome() {
                     {p.dueAt && <span className={cn("rounded-chip px-2 py-0.5 text-micro font-bold", isOverdue(p) ? "bg-danger-bg text-danger" : "bg-subtle text-ink-3")}>{isOverdue(p) ? "Overdue" : `${daysFromToday(p.dueAt)} days`}</span>}
                   </div>
                   <span className="line-clamp-2 text-body-lg font-bold leading-snug text-ink">{c.title}</span>
-                  <span className="flex items-center gap-1 text-caption text-ink-3"><Clock className="size-3" aria-hidden="true" />{p.state === "not_started" ? (c.settings.screening ? "Starts with screening" : "Not started") : `${pr.modulesDone} of ${pr.modules} modules`}</span>
+                  <span className="flex items-center gap-1 text-caption text-ink-3"><Clock className="size-3" aria-hidden="true" />{p.state === "not_started" ? (c.settings.screening ? "Starts with screening" : "Not started") : `${pr.modulesDone} of ${pr.modules} lessons`}</span>
                 </Link>
               );
             })}

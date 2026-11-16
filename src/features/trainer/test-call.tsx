@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, CircleDot, Keyboard, Lightbulb, Mic, MessageSquareQuote, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { allScenarios, objection, prohibited, scenario as getScenario } from "@/data/scenarios";
@@ -16,6 +16,9 @@ import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
 import { scoreCall, type CallState } from "@/features/roleplay/engine";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { useVoice } from "@/features/roleplay/use-voice";
+import { ScenarioRun } from "@/features/roleplay/scenario-run";
+import { CHARACTERS, characterOf, scenarioScore, screeningOf } from "@/lib/scenario-set";
+import type { Scenario } from "@/data/types";
 
 const PASS = 75;
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
@@ -26,6 +29,11 @@ const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, 
  * Nothing is saved.
  */
 export function TestCall({ embedded }: { embedded?: boolean }) {
+  const run = useSearchParams().get("run");
+  return run === "all" || run === "screening" ? <RunTest kind={run} /> : <SingleTest embedded={embedded} />;
+}
+
+function SingleTest({ embedded }: { embedded?: boolean }) {
   const search = useSearchParams();
   const sc = getScenario(search.get("sc") ?? search.get("scenario") ?? "sc-kim");
   /* Inside the course workspace the call runs on the canvas, and "back" is the call tree. */
@@ -50,9 +58,9 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
 
   const top = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? "Call tree" : "AI roleplay"}</Link>
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? (course?.origin === "direct" ? "Scenario" : "Call tree") : "AI roleplay"}</Link>
       <span className="text-ink-4">/</span>
-      <Text size="body" weight="semibold" className="text-ink-2">{embedded ? sc.persona.name : course?.title}</Text>
+      <Text size="body" weight="semibold" className="text-ink-2">{embedded ? (course?.origin === "direct" ? sc.title : sc.persona.name) : course?.title}</Text>
       {embedded && stage !== "brief" && (
         <label className="ml-auto flex cursor-pointer items-center gap-2 text-caption font-semibold text-ink-2" title="Tap an approved answer, a vague one, or one that breaks the rules">
           <input type="checkbox" checked={hints} onChange={(e) => setHints(e.target.checked)} className="size-4 accent-[var(--color-brand)]" />Sample answers
@@ -178,8 +186,10 @@ export function TestCall({ embedded }: { embedded?: boolean }) {
             <div className="-mt-1 flex items-center gap-3">
               <Ring value={result?.score ?? 0} size={56} stroke={6} tone={passed ? "ok" : "brand"} label={`${result?.score}%`}><Text size="body-lg" weight="extrabold" tabular>{result?.score}</Text></Ring>
               <Text size="body" tone="muted">
-                {sc.use.includes("screening")
-                  ? "Screening isn't pass or fail. These scores, with the screening questions, decide which modules the rep can skip."
+                {course?.origin === "direct"
+                  ? passed || (result?.score ?? 0) >= course.settings.passRoleplay ? `Passes this scenario (${course.settings.passRoleplay}% needed). Reps take it back to back with the others in one call.` : `Doesn't pass this scenario: ${course.settings.passRoleplay}% needed. A rep could retry it on its own.`
+                  : sc.use.includes("screening")
+                  ? "Screening isn't pass or fail. These scores, with the screening questions, decide which lessons the rep can skip."
                   : passed
                     ? `Passes the call (${PASS}% needed). It counts for 40% of the final assessment.`
                     : result?.flags.some((f) => f.critical) ? "Fails: a critical compliance flag fails the assessment, whatever the score." : `Doesn't pass the call: ${PASS}% needed.`}
@@ -273,5 +283,80 @@ function LivePanel({ live, sc }: { live: { state: CallState; elapsed: number } |
         )) : <span className="flex items-center gap-2 text-body text-ink-3"><X className="size-4 text-ink-4" aria-hidden="true" />Nothing flagged so far</span>}
       </div>
     </aside>
+  );
+}
+
+/**
+ * The trainer takes the training's call the way a rep will: every scenario back to back, or the short
+ * screening call built from the screening scenarios. Each scenario is scored on its own weights.
+ */
+function RunTest({ kind }: { kind: "all" | "screening" }) {
+  const { id } = useParams<{ id: string }>();
+  const course = useApp((s) => s.courses.find((c) => c.id === id));
+  useApp((s) => s.scenarios);
+  const voice = useVoice();
+  const [results, setResults] = useState<{ sc: Scenario; r: CallOutcome }[]>([]);
+  const [stage, setStage] = useState<"call" | "result">("call");
+  const [round, setRound] = useState(0);
+  if (!course) return null;
+  const back = `/trainer/courses/${course.id}/roleplay${kind === "screening" ? "#screening" : ""}`;
+  const all = allScenarios().filter((x) => course.scenarioIds.includes(x.id));
+  /* The screening call is the short version: about 3 minutes across its scenarios. */
+  const list = kind === "screening" ? screeningOf(course, all).map((x, _i, a) => ({ ...x, durationMin: Math.max(1, Math.round(3 / a.length)) })) : all;
+  const pass = course.settings.passRoleplay;
+  const top = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />All scenarios</Link>
+      <span className="text-ink-4">/</span>
+      <Text size="body" weight="semibold" className="text-ink-2">{kind === "screening" ? "Screening call" : "The full call"} · {list.length} scenario{list.length === 1 ? "" : "s"}</Text>
+      <Chip size="sm" className="ml-auto">Test call · nothing is saved</Chip>
+    </div>
+  );
+  if (!list.length) return <div className="flex flex-col gap-4">{top}<Card><Text tone="subtle">Add a scenario first.</Text></Card></div>;
+
+  if (stage === "call")
+    return (
+      <div className="flex flex-col gap-4">
+        {top}
+        <div className="mx-auto h-[calc(100dvh-170px)] min-h-[520px] w-full max-w-[560px] overflow-hidden rounded-card shadow-float">
+          <ScenarioRun key={round} scenarios={list} mode={kind === "screening" ? "screening" : "test"} voiceAllowed={voice.supported} showSamples
+            onScenarioDone={(sc, r) => setResults((x) => [...x, { sc, r }])} onFinish={() => setStage("result")} onExit={() => setStage("result")} />
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="flex flex-col gap-5">
+      {top}
+      <div className="flex flex-col gap-1">
+        <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">{kind === "screening" ? "Your screening call" : "Your test of the full call"}</Text>
+        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Screening isn't graded: these scores set a rep's baseline and decide which lessons they can skip." : `Each scenario is scored on its own competency weights. A rep passes a scenario at ${pass}%.`} Nothing was saved.</Text>
+      </div>
+      <ol className="flex flex-col gap-2.5">
+        {list.map((sc, i) => {
+          const done = results.find((x) => x.sc.id === sc.id);
+          const score = done ? scenarioScore(sc, done.r) : undefined;
+          const ok = done && score! >= pass && !done.r.flags.some((f) => f.critical);
+          return (
+            <li key={sc.id} className="squircle flex flex-wrap items-center gap-4 rounded-card border border-hair bg-card p-4">
+              <span className="grid size-6 place-items-center rounded-glyph bg-black/[0.06] text-micro font-bold text-ink-3">{i + 1}</span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-body-lg font-bold text-ink">{sc.title}</span>
+                <span className="text-caption text-ink-3">{sc.persona.name} · {CHARACTERS[characterOf(sc)].label}</span>
+                {done && done.r.flags.some((f) => f.critical) && <span className="text-caption font-semibold text-danger">Critical flag: {done.r.flags.find((f) => f.critical)!.label}</span>}
+              </span>
+              {done ? (
+                <Ring value={score!} size={48} stroke={5} tone={kind === "screening" ? "brand" : ok ? "ok" : "brand"} label={`${score}%`}><Text size="body" weight="extrabold" tabular>{score}</Text></Ring>
+              ) : <Chip size="sm">Not reached</Chip>}
+              {done && kind !== "screening" && <Chip size="sm" tone={ok ? "ok" : "danger"}>{ok ? "Passes" : "Retry"}</Chip>}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        <Button size="lg" onClick={() => { setResults([]); setRound(round + 1); setStage("call"); }}><RotateCcw className="size-4" aria-hidden="true" />Call again</Button>
+        <Link href={back} className="inline-flex h-12 items-center px-3 text-body font-semibold text-ink-3 hover:text-ink">Back to the scenarios</Link>
+      </div>
+    </div>
   );
 }

@@ -29,7 +29,7 @@ function useNav(role: DeskRole): { label?: string; items: NavItem[] }[] {
     return [
       { items: [{ label: "Home", href: "/trainer", icon: <Home {...I} />, exact: true }] },
       { label: "Training", items: [
-        { label: "Courses", href: "/trainer/courses", icon: <BookOpen {...I} /> },
+        { label: "Trainings", href: "/trainer/courses", icon: <BookOpen {...I} /> },
         // v1-hidden: { label: "Campaigns", href: "/trainer/campaigns", icon: <Flag {...I} /> },
         // v1-hidden: { label: "Library", href: "/trainer/library", icon: <Library {...I} /> },
       ] },

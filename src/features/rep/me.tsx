@@ -105,7 +105,7 @@ export function RepMe() {
           </div>
           <div className="flex items-center gap-3 px-4 py-3.5">
             <Bell className="size-5 text-ink-3" aria-hidden="true" />
-            <span className="flex flex-1 flex-col"><Text size="body-lg" weight="semibold">Notifications</Text><Text size="caption" tone="subtle">New courses, due dates and results</Text></span>
+            <span className="flex flex-1 flex-col"><Text size="body-lg" weight="semibold">Notifications</Text><Text size="caption" tone="subtle">New trainings, due dates and results</Text></span>
             <Text size="caption" tone="subtle">On</Text>
           </div>
           {me.territory && (

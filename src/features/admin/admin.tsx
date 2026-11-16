@@ -48,7 +48,7 @@ export function AdminOrganisation() {
     <div className="flex max-w-[960px] flex-col gap-6">
       <Intro description="Your company's Academy: identity, structure and integrations." />
       <div className="grid gap-4 sm:grid-cols-4">
-        {[["People", s.users.length], ["Field reps", reps], ["Districts", s.districts.length], ["Courses", s.courses.length]].map(([k, v]) => (
+        {[["People", s.users.length], ["Field reps", reps], ["Districts", s.districts.length], ["Trainings", s.courses.length]].map(([k, v]) => (
           <Card key={k as string} padded><Text size="caption" tone="subtle">{k}</Text><Text size="hero" weight="extrabold" tabular>{v}</Text></Card>
         ))}
       </div>
@@ -242,7 +242,7 @@ function AddPerson({ onClose, onAdded }: { onClose: () => void; onAdded: (n: str
   const d = s.districts.find((x) => x.id === districtId)!;
   const region = REGIONS.find((r) => r.id === d.regionId)!;
   return (
-    <Modal open onClose={onClose} title="Add a person" description="They get the role's access, nothing more. Matching default courses are assigned automatically."
+    <Modal open onClose={onClose} title="Add a person" description="They get the role's access, nothing more. Matching default trainings are assigned automatically."
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!name.trim() || !email.includes("@")} onClick={() => {
         s.addUser({ name: name.trim(), first: name.trim().split(" ")[0], email, roles: [role], title: role === "rep" ? "Specialist" : "District Manager", divisionId: region.divisionId, regionId: region.id, districtId, managerId: role === "rep" ? d.managerId : undefined, territory: d.name, hireDate: new Date().toISOString().slice(0, 10) });
         onAdded(name.trim()); onClose();
@@ -297,7 +297,7 @@ export function AdminProducts() {
   const rows = PRODUCTS.filter((p) => (div === "all" || p.divisionId === div) && (!term || `${p.brand} ${p.generic} ${p.therapyAreas.join(" ")} ${p.indications.map((i) => i.short).join(" ")}`.toLowerCase().includes(term)));
   return (
     <div className="flex flex-col gap-6">
-      <Intro description={`${PRODUCTS.length} products across ${DIVISIONS.length} divisions. Courses are checked against each product's exact approved indication wording.`} />
+      <Intro description={`${PRODUCTS.length} products across ${DIVISIONS.length} divisions. Trainings are checked against each product's exact approved indication wording.`} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full max-w-[300px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search brand, molecule, indication" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search products" /></div>
         <Chip size="lg" selected={div === "all"} onClick={() => setDiv("all")}>All divisions</Chip>
@@ -348,7 +348,7 @@ export function AdminCompetencies() {
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex flex-wrap items-center gap-2"><Text size="body-lg" weight="semibold">{c.name}</Text>{["c-safety", "c-dosing"].includes(c.id) && <Chip size="xs" tone="warn">Must-pass by default</Chip>}</span>
                   <Text size="body" tone="subtle">{c.description}</Text>
-                  <Text size="caption" tone="faint">Used in {st.courses} course{st.courses === 1 ? "" : "s"} · {st.questions} question{st.questions === 1 ? "" : "s"}{st.criteria ? ` · ${st.criteria} roleplay rubric point${st.criteria === 1 ? "" : "s"}` : ""}</Text>
+                  <Text size="caption" tone="faint">Used in {st.courses} training{st.courses === 1 ? "" : "s"} · {st.questions} question{st.questions === 1 ? "" : "s"}{st.criteria ? ` · ${st.criteria} roleplay rubric point${st.criteria === 1 ? "" : "s"}` : ""}</Text>
                 </div>
                 <div className="flex w-[140px] shrink-0 flex-col items-end gap-1">
                   {st.avg === null ? <Text size="caption" tone="subtle">No scores yet</Text> : (

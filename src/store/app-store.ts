@@ -114,6 +114,8 @@ export interface AppState extends Seeded {
   saveScreening: (progressId: string, d: { overall: number; scores: Record<string, number>; call?: RoleplayResult }) => void;
   completeBlock: (progressId: string, blockId: string, minutes: number) => void;
   submitAssessment: (progressId: string, attempt: Attempt) => void;
+  /** One scenario of a direct training's call, scored. A retry replaces the earlier result. */
+  saveScenarioRun: (progressId: string, scenarioId: string, r: { score: number; passed: boolean; call?: RoleplayResult }) => void;
   attest: (progressId: string, name: string) => void;
   addPractice: (s: Omit<PracticeSession, "id" | "deletesAt">) => string;
   setPracticeShared: (id: string, shared: boolean) => void;
@@ -431,7 +433,7 @@ export const useApp = create<AppState>()(
         }));
         const notes: Notification[] = targets.slice(0, 400).map((u) => ({
           id: uid("n"), userId: u.id, at: nowIso(), read: false,
-          title: mode === "practice" ? "Practice assigned" : type === "recommended" ? "Recommended course" : "New course assigned",
+          title: mode === "practice" ? "Practice assigned" : type === "recommended" ? "Recommended training" : "New training assigned",
           body: `${course.title}${startsAt && startsAt > at ? ` · starts ${new Date(startsAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${dueAt ? ` · due ${new Date(dueAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}` : ""}${campaignId ? ` · ${s.campaigns.find((x) => x.id === campaignId)?.name ?? ""}` : ""}`,
           href: `/rep/course/${courseId}`,
         }));
@@ -484,6 +486,15 @@ export const useApp = create<AppState>()(
               return { ...p, startedAt, state: "learning", path: buildPath(mods, {}, "full"), completedBlocks: withExplored(p, mods, s.explored[p.userId]) };
             }
             return { ...p, startedAt, state: "screening" };
+          }),
+        })),
+
+      saveScenarioRun: (progressId, scenarioId, r) =>
+        set((s) => ({
+          progress: s.progress.map((p) => {
+            if (p.id !== progressId) return p;
+            const tries = (p.scenarioRuns?.[scenarioId]?.tries ?? 0) + 1;
+            return { ...p, state: p.state === "certified" ? p.state : "assessment", scenarioRuns: { ...p.scenarioRuns, [scenarioId]: { ...r, at: nowIso(), tries } } };
           }),
         })),
 

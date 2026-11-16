@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { X, Lock, ArrowRight } from "lucide-react";
@@ -17,6 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { BandChip, Meter, EmptyState } from "@/components/patterns/academy";
 import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
+import { ScenarioRun, combineOutcomes } from "@/features/roleplay/scenario-run";
+import { allScenarios } from "@/data/scenarios";
+import { screeningOf } from "@/lib/scenario-set";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { modulesOf } from "./use-rep";
 
@@ -43,9 +46,12 @@ export function Screening() {
   const [current, setCurrent] = useState<Item | undefined>(() => pickNext(pool, [], 2));
   /* No screening questions (a direct course): the call is the whole screening. */
   const [phase, setPhase] = useState<"quiz" | "bridge" | "call">(pool.length ? "quiz" : "bridge");
+  const outcomes = useRef<CallOutcome[]>([]);
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
-  const sc = c.settings.screeningScenarioId ? getScenario(c.settings.screeningScenarioId) : undefined;
+  /* A training with the trainer's own material screens with a short call built from its scenarios. */
+  const screenRun = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) })) : [];
+  const sc = screenRun[0] ?? (c.settings.screeningScenarioId ? getScenario(c.settings.screeningScenarioId) : undefined);
 
   function answer(choice: number | null) {
     if (!current) return;
@@ -73,6 +79,10 @@ export function Screening() {
     router.replace(`/rep/course/${c!.id}/results?fresh=1`);
   }
 
+  if (phase === "call" && screenRun.length)
+    return <ScenarioRun scenarios={screenRun} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)}
+      onScenarioDone={(_sc, r) => outcomes.current.push(r)} onFinish={() => finish(answers, combineOutcomes(outcomes.current))} />;
+
   if (phase === "call" && sc)
     return <CallScreen scenario={sc} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)} onComplete={(r) => finish(answers, r)} />;
 
@@ -83,7 +93,7 @@ export function Screening() {
           ? <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
           : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>}
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{pool.length ? "Now, a short call" : "Start with a short call"}</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">You'll talk to {sc?.persona.name}, an AI {sc?.persona.specialty.toLowerCase() ?? "doctor"}. Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} files you can skip; anything marked for everyone stays.`}</Text>
+        <Text size="subhead" tone="muted" className="leading-relaxed">{screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back, about 3 minutes in all.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} files you can skip; anything marked for everyone stays.`}</Text>
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by competency, not the recording.</Text></div>
         <div className="mt-auto flex flex-col gap-2">
           <Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
@@ -142,7 +152,7 @@ export function ScreeningResults() {
       <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
         <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR PATH IS READY</Text>
         <Text as="h1" size="hero" weight="extrabold" tone="inverse" className="leading-tight">{p.path.moduleIds.length} of {mods.length} {unit}s · ~{mins} min</Text>
-        <Text size="body-lg" tone="inverse" className="opacity-80">Full course is {full} min. You tested out of {p.path.testedOut.length} {unit}{p.path.testedOut.length === 1 ? "" : "s"}{req ? `; ${req} safety ${unit}${req === 1 ? " is" : "s are"} required for everyone` : ""}.</Text>
+        <Text size="body-lg" tone="inverse" className="opacity-80">Full training is {full} min. You tested out of {p.path.testedOut.length} {unit}{p.path.testedOut.length === 1 ? "" : "s"}{req ? `; ${req} safety ${unit}${req === 1 ? " is" : "s are"} required for everyone` : ""}.</Text>
         <Link href={`/rep/course/${c.id}`} className="mt-1 flex h-12 items-center justify-center gap-2 rounded-control bg-brand text-subhead font-bold text-white"><AgentIcon className="size-4" aria-hidden="true" />Start my path</Link>
       </div>
       <div className="grid grid-cols-2 gap-3">

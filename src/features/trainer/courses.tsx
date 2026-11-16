@@ -48,10 +48,10 @@ export function CourseCatalogue() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Courses" description="Everything you've built, whether it's live, and how many reps are certified on it."
-        actions={<><Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create course</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} /></>} />
+      <PageHeading title="Trainings" description="Everything you've built, whether it's live, and how many reps are certified on it."
+        actions={<><Button size="lg" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true" />Create training</Button><NewCourseModal open={creating} onClose={() => setCreating(false)} /></>} />
       <div className="flex flex-wrap items-center gap-3">
-        <div className="w-full max-w-[320px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search courses" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search courses" /></div>
+        <div className="w-full max-w-[320px]"><Field iconLeft={<Search className="size-4" />} placeholder="Search trainings" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search trainings" /></div>
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((x) => <Chip key={x.id} size="lg" selected={f === x.id} onClick={() => setF(x.id)}>{x.label}</Chip>)}
         </div>
@@ -60,9 +60,9 @@ export function CourseCatalogue() {
         rows={rows}
         rowKey={(c) => c.id}
         onRowClick={(c) => router.push(`/trainer/courses/${c.id}`)}
-        empty="No courses match."
+        empty="No trainings match."
         columns={[
-          { key: "title", header: "Course", cell: (c) => (
+          { key: "title", header: "Training", cell: (c) => (
             <div className="flex flex-col gap-0.5 py-1">
               <Text size="body-lg" weight="semibold">{c.title}</Text>
               <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "short" ? `Short form · ${courseCardCount(c.modules)} cards` : `Long form · ${c.type === "personalised" ? "Personalised" : "Same for everyone"} · ${courseMinutes(c)} min`}</Text>

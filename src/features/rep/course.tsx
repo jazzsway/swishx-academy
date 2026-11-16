@@ -87,7 +87,7 @@ export function RepLearn() {
           <span className="grid size-9 shrink-0 place-items-center rounded-control bg-ink text-white"><LibraryIcon className="size-4.5" aria-hidden="true" /></span>
           <div className="flex min-w-0 flex-col">
             <Text as="h2" id="lib-h" size="title" weight="bold">Library</Text>
-            <Text size="caption" tone="subtle">Optional courses open to you. Take any of them whenever you like.</Text>
+            <Text size="caption" tone="subtle">Optional trainings open to you. Take any of them whenever you like.</Text>
           </div>
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by topic">
@@ -96,7 +96,7 @@ export function RepLearn() {
             <Chip key={k} size="md" selected={topic === k} onClick={() => setTopic(k)}>{k} · {library.filter((x) => x.topic === k).length}</Chip>
           ))}
         </div>
-        {shown.length === 0 && <Text size="body" tone="subtle">Nothing here yet. Your training team adds courses over time.</Text>}
+        {shown.length === 0 && <Text size="body" tone="subtle">Nothing here yet. Your training team adds trainings over time.</Text>}
         {shown.map(({ c, everyone, topic: about, p }) => {
           const mods = modulesOf(c);
           const pr = p && pathProgress(p, c);
@@ -109,7 +109,7 @@ export function RepLearn() {
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Chip size="xs" tone={about === "Company" ? "default" : "brand"}>{about}</Chip>
                   {p && <Chip size="xs" tone="ok">In progress</Chip>}
-                  <Text size="caption" tone="subtle">{c.format === "short" ? `Short form · ${mods.reduce((a, m) => a + moduleCards(m).length, 0)} cards` : `${mods.reduce((a, m) => a + m.minutes, 0)} min`} · {mods.length} module{mods.length === 1 ? "" : "s"} · {everyone ? "for everyone" : `for ${team}`}</Text>
+                  <Text size="caption" tone="subtle">{c.format === "short" ? `Short form · ${mods.reduce((a, m) => a + moduleCards(m).length, 0)} cards` : `${mods.reduce((a, m) => a + m.minutes, 0)} min`} · {mods.length} lesson{mods.length === 1 ? "" : "s"} · {everyone ? "for everyone" : `for ${team}`}</Text>
                 </span>
               </div>
               <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
@@ -152,7 +152,7 @@ export function RepCourse() {
   const [showOut, setShowOut] = useState(false);
   const p = s.progress.find((x) => x.userId === me.id && x.courseId === id);
   const c = s.courses.find((x) => x.id === id);
-  if (!c) return <div className="p-4"><EmptyState title="Course not found" /></div>;
+  if (!c) return <div className="p-4"><EmptyState title="Training not found" /></div>;
   if (!p) return <CourseExplore courseId={c.id} />;
   const locked = unmetPrereqs(s, me.id, c);
   const scheduled = opensLater(p);
@@ -210,13 +210,13 @@ export function RepCourse() {
           <div className="flex items-center gap-2"><MessageSquareQuote className="size-5 text-brand-deep" aria-hidden="true" /><Text size="subhead" weight="bold">Coaching from {s.users.find((u) => u.id === p.verify?.by)?.first ?? "your manager"}</Text></div>
           <Text size="body-lg" className="leading-relaxed">“{p.verify?.note}”</Text>
           <div className="flex flex-wrap gap-1.5">{p.verify?.focus?.map((f) => <Chip key={f} tone="brand" size="md">{competency(f)?.name}</Chip>)}</div>
-          <Text size="body" tone="muted">Work through the modules below, then resubmit your roleplay.</Text>
+          <Text size="body" tone="muted">Work through the lessons below, then resubmit your roleplay.</Text>
         </div>
       )}
 
       {p.state === "remediation" && lastAttempt && !lastAttempt.passed && (
         <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">
-          <Text size="subhead" weight="bold">Your retake path · {pm.length} modules · ~{pr.minutesLeft} min</Text>
+          <Text size="subhead" weight="bold">Your retake path · {pm.length} lessons · ~{pr.minutesLeft} min</Text>
           <Text size="body" tone="muted">Built from what held you back last time{lastAttempt.call?.flags.some((f) => f.critical) ? ", including the compliance flag" : ""}. {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} left.</Text>
         </div>
       )}
@@ -226,7 +226,7 @@ export function RepCourse() {
           <CalendarClock className="mt-0.5 size-5 shrink-0 text-brand-deep" aria-hidden="true" />
           <div className="flex flex-col gap-1">
             <Text size="subhead" weight="bold">Opens {fmtDate(p.startsAt, true)}</Text>
-            <Text size="body" tone="muted">Your training team scheduled this course. You can start it on that day{p.dueAt ? `, and it's due ${fmtDate(p.dueAt, true)}` : ""}.</Text>
+            <Text size="body" tone="muted">Your training team scheduled this training. You can start it on that day{p.dueAt ? `, and it's due ${fmtDate(p.dueAt, true)}` : ""}.</Text>
           </div>
         </div>
       )}
@@ -236,11 +236,11 @@ export function RepCourse() {
           <Text size="display" weight="extrabold" tone="inverse">Get certified</Text>
           <Text size="body-lg" tone="inverse" className="opacity-80">{c.items.some((i) => i.pool === "screening") ? "Start with a ~10-minute quiz and a 5-minute call with an AI doctor." : "Start with a 5-minute call with an AI doctor."} It isn't graded. It finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.</Text>
           <div className="flex flex-wrap gap-2 text-caption">
-            <span className="rounded-chip bg-white/10 px-2.5 py-1">Full course {pr.fullMinutes} min</span>
-            <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} modules</span>
+            <span className="rounded-chip bg-white/10 px-2.5 py-1">Full training {pr.fullMinutes} min</span>
+            <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} lessons</span>
             <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.filter((m) => m.required).length} required for everyone</span>
           </div>
-          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="self-start text-body font-semibold text-white/70 underline">Take the full course instead</button>
+          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="self-start text-body font-semibold text-white/70 underline">Take the full training instead</button>
         </div>
       )}
 
@@ -269,7 +269,7 @@ export function RepCourse() {
       {p.state === "certified" && (
         <section className="flex flex-col gap-2">
           <button type="button" onClick={() => setShowOut(!showOut)} className="flex items-center gap-1.5 self-start text-body-lg font-semibold text-ink-2">
-            <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />Review any module ({mods.length})
+            <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />Review any lesson ({mods.length})
           </button>
           {showOut && mods.map((m) => (
             <Link key={m.id} href={`/rep/course/${c.id}/learn?module=${m.id}&optional=1`} className="squircle flex items-center justify-between gap-3 rounded-panel border border-hair bg-card px-4 py-3">
@@ -282,7 +282,7 @@ export function RepCourse() {
       {p.path && p.state !== "certified" && c.origin !== "direct" && (
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
-            <Text as="h2" size="subhead" weight="bold">{p.path.kind === "full" ? "All modules" : p.path.kind === "remediation" ? "Retake path" : "Your path"}</Text>
+            <Text as="h2" size="subhead" weight="bold">{p.path.kind === "full" ? "All lessons" : p.path.kind === "remediation" ? "Retake path" : "Your path"}</Text>
             <Text size="caption" tone="subtle">{pr.modulesDone} of {pr.modules} done · ~{pr.minutesLeft} min left</Text>
           </div>
           <ol className="flex flex-col gap-2">
@@ -309,7 +309,7 @@ export function RepCourse() {
           {out.length > 0 && (
             <div className="flex flex-col gap-2">
               <button type="button" onClick={() => setShowOut(!showOut)} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-2">
-                <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />{out.length} modules you tested out of (optional)
+                <ChevronDown className={cn("size-4 transition-transform", showOut && "rotate-180")} aria-hidden="true" />{out.length} lessons you tested out of (optional)
               </button>
               {showOut && out.map((m) => (
                 <Link key={m.id} href={`/rep/course/${c.id}/learn?module=${m.id}&optional=1`} className="squircle flex items-center gap-3 rounded-panel border border-dashed border-hair-2 bg-subtle p-3">
@@ -337,10 +337,10 @@ export function RepCourse() {
       {p.dueAt && p.state !== "certified" && <Text size="caption" tone="subtle" className="text-center">{daysFromToday(p.dueAt) >= 0 ? `${daysFromToday(p.dueAt)} days until your due date` : "Past your due date. Your manager has been notified."}</Text>}
       {/* The one thing to do next, pinned where the tab bar would be. */}
       {!scheduled && !(p.state === "not_started" && c.settings.screening && locked.length > 0) && (
-        p.state === "not_started" && c.settings.screening
+        p.state === "not_started" && c.settings.screening && !(c.origin === "direct" && p.mode === "practice")
           ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(`/rep/course/${c.id}/screening`); }}>Start with screening</Button></BottomActions>
           : p.state === "not_started" && step
-            ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>{p.mode === "practice" ? step.cta : `Start the course · ${pr.fullMinutes} min`}</Button></BottomActions>
+            ? <BottomActions><Button size="lg" fullWidth onClick={() => { s.startCourse(p.id); router.push(step.href); }}>{p.mode === "practice" ? step.cta : `Start the training · ${pr.fullMinutes} min`}</Button></BottomActions>
             : p.state === "certified"
               ? <BottomActions><Button size="lg" fullWidth variant="secondary" onClick={() => router.push("/rep/me")}><Award className="size-4" aria-hidden="true" />View certificate</Button></BottomActions>
               : step && <BottomActions><Button size="lg" fullWidth onClick={() => router.push(step.href)}><span className="truncate">{step.cta === "Continue" ? `Continue: ${step.title}` : step.cta}</span></Button></BottomActions>
@@ -364,7 +364,7 @@ function PrereqLock({ courses }: { courses: { id: string; title: string }[] }) {
           const pr = pp ? pathProgress(pp, course) : null;
           return (
             <Link key={pc.id} href={`/rep/course/${pc.id}`} className="squircle flex items-center justify-between gap-3 rounded-panel bg-subtle px-4 py-3 hover:bg-tint">
-              <span className="flex flex-col"><span className="text-body-lg font-semibold">{pc.title}</span><span className="text-caption text-ink-3">{pp && pr ? (pp.state === "not_started" ? "Not started" : `${pr.modules - pr.modulesDone} module${pr.modules - pr.modulesDone === 1 ? "" : "s"} left`) : "Not assigned yet"}</span></span>
+              <span className="flex flex-col"><span className="text-body-lg font-semibold">{pc.title}</span><span className="text-caption text-ink-3">{pp && pr ? (pp.state === "not_started" ? "Not started" : `${pr.modules - pr.modulesDone} lesson${pr.modules - pr.modulesDone === 1 ? "" : "s"} left`) : "Not assigned yet"}</span></span>
               <span className="text-body font-semibold text-brand-deep">Continue</span>
             </Link>
           );
@@ -384,7 +384,7 @@ export function ExploreModules({ courseId }: { courseId: string }) {
   const explored = s.explored[me.id] ?? [];
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between"><Text as="h2" size="subhead" weight="bold">Explore the course</Text><Text size="caption" tone="subtle">Not for credit</Text></div>
+      <div className="flex items-baseline justify-between"><Text as="h2" size="subhead" weight="bold">Explore the training</Text><Text size="caption" tone="subtle">Not for credit</Text></div>
       <ol className="flex flex-col gap-2">
         {mods.map((m, i) => {
           const seen = m.blocks.filter((b) => explored.includes(b.id)).length;
@@ -411,7 +411,7 @@ function CourseExplore({ courseId }: { courseId: string }) {
   const me = useMe();
   const router = useRouter();
   const c = s.courses.find((x) => x.id === courseId)!;
-  if (!libraryCourses(s, me).some((x) => x.id === c.id)) return <div className="p-4"><EmptyState title="This course isn't in your Library" body="It's assigned only, or it's for another team." /></div>;
+  if (!libraryCourses(s, me).some((x) => x.id === c.id)) return <div className="p-4"><EmptyState title="This training isn't in your Library" body="It's assigned only, or it's for another team." /></div>;
   const mods = modulesOf(c);
   const locked = unmetPrereqs(s, me.id, c);
   // v1-hidden (version line): const lv = c.versions.find((v) => v.state === "published");
@@ -419,13 +419,13 @@ function CourseExplore({ courseId }: { courseId: string }) {
     <div className="flex flex-1 flex-col gap-5 px-4 pt-4">
       <div className="flex flex-col gap-1.5">
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{c.title}</Text>
-        <Text size="body" tone="subtle">Optional · {mods.length} module{mods.length === 1 ? "" : "s"} · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
+        <Text size="body" tone="subtle">Optional · {mods.length} lesson{mods.length === 1 ? "" : "s"} · {mods.reduce((a, m) => a + m.minutes, 0)} min</Text>
         <Text size="body-lg" tone="muted" className="leading-relaxed">{c.objective}</Text>
       </div>
       {c.settings.screening && locked.length > 0 ? <PrereqLock courses={locked} /> : (
         <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
-          <Text size="title" weight="bold" tone="inverse">Take this course</Text>
-          <Text size="body" tone="inverse" className="opacity-80">{c.settings.screening ? "A short screening first, then only the modules you need. Finish it to get a certificate." : "Nobody assigned it, so there's no due date. Finish it to get a certificate."}</Text>
+          <Text size="title" weight="bold" tone="inverse">Take this training</Text>
+          <Text size="body" tone="inverse" className="opacity-80">{c.settings.screening ? "A short screening first, then only the lessons you need. Finish it to get a certificate." : "Nobody assigned it, so there's no due date. Finish it to get a certificate."}</Text>
         </div>
       )}
       <section className="flex flex-col gap-2">
@@ -440,7 +440,7 @@ function CourseExplore({ courseId }: { courseId: string }) {
       </section>
       {/* v1-hidden: {c.allowExplore && <ExploreModules courseId={c.id} />} */}
       {!(c.settings.screening && locked.length > 0) && (
-        <BottomActions><Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Start the course</Button></BottomActions>
+        <BottomActions><Button size="lg" fullWidth onClick={() => { s.selfEnroll(c.id, me.id); router.push(`/rep/course/${c.id}`); }}>Start the training</Button></BottomActions>
       )}
     </div>
   );

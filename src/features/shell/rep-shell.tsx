@@ -40,7 +40,7 @@ const TAB_ROOTS = ["/rep", "/rep/learn", "/rep/practice", "/rep/me"];
 /** A detail screen's way back up, named after where it goes (the page keeps its own title). */
 function detailOf(pathname: string) {
   const course = pathname.match(/^\/rep\/course\/([^/]+)(\/results)?/);
-  if (course?.[2]) return { back: `/rep/course/${course[1]}`, label: "Course" };
+  if (course?.[2]) return { back: `/rep/course/${course[1]}`, label: "Training" };
   if (course) return { back: "/rep/learn", label: "My learning" };
   if (pathname.startsWith("/rep/me/")) return { back: "/rep/me", label: "Me" };
   if (pathname === "/rep/leaderboard") return { back: "/rep", label: "Home" };

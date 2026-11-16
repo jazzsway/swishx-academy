@@ -79,7 +79,7 @@ export function CoursePeople() {
   if (!ps.length) {
     return (
       <Card>
-        <Text size="subhead" weight="bold">Nobody has this course yet</Text>
+        <Text size="subhead" weight="bold">Nobody has this training yet</Text>
         <Text tone="subtle">{lv ? "Assign it to a team, a region or named reps, and their progress shows up here." : "Publish it first, then assign it."}</Text>
         {lv && <Link href={`/trainer/courses/${id}/assign`} className="self-start text-body-lg font-semibold text-brand-deep hover:underline">Assign it</Link>}
       </Card>

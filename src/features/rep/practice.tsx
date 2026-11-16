@@ -101,8 +101,8 @@ export function PracticeHub() {
       )}
 
       <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">AI doctors</Text><Text size="caption" tone="subtle">From your courses</Text></div>
-        {library.length === 0 && <Text tone="subtle">No practice doctors in your courses yet. Prep for a meeting builds one for you.</Text>}
+        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">AI doctors</Text><Text size="caption" tone="subtle">From your trainings</Text></div>
+        {library.length === 0 && <Text tone="subtle">No practice doctors in your trainings yet. Prep for a meeting builds one for you.</Text>}
         {library.map((sc) => {
           const runs = scored.filter((x) => x.title.includes(sc.persona.name) || x.setup?.callType === sc.title);
           const top = runs.length ? Math.max(...runs.map((x) => x.result!.score)) : undefined;

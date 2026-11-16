@@ -108,10 +108,10 @@ export function ShortPlayer() {
         <div className="flex items-center gap-3">
           <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="grid size-10 shrink-0 place-items-center rounded-full bg-card shadow-hair transition-colors hover:bg-subtle"><X className="size-5" /></Link>
           <div className="flex min-w-0 flex-1 flex-col">
-            <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{explore ? "Exploring · " : ""}Module {pos + 1} of {path.length} · {TEMPLATES[template].label}</Text>
+            <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{explore ? "Exploring · " : ""}Lesson {pos + 1} of {path.length} · {TEMPLATES[template].label}</Text>
             <Text size="body-lg" weight="bold" truncate>{mod.title}</Text>
           </div>
-          <button type="button" aria-label="Ask SwishX AI Agent about this module" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
+          <button type="button" aria-label="Ask SwishX AI Agent about this lesson" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
         </div>
         <DeckProgress index={i} total={total} />
       </div>
@@ -119,7 +119,7 @@ export function ShortPlayer() {
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-4">
         <DeckStage index={i} total={total} dir={dir} onPrev={() => go(i - 1)} onNext={() => (onResult || last ? finish() : go(i + 1))} canNext={canNext} nextLabel={nextLabel}>
           {i === 0 ? (
-            <CoverFace template={template} kicker={`${TEMPLATES[template].label} · Module ${pos + 1}`} title={mod.title}
+            <CoverFace template={template} kicker={`${TEMPLATES[template].label} · Lesson ${pos + 1}`} title={mod.title}
               meta={`${cards.length} cards · about ${Math.max(1, Math.round(cards.length * 0.35))} min · ${competency(mod.competency)?.name}`}>
               <Text size="body" tone="inverse" className="opacity-70">{mod.summary}</Text>
               <Text size="caption" tone="inverse" className="opacity-60">Swipe or use the arrows. {checks.length ? `${checks.length} question${checks.length === 1 ? "" : "s"} at the end.` : ""}</Text>

@@ -151,7 +151,7 @@ export function badgesFor(s: AppState, userId: string): Badge[] {
   const streak = s.streaks[userId]?.days ?? 0;
   const lum = mine.find((p) => p.courseId === "c-lumora-launch");
   return [
-    { id: "first-cert", name: "First certification", description: "Certified on any course.", earned: certs.length > 0 },
+    { id: "first-cert", name: "First certification", description: "Certified on any training.", earned: certs.length > 0 },
     { id: "launch-ready", name: "Launch ready", description: "Certified on Lumora before the campaign due date.", earned: lum?.state === "certified" },
     { id: "first-try", name: "First-try pass", description: "Passed an assessment on the first attempt.", earned: mine.some((p) => p.attempts[0]?.passed) },
     { id: "objections", name: "Objection handler", description: "10 practice roleplays.", earned: roleplays >= 10, progress: `${Math.min(roleplays, 10)}/10` },

@@ -217,7 +217,7 @@ export function seed(): SeedState {
   const pAd = progress.find((x) => x.userId === "u-priya" && x.courseId === "c-ad101")!;
   Object.assign(pAd, {
     assignedAt: "2026-10-27", dueAt: "2026-11-17", startedAt: "2026-10-29", minutesSpent: 7,
-    path: { kind: "full", moduleIds: ["ad1", "ad2", "ad3"], reasons: { ad1: "Full course", ad2: "Full course", ad3: "Full course" }, testedOut: [], builtAt: "2026-10-29" },
+    path: { kind: "full", moduleIds: ["ad1", "ad2", "ad3"], reasons: { ad1: "Full training", ad2: "Full training", ad3: "Full training" }, testedOut: [], builtAt: "2026-10-29" },
     completedBlocks: ["ad1-b1", "ad1-b2"],
   });
 
@@ -336,7 +336,7 @@ export function seed(): SeedState {
   ];
 
   const notifications: Notification[] = [
-    { id: "n1", userId: "u-priya", at: "2026-11-03T08:00:00", title: "New required course", body: "Lumora launch readiness is due 24 Nov.", href: "/rep/course/c-lumora-launch", read: false },
+    { id: "n1", userId: "u-priya", at: "2026-11-03T08:00:00", title: "New required training", body: "Lumora launch readiness is due 24 Nov.", href: "/rep/course/c-lumora-launch", read: false },
     { id: "n2", userId: "u-david", at: "2026-11-04T10:12:00", title: "Waiting for your sign-off", body: "2 reps passed Lumora launch readiness and need verification.", href: "/manager/verify", read: false },
     { id: "n3", userId: "u-maya", at: "2026-11-04T16:30:00", title: "MLR changes requested", body: "Cardexa label update 2026 v2 came back with 4 comments.", href: "/trainer/courses/c-cardexa/review", read: false },
     { id: "n4", userId: "u-maya", at: "2026-11-05T09:00:00", title: "Approval expiring", body: "Cardexa v1 (CDX-US-0412) expires in 13 days.", href: "/trainer/courses/c-cardexa/review", read: true },

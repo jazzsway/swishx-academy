@@ -24,7 +24,7 @@ const MODE: Record<CallMode, { label: string; tone: string }> = {
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
 };
 
-export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted }: {
+export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted, run }: {
   scenario: Scenario; objectionIds?: string[]; mode: CallMode; voiceAllowed: boolean;
   onComplete: (r: CallOutcome, meta: { assisted: boolean }) => void;
   /** Practice only: start with live prompts on. The rep can switch before the call starts. */
@@ -35,6 +35,8 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   showSamples?: boolean;
   /** Follows the call as it happens, for a live view next to it. */
   onChange?: (state: CallState, elapsed: number, ended: boolean) => void;
+  /** One scenario of several, back to back: where it sits, and what the end button leads to. */
+  run?: { label: string; next: string };
 }) {
   const sc: Scenario = personaOverride ? { ...scenario, persona: { ...scenario.persona, ...personaOverride } } : scenario;
   const [stage, setStage] = useState<"prep" | "call" | "ended">(skipPrep ? "call" : "prep");
@@ -138,7 +140,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         <div className="flex min-w-0 flex-1 flex-col">
           <Text size="body-lg" weight="bold" tone="inverse" truncate>{sc.persona.name}</Text>
           <span className="flex items-center gap-1.5 text-caption text-white/60">
-            {mode === "practice" && <Lock className="size-3" aria-hidden="true" />}{MODE[mode].label}
+            {mode === "practice" && <Lock className="size-3" aria-hidden="true" />}{run ? `${run.label} · ` : ""}{MODE[mode].label}
           </span>
         </div>
         <Text size="body-lg" weight="bold" tone="inverse" tabular className="opacity-80">{mmss(elapsed)}</Text>
@@ -158,10 +160,10 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         {voice.listening && voice.interim && <div className="flex justify-end"><div className="max-w-[85%] rounded-panel bg-brand/40 px-3.5 py-2.5 text-body-lg italic text-white/90">{voice.interim}</div></div>}
         {stage === "ended" && (
           <div className="squircle mt-2 flex flex-col items-center gap-3 rounded-panel bg-white/[0.06] p-5 text-center">
-            <Text size="title" weight="bold" tone="inverse">Call ended</Text>
+            <Text size="title" weight="bold" tone="inverse">{run ? `${sc.persona.name} has left the call` : "Call ended"}</Text>
             <Text size="body" tone="inverse" className="opacity-70">{state.turns.filter((t) => t.speaker === "rep").length} turns · {mmss(elapsed)}</Text>
             <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping), { assisted: assist }); }}>
-              <AgentIcon className="size-4" aria-hidden="true" />{mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
+              <AgentIcon className="size-4" aria-hidden="true" />{run ? run.next : mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
             </Button>
           </div>
         )}

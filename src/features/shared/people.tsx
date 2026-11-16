@@ -34,7 +34,7 @@ export function PeopleTable({ s, rows, onOpen, sub }: { s: AppState; rows: Perso
       onRowClick={onOpen}
       columns={[
         { key: "rep", header: "Person", cell: ({ u }) => <div className="flex items-center gap-2.5"><Avatar initials={u.initials} size={30} /><div className="flex flex-col"><span className="font-semibold text-ink">{u.name}{u.id === PINNED_REP && s.presenter && <Chip size="xs" tone="brand" className="ml-2 align-middle">Demo rep</Chip>}</span><span className="text-caption text-ink-3">{sub(u)}</span></div></div> },
-        { key: "courses", header: "Courses", cell: ({ ps }) => <span className="tabular-nums">{ps.filter((p) => p.state === "certified").length} of {ps.length} certified</span> },
+        { key: "courses", header: "Trainings", cell: ({ ps }) => <span className="tabular-nums">{ps.filter((p) => p.state === "certified").length} of {ps.length} certified</span> },
         { key: "urgent", header: "Needs attention", cell: ({ ps, urgent }) => urgent.state === "certified"
             ? <Chip size="sm" tone="ok">All certified</Chip>
             : <div className="flex flex-col items-start gap-1"><ProgressChip state={urgent.state} overdue={isOverdue(urgent)} label={STATE_LABEL[urgent.state]} /><span className="text-caption text-ink-3">{title(urgent)}{ps.filter((p) => p.state !== "certified").length > 1 ? ` +${ps.filter((p) => p.state !== "certified").length - 1} more` : ""}</span></div> },

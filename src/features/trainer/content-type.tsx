@@ -48,8 +48,8 @@ export function ContentTypePicker({ value, onChange, template, title }: { value:
   return (
     <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label="Type of content">
       {option("long", <>
-        {head(<BookOpen className="size-4.5" aria-hidden="true" />, "Long form", "Modules · 30 min to 2 h", value === "long")}
-        <Text size="body" tone="muted">Full modules of videos, PDFs and decks, quick checks, a final assessment and an AI roleplay call.</Text>
+        {head(<BookOpen className="size-4.5" aria-hidden="true" />, "Long form", "Lessons · 30 min to 2 h", value === "long")}
+        <Text size="body" tone="muted">Full lessons of videos, PDFs and decks, quick checks, a final assessment and an AI roleplay call.</Text>
         <div className="flex flex-wrap gap-x-3 gap-y-1.5">
           {LONG_HAS.map(({ icon: I, label }) => <span key={label} className="flex items-center gap-1 text-caption font-semibold text-ink-3"><I className="size-3.5" aria-hidden="true" />{label}</span>)}
         </div>
@@ -67,8 +67,8 @@ export function ContentTypePicker({ value, onChange, template, title }: { value:
         <button type="button" onClick={(e) => { e.stopPropagation(); setPreview({ form: "long", at: 0 }); }} className="self-start text-body font-semibold text-brand-deep hover:underline">See a full sample as a rep</button>
       </>)}
       {option("short", <>
-        {head(<Layers className="size-4.5" aria-hidden="true" />, "Short form", "Swipeable cards · a few minutes a module", value === "short")}
-        <Text size="body" tone="muted">The same approved content, broken into one-idea cards reps swipe through, with a quick check after each module.</Text>
+        {head(<Layers className="size-4.5" aria-hidden="true" />, "Short form", "Swipeable cards · a few minutes a lesson", value === "short")}
+        <Text size="body" tone="muted">The same approved content, broken into one-idea cards reps swipe through, with a quick check after each lesson.</Text>
         <div className="flex flex-wrap gap-x-3 gap-y-1.5">
           {[{ icon: Layers, label: "Cards" }, { icon: Sparkles, label: "Templates" }, { icon: ListChecks, label: "Quick checks" }].map(({ icon: I, label }) => <span key={label} className="flex items-center gap-1 text-caption font-semibold text-ink-3"><I className="size-3.5" aria-hidden="true" />{label}</span>)}
         </div>
@@ -119,7 +119,7 @@ export function TemplatePicker({ value, onChange, title }: { value: ShortTemplat
     <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <Text size="label" weight="semibold" tone="muted">Card template</Text>
-        <Text size="caption" tone="subtle">{title ? "Your course title, in each template" : "Add a course title to see it on each cover"}</Text>
+        <Text size="caption" tone="subtle">{title ? "Your training title, in each template" : "Add a training title to see it on each cover"}</Text>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Card template">
         {TEMPLATE_IDS.map((id) => {
@@ -167,7 +167,7 @@ export function SamplePreview({ form, at, template, title, onClose }: { form: Fo
   const [tab, setTab] = useState(at);
   return (
     <Modal open onClose={onClose} size="md" title={form === "short" ? `Short form · ${TEMPLATES[template].label}` : "Long form · Lumora launch readiness"}
-      description={form === "short" ? "Sample cards. Swipe, use the arrows, or answer the question." : "Real material from a published course, as reps see it."}>
+      description={form === "short" ? "Sample cards. Swipe, use the arrows, or answer the question." : "Real material from a published training, as reps see it."}>
       <div className="mx-auto flex h-[min(600px,66vh)] w-full max-w-[380px] flex-col overflow-hidden rounded-[32px] border-[6px] border-ink bg-canvas">
         {form === "short" ? (
           <div className="flex h-full flex-col p-4"><SampleDeck template={template} startAt={at} title={title} /></div>
@@ -187,7 +187,7 @@ export function SamplePreview({ form, at, template, title, onClose }: { form: Fo
                 <Text size="title" weight="bold">{LONG_SAMPLES[tab].block.title}</Text>
               </div>
               <BlockView key={tab} block={LONG_SAMPLES[tab].block} sourceIds={["src-lum-pi", "src-lum-va", "src-lum-p3", "src-lum-obj", "src-lum-payer", "src-ad-guide"]} interactive />
-              <Text size="caption" tone="subtle" className="border-t border-hair pt-3">After the material: a module check, then a final assessment and an AI roleplay call for certification.</Text>
+              <Text size="caption" tone="subtle" className="border-t border-hair pt-3">After the material: a lesson check, then a final assessment and an AI roleplay call for certification.</Text>
             </div>
           </>
         )}

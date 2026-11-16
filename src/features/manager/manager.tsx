@@ -50,7 +50,7 @@ export function ManagerHome() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2" title="Team readiness" eyebrow="Required courses">
+        <Card className="lg:col-span-2" title="Team readiness" eyebrow="Required trainings">
           <div className="flex flex-col gap-4">
             {required.map(({ c, ps }) => {
               const ct = counts(ps);
@@ -145,7 +145,7 @@ export function ManagerTeam() {
   const behind = rows.filter((r) => r.urgent.state !== "certified").length;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="Team" description={`${rows.length} people · ${behind ? `${behind} with a course still open` : "everyone certified"}. Open someone to see each course step by step. Practice is private and never shown here.`} />
+      <PageHeading title="Team" description={`${rows.length} people · ${behind ? `${behind} with a training still open` : "everyone certified"}. Open someone to see each training step by step. Practice is private and never shown here.`} />
       <PeopleTable s={s} rows={rows} onOpen={(r) => router.push(`/manager/team/${r.u.id}`)} sub={(u) => u.territory ?? ""} />
     </div>
   );
@@ -162,7 +162,7 @@ export function ManagerLearning() {
   const mine = s.progress.filter((p) => p.userId === me.id);
   return (
     <div className="flex flex-col gap-6">
-      <PageHeading title="My learning" description="Managers certify too. Take your courses in the Academy app on your phone; progress shows here." />
+      <PageHeading title="My learning" description="Managers certify too. Take your trainings in the Academy app on your phone; progress shows here." />
       <div className="grid gap-3 sm:grid-cols-2">
         {mine.map((p: Progress) => {
           const c = s.courses.find((x) => x.id === p.courseId)!;

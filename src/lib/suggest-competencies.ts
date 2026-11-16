@@ -26,11 +26,11 @@ export function suggestCompetencies(title: string, objective: string, isProduct:
     if (hit) out.push({ id, why: `“${hit}” in your ${objective.toLowerCase().includes(hit) ? "objective" : "title"}` });
   }
   const has = (id: string) => out.some((x) => x.id === id);
-  if (isProduct && !has("c-safety")) out.push({ id: "c-safety", why: "Always included for a product course: fair balance" });
+  if (isProduct && !has("c-safety")) out.push({ id: "c-safety", why: "Always included for a product training: fair balance" });
   if (!has("c-compliance")) out.push({ id: "c-compliance", why: "Always included: on-label promotion" });
   /* Nothing specific in the words: the essentials of a product course. */
   if (isProduct && out.length <= 2) {
-    out.unshift({ id: "c-efficacy", why: "Core for a product course" }, { id: "c-dosing", why: "Core for a product course" });
+    out.unshift({ id: "c-efficacy", why: "Core for a product training" }, { id: "c-dosing", why: "Core for a product training" });
   }
   return out;
 }

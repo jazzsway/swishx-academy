@@ -11,14 +11,14 @@ import { Text } from "@/components/ui/text";
 
 /** The models offered in the picker. A prototype: the choice is shown, not routed anywhere. */
 export const AGENT_MODELS = [
-  { id: "finsen-3.2", name: "Finsen 3.2", hint: "Best for writing and checking courses" },
+  { id: "finsen-3.2", name: "Finsen 3.2", hint: "Best for writing and checking trainings" },
   { id: "finsen-3.2-fast", name: "Finsen 3.2 Fast", hint: "Quicker for small edits and questions" },
 ];
 
 /* A suggestion's icon, from what it asks for. */
 const ICONS: [RegExp, LucideIcon][] = [
   [/fix|wording|citation/i, Wand2], [/video/i, Film], [/audio|listen/i, Headphones], [/check|quiz/i, ListChecks],
-  [/shorten|trim|split|clip/i, Scissors], [/module/i, LayoutList], [/question/i, HelpCircle], [/overdue|nudge|behind/i, BellRing],
+  [/shorten|trim|split|clip/i, Scissors], [/module|lesson/i, LayoutList], [/question/i, HelpCircle], [/overdue|nudge|behind/i, BellRing],
   [/weak|skill|gap|focus/i, Target], [/expir|due|deadline/i, CalendarClock], [/objection|talk|teen|cost/i, MessageCircle],
 ];
 const iconFor = (label: string) => ICONS.find(([re]) => re.test(label))?.[1];

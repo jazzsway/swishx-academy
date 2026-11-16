@@ -29,7 +29,7 @@ function homeOf(i: Item, mods: Module[]) {
 /** Every question in the course, filed under the module it belongs to, in outline order. */
 export function questionsByModule(course: Course) {
   const byModule = new Map<string, Question[]>(course.modules.map((m) => [m.id, m.blocks.flatMap((b): Question[] => {
-    if (b.check) return [{ id: b.id, kind: "check", competency: b.competencies[0] ?? m.competency, lesson: "the module's material", ...b.check }];
+    if (b.check) return [{ id: b.id, kind: "check", competency: b.competencies[0] ?? m.competency, lesson: "the lesson's material", ...b.check }];
     /* Questions that pop up inside a video, at the end of their chapter. */
     return (b.video?.chapters ?? []).flatMap((ch, k) => (ch.check ? [{ id: `${b.id}-ch${k}`, kind: "chapter" as const, competency: b.competencies[0] ?? m.competency, lesson: `${b.title} · chapter ${k + 1}: ${ch.title}`, ...ch.check }] : []));
   })]));

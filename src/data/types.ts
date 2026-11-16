@@ -242,10 +242,18 @@ export interface Persona {
   closing: string;
 }
 
+/** Who the rep meets in a scenario. One character per scenario. */
+export type Character = "doctor" | "nurse" | "manager" | "pharmacist";
+
 export interface Scenario {
   id: string;
   courseId: string;
   title: string;
+  /** What happens in this scenario, in a line or two. */
+  description?: string;
+  character?: Character;
+  /** The competencies this scenario measures and how much each counts, in percent. Adds up to 100. */
+  weights?: { competency: string; pct: number }[];
   persona: Persona;
   context: string;
   objective: string;
@@ -299,6 +307,8 @@ export interface CourseVersion {
 
 export interface CourseSettings {
   screening: boolean;
+  /** Direct trainings: the scenarios the short screening call is built from. */
+  screeningIds?: string[];
   screeningCall: boolean;
   screeningScenarioId?: string;
   screeningItems: number;
@@ -329,6 +339,8 @@ export interface Course {
   origin?: "direct" | "swishx";
   /** Direct courses: documents only the AI reads, to build roleplays. Reps never see them. */
   roleplaySourceIds?: string[];
+  /** The trainer's objective brief, written at creation. The first scenarios are drafted from it. */
+  brief?: string;
   /** long: modules of videos, documents and decks. short: the same content broken into swipeable cards. */
   format: "long" | "short";
   /** Short form only: the card template SwishX writes to. */
@@ -443,6 +455,8 @@ export interface Progress {
   completedBlocks: string[];
   minutesSpent: number;
   attempts: Attempt[];
+  /** Direct trainings: where the rep stands on each scenario of the call. */
+  scenarioRuns?: Record<string, ScenarioRun>;
   verify?: {
     status: "pending" | "approved" | "needs_coaching";
     requestedAt: string;
@@ -458,6 +472,8 @@ export interface Progress {
   attestName?: string;
   coachingNotes: { at: string; by: string; text: string }[];
 }
+
+export interface ScenarioRun { at: string; score: number; passed: boolean; tries: number; call?: RoleplayResult }
 
 export interface Campaign {
   id: string;

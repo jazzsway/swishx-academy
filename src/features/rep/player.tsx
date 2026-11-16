@@ -97,10 +97,10 @@ export function BlockPlayer() {
       <div className="flex items-center gap-3">
         <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="grid size-10 shrink-0 place-items-center rounded-full bg-card shadow-hair transition-colors hover:bg-subtle"><X className="size-5" /></Link>
         <div className="flex min-w-0 flex-1 flex-col">
-          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{explore ? "Exploring · " : ""}Module {pos + 1} of {path.length}</Text>
+          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{explore ? "Exploring · " : ""}Lesson {pos + 1} of {path.length}</Text>
           <Text size="body-lg" weight="bold" truncate>{mod.title}</Text>
         </div>
-        <button type="button" aria-label="Ask SwishX AI Agent about this module" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
+        <button type="button" aria-label="Ask SwishX AI Agent about this lesson" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
       </div>
       {/* One segment per step: done, current, still to come. */}
       <div className="flex gap-1" aria-label={`Step ${Math.max(0, stepNo) + 1} of ${steps}`}>
@@ -133,7 +133,7 @@ export function BlockPlayer() {
           </div>
 
           <section className="flex flex-col gap-2">
-            <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">In this module</Text>
+            <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">In this lesson</Text>
             <ol className="flex flex-col overflow-hidden rounded-panel border border-hair bg-card">
               {material.map((b, k) => {
                 const Meta = BLOCK_META[b.type];
@@ -155,8 +155,8 @@ export function BlockPlayer() {
                 <li className="flex items-center gap-3 bg-tint/60 px-3.5 py-3">
                   <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", checks.every((x) => done(x.id)) ? "bg-ok-bg text-ok" : "bg-brand text-white")}><ListChecks className="size-4" aria-hidden="true" /></span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body font-semibold text-ink">Module check</span>
-                    <span className="text-caption text-ink-3">{checks.length} question{checks.length === 1 ? "" : "s"} · get {passMark}% to finish the module</span>
+                    <span className="text-body font-semibold text-ink">Lesson check</span>
+                    <span className="text-caption text-ink-3">{checks.length} question{checks.length === 1 ? "" : "s"} · get {passMark}% to finish the lesson</span>
                   </span>
                 </li>
               )}
@@ -165,7 +165,7 @@ export function BlockPlayer() {
         </div>
         <Footer>
           <Button size="lg" className="flex-1" onClick={() => setScreen(allMaterialDone && checks.length ? { kind: "check", q: 0 } : { kind: "step", i: started && resumeAt > 0 ? resumeAt : 0 })}>
-            {!started ? "Start module" : allMaterialDone ? (checks.length ? "Take the module check" : "Review the module") : "Continue where you left off"}<ArrowRight className="size-4" aria-hidden="true" />
+            {!started ? "Start lesson" : allMaterialDone ? (checks.length ? "Take the lesson check" : "Review the lesson") : "Continue where you left off"}<ArrowRight className="size-4" aria-hidden="true" />
           </Button>
         </Footer>
       </div>
@@ -193,7 +193,7 @@ export function BlockPlayer() {
         <Footer>
           <Button size="lg" variant="secondary" onClick={() => setScreen(screen.i > 0 ? { kind: "step", i: screen.i - 1 } : { kind: "intro" })}>Back</Button>
           <Button size="lg" className="min-w-0 flex-1" disabled={gated} onClick={() => next(screen.i)}>
-            <span className="truncate">{gated ? gateLabel : !last ? "Continue" : checks.length ? "Go to the module check" : "Finish module"}</span>
+            <span className="truncate">{gated ? gateLabel : !last ? "Continue" : checks.length ? "Go to the lesson check" : "Finish lesson"}</span>
           </Button>
         </Footer>
       </div>
@@ -211,7 +211,7 @@ export function BlockPlayer() {
       <div className="flex min-h-full flex-1 flex-col">
         {header}
         <div key={b.id} className="rise-in flex min-w-0 flex-1 flex-col gap-4 px-5 py-6">
-          <span className="flex items-center gap-1.5 text-caption font-bold text-brand-deep"><ListChecks className="size-3.5" aria-hidden="true" />Module check · {screen.q + 1} of {checks.length}</span>
+          <span className="flex items-center gap-1.5 text-caption font-bold text-brand-deep"><ListChecks className="size-3.5" aria-hidden="true" />Lesson check · {screen.q + 1} of {checks.length}</span>
           <Text as="h1" size="display" weight="extrabold" tracking="tight" className="leading-snug">{ch.question}</Text>
           <div className="flex flex-col gap-2.5">
             {ch.options.map((o, i) => {
@@ -255,11 +255,11 @@ export function BlockPlayer() {
       <div className="flex min-h-full flex-1 flex-col">
         {header}
         <div className="rise-in flex flex-1 flex-col items-center gap-4 px-5 py-8 text-center">
-          <Ring value={score} size={112} stroke={10} tone={passed ? "ok" : "brand"} label={`Module check ${score}%`}>
+          <Ring value={score} size={112} stroke={10} tone={passed ? "ok" : "brand"} label={`Lesson check ${score}%`}>
             <Text size="hero" weight="extrabold" tabular>{correct.length}/{checks.length}</Text>
           </Ring>
           <Text as="h1" size="hero" weight="extrabold" tracking="tight">{passed ? "You passed" : "Not yet"}</Text>
-          <Text size="subhead" tone="muted">{passed ? `${score}% on the module check.` : `${score}% · you need ${passMark}%. Re-read what you missed, then retake it.`}</Text>
+          <Text size="subhead" tone="muted">{passed ? `${score}% on the lesson check.` : `${score}% · you need ${passMark}%. Re-read what you missed, then retake it.`}</Text>
           {missed.length > 0 && (
             <div className="flex w-full flex-col gap-2 text-left">
               <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">Worth another look</Text>
@@ -282,7 +282,7 @@ export function BlockPlayer() {
         </div>
         <Footer>
           {passed ? (
-            <Button size="lg" className="flex-1" onClick={() => { checks.forEach(credit); s.touchStreak(me.id); earnModule(score); setScreen({ kind: "done" }); }}>Finish module<ArrowRight className="size-4" aria-hidden="true" /></Button>
+            <Button size="lg" className="flex-1" onClick={() => { checks.forEach(credit); s.touchStreak(me.id); earnModule(score); setScreen({ kind: "done" }); }}>Finish lesson<ArrowRight className="size-4" aria-hidden="true" /></Button>
           ) : (
             <>
               <Button size="lg" variant="secondary" onClick={() => setScreen({ kind: "step", i: 0 })}>Review</Button>
@@ -333,7 +333,7 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
   return (
     <div className="flex min-h-full flex-1 flex-col items-center gap-5 px-6 pb-8 pt-16 text-center">
       <div className={cn("success-pop grid size-20 place-items-center rounded-full text-white", explore ? "bg-ink" : "bg-brand shadow-brand-lift")}><Trophy className="size-9" aria-hidden="true" /></div>
-      <Text as="h1" size="hero" weight="extrabold" tracking="tight">{explore ? "Module explored" : allDone ? "Path complete" : "Module done"}</Text>
+      <Text as="h1" size="hero" weight="extrabold" tracking="tight">{explore ? "Lesson explored" : allDone ? "Path complete" : "Lesson done"}</Text>
       <Text size="subhead" tone="muted">{mod.title}{explore ? " · not for credit. It's ticked off if you get certified later." : optional ? " · optional review" : ""}</Text>
       {earned > 0 && <Link href="/rep/leaderboard" className="rounded-chip bg-tint px-3 py-1 text-body font-bold text-brand-deep hover:underline">+{earned} points this month</Link>}
       <div className="mt-auto flex w-full flex-col gap-2">
@@ -344,7 +344,7 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
         ) : nextModule && !optional ? (
           <Button size="lg" fullWidth onClick={() => onNext(nextModule)}><span className="truncate">Next: {nextModule.title}</span><ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>
         ) : null}
-        <Button size="lg" fullWidth variant="ghost" onClick={() => router.push(`/rep/course/${c.id}`)}>Back to course</Button>
+        <Button size="lg" fullWidth variant="ghost" onClick={() => router.push(`/rep/course/${c.id}`)}>Back to training</Button>
       </div>
     </div>
   );

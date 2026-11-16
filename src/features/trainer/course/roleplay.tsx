@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, FileText, Flag, Lock, Mic, MessageSquarePlus, Minus, Plus, RotateCcw, ShieldAlert, Trash2, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, FileText, Flag, Lock, Mic, MessageSquarePlus, Minus, Plus, RotateCcw, ShieldAlert, Trash2, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios, objection, prohibited } from "@/data/scenarios";
@@ -19,6 +19,8 @@ import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 import { SourcePreview } from "../source-preview";
+import { CHARACTERS, characterOf, personInitials } from "@/lib/scenario-set";
+import { DeleteScenario, ScenarioList, WeightsEditor, useAddScenario } from "./scenarios";
 
 type Role = "screening" | "final";
 const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind === "config" ? "config" : f.kind);
@@ -99,10 +101,13 @@ export function RoleplaySetup() {
   if (!data || !course) return null;
   const base = `/trainer/courses/${course.id}`;
   const editable = data.editable;
+  /* A training with the trainer's own material lists its scenarios first; ?sc= opens one. */
+  const direct = course.origin === "direct";
+  if (direct && !search.get("sc")) return <ScenarioList course={course} editable={editable} />;
 
   const chat = editable && (
     <CopilotOverride>
-      <RoleplayChat key={sc?.id ?? "none"} sc={sc} course={course} autoDraft={autoDraft} attached={attached} onDetach={() => setAttached(null)}
+      <RoleplayChat key={sc?.id ?? "none"} sc={sc} course={course} autoDraft={autoDraft} direct={direct} attached={attached} onDetach={() => setAttached(null)}
         onEdited={(keys) => {
           setFlash((f) => ({ keys, n: f.n + 1 }));
           if (keys[0]) window.setTimeout(() => document.querySelector(`[data-node="${keys[0]}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }), 80);
@@ -126,7 +131,7 @@ export function RoleplaySetup() {
         <div className="squircle flex flex-col items-center gap-3 rounded-card border border-dashed border-hair-3 bg-card px-6 py-14 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-tint text-brand-deep"><Mic className="size-6" aria-hidden="true" /></span>
           <Text as="h1" size="title" weight="bold">No roleplay actors yet</Text>
-          <Text size="body" tone="muted" className="max-w-[440px]">Ask the agent on the right to add one, for example a screening doctor and a final-assessment doctor. It drafts each from {course.roleplaySourceIds?.length ? "your roleplay documents" : "the course's files"}.</Text>
+          <Text size="body" tone="muted" className="max-w-[440px]">Ask the agent on the right to add one, for example a screening doctor and a final-assessment doctor. It drafts each from {course.roleplaySourceIds?.length ? "your roleplay documents" : "the training's files"}.</Text>
         </div>
         {chat}
       </>
@@ -138,7 +143,7 @@ export function RoleplaySetup() {
   const canEdit = editable && !!sc.custom;
   const inCall = () => true;
   /* What each objection is in: a screening actor's are all in screening; a final actor's are in practice too, unless held back. */
-  const callsOf = (o: Objection) => roles.screening ? ["Screening"] : roles.final ? (o.finalOnly ? ["Final only · not in practice"] : ["Final", "Practice"]) : [];
+  const callsOf = (o: Objection) => direct ? [o.finalOnly ? "Not in screening" : "Every call"] : roles.screening ? ["Screening"] : roles.final ? (o.finalOnly ? ["Final only · not in practice"] : ["Final", "Practice"]) : [];
   const isSel = (f: CallFocus) => !!selected && keyOf(selected) === keyOf(f);
   const flashing = (f: CallFocus) => flash.keys.includes(keyOf(f));
   const pick = (f: CallFocus) => setSelected(isSel(f) ? null : f);
@@ -146,10 +151,40 @@ export function RoleplaySetup() {
 
   const node = { isSel, flashing, pick, addToChat, canEdit, flashN: flash.n };
 
+  const ch = CHARACTERS[characterOf(sc)];
   return (
     <div className="flex flex-col gap-4">
+      {direct && <Link href={`${base}/roleplay`} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />All scenarios</Link>}
       {/* The actor, and what the course uses them for. */}
       <section className={cn("squircle overflow-hidden rounded-card border bg-card", isSel({ kind: "persona" }) ? "border-brand ring-2 ring-brand/20" : "border-hair")}>
+        {direct ? (
+          <div className="flex flex-wrap items-start gap-4 p-5">
+            <button type="button" onClick={() => pick({ kind: "persona" })} aria-label={`Select ${sc.persona.name}`} key={`p${flashing({ kind: "persona" }) ? flash.n : 0}`}
+              className={cn("relative grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-title font-extrabold text-white shadow-brand-lift transition-transform hover:scale-105", flashing({ kind: "persona" }) && "node-flash")}>
+              {personInitials(sc.persona.name)}
+              <span className="absolute -bottom-0.5 -right-0.5 grid size-6 place-items-center rounded-full border-2 border-card bg-ink text-white"><Mic className="size-3" aria-hidden="true" /></span>
+            </button>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Scenario {scs.indexOf(sc) + 1} of {scs.length}</Text>
+              <Text as="h1" size="display" weight="extrabold" tracking="tight">{sc.title}</Text>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="rounded-chip bg-tint px-2.5 py-1 text-caption font-bold text-brand-deep">{ch.label}</span>
+                <Text size="body-lg" tone="muted">{sc.persona.name}{sc.persona.specialty !== ch.label ? ` · ${sc.persona.specialty}` : ""} · about {sc.durationMin} min</Text>
+              </span>
+              {sc.description && <Text size="body-lg" className="max-w-[640px] leading-relaxed text-ink-2">{sc.description}</Text>}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                {sc.persona.traits.map((t) => <Chip key={t} size="sm">{t}</Chip>)}
+                {sc.custom?.sourceIds.map((sid) => <button key={sid} type="button" onClick={() => setPreview(sid)} title="Preview" className="inline-flex items-center gap-1 rounded-glyph bg-info-bg px-1.5 py-0.5 text-micro font-bold text-info transition-colors hover:bg-info hover:text-white"><FileText className="size-3" aria-hidden="true" />{source(sid)?.title ?? "Your document"}</button>)}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <Link href={`${base}/roleplay/test?sc=${sc.id}`} data-anchor="test" className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
+                <Mic className="size-4" aria-hidden="true" />Test this scenario
+              </Link>
+              {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-wrap items-start gap-4 p-5">
           <button type="button" onClick={() => pick({ kind: "persona" })} aria-label={`Select ${sc.persona.name}`} key={`p${flashing({ kind: "persona" }) ? flash.n : 0}`}
             className={cn("relative grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-title font-extrabold text-white shadow-brand-lift transition-transform hover:scale-105", flashing({ kind: "persona" }) && "node-flash")}>
@@ -177,13 +212,16 @@ export function RoleplaySetup() {
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
         </div>
+        )}
         <HowItWorks sc={sc} course={course} roles={roles} canEdit={canEdit} flash={flashing({ kind: "config", part: "knows" }) ? flash.n : 0} onChat={(part) => addToChat({ kind: "config", part })} onPreview={setPreview} />
       </section>
+
+      {direct && <WeightsEditor sc={sc} course={course} canEdit={canEdit} />}
 
       {!sc.custom && editable && (
         <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
           <Lock className="size-4 text-ink-3" aria-hidden="true" />
-          <Text size="body" tone="muted" className="min-w-0 flex-1">This doctor ships with the product&apos;s approved roleplay package, so it&apos;s read-only. Make the course its own copy to change it by chat.</Text>
+          <Text size="body" tone="muted" className="min-w-0 flex-1">This doctor ships with the product&apos;s approved roleplay package, so it&apos;s read-only. Make the training its own copy to change it by chat.</Text>
           <Button size="sm" variant="secondary" onClick={() => makeCopy(sc)}>Make an editable copy</Button>
         </div>
       )}
@@ -205,10 +243,11 @@ export function RoleplaySetup() {
           : <ListView sc={sc} obs={obs} rules={rules} inCall={inCall} callsOf={callsOf} passMark={course.settings.passRoleplay} n={node} />}
       </section>
 
-      {editable && sc.custom && (
+      {editable && sc.custom && direct && <DeleteScenario sc={sc} onDeleted={() => router.replace(`${base}/roleplay`)} />}
+      {editable && sc.custom && !direct && (
         confirmRemove
           ? <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-danger-line bg-danger-bg p-3">
-              <Text size="body" weight="semibold" tone="danger" className="flex-1">Remove {sc.persona.name} from this course?</Text>
+              <Text size="body" weight="semibold" tone="danger" className="flex-1">Remove {sc.persona.name} from this training?</Text>
               <Button size="sm" variant="danger" onClick={() => { removeScenario(sc.id); router.replace(`${base}/roleplay`); }}>Remove</Button>
               <Button size="sm" variant="secondary" onClick={() => setConfirmRemove(false)}>Keep</Button>
             </div>
@@ -503,6 +542,8 @@ function ListView({ sc, obs, rules, inCall, callsOf, passMark, n }: ViewProps) {
 interface Turn { id: string; from: "you" | "ai"; text: string; focus?: string; undo?: Scenario; undone?: boolean; steps?: string[]; at?: number; opens?: string }
 
 const PROMPTS = ["Make the doctor tougher", "Add an objection about dosing", "Hold back objection 2 for the final call", "Make it a 4-minute call"];
+/* A training's scenarios aren't always doctors, and there's no separate final call. */
+const SCENARIO_PROMPTS = ["Make it tougher", "Add an objection about dosing", "Make it a 4-minute call"];
 
 /** A course has a final-assessment roleplay, and a screening roleplay when screening is on. These are the ones it lacks. */
 export function missingRoles(c: Course): Role[] {
@@ -518,9 +559,10 @@ const ADD_ACTOR = /\b(add|create|new|another)\b.*\b(roleplay|actor|doctor|scenar
  * The agent, pointed at the course's roleplays. It edits the selected actor's call, and adds new actors:
  * it drafts them step by step, the rail shows a placeholder, and the new actor opens when it's ready.
  */
-function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onCopy }: {
-  sc?: Scenario; course: Course; autoDraft: boolean; attached: CallFocus | null; onDetach: () => void; onEdited: (keys: string[]) => void; onCopy?: () => void;
+function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onCopy, direct }: {
+  sc?: Scenario; course: Course; autoDraft: boolean; attached: CallFocus | null; onDetach: () => void; onEdited: (keys: string[]) => void; onCopy?: () => void; direct?: boolean;
 }) {
+  const addScenario = useAddScenario(course);
   const router = useRouter();
   const saveScenario = useApp((s) => s.saveScenario);
   const updateSettings = useApp((s) => s.updateSettings);
@@ -529,9 +571,10 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
   const docs = sc?.custom?.sourceIds.length ?? 0;
   const [turns, setTurns] = useState<Turn[]>(() => [{
     id: "hello", from: "ai",
-    text: !sc ? "This course has no roleplay yet. I'll draft the final-assessment roleplay" + (course.settings.screening ? ", and a screening one," : "") + " from your documents."
+    text: !sc ? "This training has no roleplay yet. I'll draft the final-assessment roleplay" + (course.settings.screening ? ", and a screening one," : "") + " from your documents."
       : !sc.custom ? `${sc.persona.name} comes from the product's approved roleplay package, so I can't change it. Make an editable copy and I'll reshape it however you like.`
-      : fresh ? `I drafted ${sc.persona.name}'s call from ${docs ? `your ${docs} roleplay ${docs === 1 ? "document" : "documents"}` : "the course's files"}: ${sc.custom.objections.length} objections, a ${sc.rubric.length}-part rubric${sc.custom.sellingModelId ? " from your selling model" : ""}, and ${sc.custom.prohibited.length} never-say rules. Tell me what to change, or select a step and add it here.`
+      : direct ? `Tell me how to change “${sc.title}”: ${sc.persona.name}'s lines, the objections, or how tough the call is. Select a step in the list or diagram to change just that part. To add another scenario, describe it.`
+      : fresh ? `I drafted ${sc.persona.name}'s call from ${docs ? `your ${docs} roleplay ${docs === 1 ? "document" : "documents"}` : "the training's files"}: ${sc.custom.objections.length} objections, a ${sc.rubric.length}-part rubric${sc.custom.sellingModelId ? " from your selling model" : ""}, and ${sc.custom.prohibited.length} never-say rules. Tell me what to change, or select a step and add it here.`
       : `Tell me how to change ${sc.persona.name}'s call. Select a step in the diagram or list to change just that part.`,
   }]);
   const [text, setText] = useState("");
@@ -550,12 +593,23 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
 
   /** A new actor: drafted in steps the trainer can watch, then opened. */
   function addActor(prompt: string) {
+    /* A training's scenarios aren't tied to a role: any description becomes a new scenario. */
+    if (direct) {
+      const id = `a${Date.now()}`;
+      setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }, { id, from: "ai", text: "", steps: [], at: 0 }]);
+      setText("");
+      addScenario(prompt, (steps, at) => setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps, at } : x))), (d) => {
+        setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps: undefined, text: `Added “${d.title}” with ${d.persona.name}. It's open now.`, opens: d.id } : x)));
+        router.push(`/trainer/courses/${course.id}/roleplay?sc=${d.id}`);
+      });
+      return;
+    }
     const l = prompt.toLowerCase();
     const c0 = useApp.getState().courses.find((c) => c.id === course.id) ?? course;
     const missing = missingRoles(c0);
     const want: Role | undefined = /screen/.test(l) ? "screening" : /final|assess/.test(l) ? "final" : missing[0];
     if (!want || !missing.includes(want)) {
-      setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }, { id: `a${Date.now()}`, from: "ai", text: !missing.length ? "This course already has its roleplays: the final assessment" + (c0.settings.screening ? " and the screening call." : ". Turn screening on in the rep journey to add a screening call.") : `This course already has a ${want === "screening" ? "screening" : "final-assessment"} roleplay. Tell me what to change in it instead.` }]);
+      setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }, { id: `a${Date.now()}`, from: "ai", text: !missing.length ? "This training already has its roleplays: the final assessment" + (c0.settings.screening ? " and the screening call." : ". Turn screening on in the rep journey to add a screening call.") : `This training already has a ${want === "screening" ? "screening" : "final-assessment"} roleplay. Tell me what to change in it instead.` }]);
       setText("");
       return;
     }
@@ -577,7 +631,7 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
       if (role === "screening") updateSettings(course.id, { screening: true, screeningCall: true, screeningScenarioId: d.id, baseline: true });
       setDrafting(null);
       const what = role === "screening" ? "the screening call" : "the final assessment (reps can practise it too)";
-      setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps: undefined, text: `Added ${name}, used for ${what}. Their call is open now: 3 objections, the same scorecard, and the course's never-say rules. Tell me what to change.`, opens: d.id } : x)));
+      setTurns((t) => t.map((x) => (x.id === id ? { ...x, steps: undefined, text: `Added ${name}, used for ${what}. Their call is open now: 3 objections, the same scorecard, and the training's never-say rules. Tell me what to change.`, opens: d.id } : x)));
       router.push(`/trainer/courses/${course.id}/roleplay?sc=${d.id}`);
     };
     window.setTimeout(tick, 700);
@@ -610,7 +664,7 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-hair bg-tint/60 px-4 py-2.5">
         <Mic className="size-4 text-brand-deep" aria-hidden="true" />
-        <Text size="caption" weight="semibold" tone="muted" className="truncate">{sc ? `Editing the roleplay · ${sc.persona.name}` : "AI roleplay"}</Text>
+        <Text size="caption" weight="semibold" tone="muted" className="truncate">{sc ? (direct ? `Editing · ${sc.title}` : `Editing the roleplay · ${sc.persona.name}`) : "AI roleplay"}</Text>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {turns.map((t) => (
@@ -635,12 +689,12 @@ function RoleplayChat({ sc, course, autoDraft, attached, onDetach, onEdited, onC
           </div>
         ))}
         {onCopy && <Button size="sm" variant="secondary" className="self-start" onClick={onCopy}>Make an editable copy</Button>}
-        {turns.length === 1 && <Suggestions items={sc?.custom ? PROMPTS : missingRoles(course).map((r) => (r === "final" ? "Add the final-assessment roleplay" : "Add the screening roleplay"))} onPick={send} variant="list" />}
+        {turns.length === 1 && <Suggestions items={sc?.custom ? (direct ? SCENARIO_PROMPTS : PROMPTS) : missingRoles(course).map((r) => (r === "final" ? "Add the final-assessment roleplay" : "Add the screening roleplay"))} onPick={send} variant="list" />}
         {thinking && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
         <div ref={endRef} />
       </div>
       <div className="flex flex-col gap-2 border-t border-hair p-3">
-        {turns.length > 1 && sc?.custom && <Suggestions items={PROMPTS} onPick={send} variant="row" />}
+        {turns.length > 1 && sc?.custom && <Suggestions items={direct ? SCENARIO_PROMPTS : PROMPTS} onPick={send} variant="row" />}
         {attached && sc && (
           <span className="flex items-center gap-1.5 self-start rounded-chip border border-tint-line bg-tint py-1 pl-2.5 pr-1 text-caption font-semibold text-brand-deep">
             {label(attached, sc, obs)}
@@ -696,7 +750,7 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
   return (
     <div className="border-t border-hair">
       <div className="flex flex-wrap items-center gap-1 px-5 pt-3">
-        <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="mr-2">How {sc.persona.name.split(" ").slice(-1)[0]} works</Text>
+        <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="mr-2">How {sc.persona.name.replace(/,.*$/, "").split(" ").slice(-1)[0]} works</Text>
         {(Object.keys(PART_LABEL) as (keyof typeof PART_LABEL)[]).map((k) => (
           <button key={k} type="button" aria-pressed={part === k} onClick={() => setPart(k)}
             className={cn("rounded-[8px] px-2.5 py-1 text-caption font-bold transition-colors", part === k ? "bg-ink text-white" : "text-ink-3 hover:bg-subtle hover:text-ink")}>{PART_LABEL[k]}</button>

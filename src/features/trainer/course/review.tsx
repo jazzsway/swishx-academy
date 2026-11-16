@@ -92,7 +92,7 @@ export function ReviewAndVersions() {
                     </button>
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <Text size="body-lg" tone={c.resolved ? "subtle" : "default"} className={c.resolved ? "line-through" : undefined}>{c.text}</Text>
-                      {c.moduleId && <Link href={`${base}?module=${c.moduleId}`} className="self-start text-caption font-semibold text-brand-deep hover:underline">Open module</Link>}
+                      {c.moduleId && <Link href={`${base}?module=${c.moduleId}`} className="self-start text-caption font-semibold text-brand-deep hover:underline">Open lesson</Link>}
                     </div>
                   </li>
                 ))}
@@ -122,7 +122,7 @@ export function ReviewAndVersions() {
                 <div className="grid size-12 place-items-center rounded-control bg-card text-brand-deep shadow-hair"><FileDown className="size-5" aria-hidden="true" /></div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <Text size="body-lg" weight="bold">{course.title} · v{cur.version} · MLR package</Text>
-                  <Text size="caption" tone="subtle">Version ID {cur.versionId} · {course.modules.length} modules · {course.items.length} questions · generated {fmtDate(cur.packageAt)}</Text>
+                  <Text size="caption" tone="subtle">Version ID {cur.versionId} · {course.modules.length} lessons · {course.items.length} questions · generated {fmtDate(cur.packageAt)}</Text>
                 </div>
                 <Link href={`${base}/package`} className="inline-flex h-10 items-center gap-2 rounded-control border border-hair-2 bg-card px-4 text-body-lg font-semibold hover:bg-subtle"><ExternalLink className="size-4" aria-hidden="true" />Open package</Link>
               </div>
@@ -167,7 +167,7 @@ export function ReviewAndVersions() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <Field label="MLR comments · one per line" multiline rows={5} value={comments} placeholder={"Module 2: remove “usually approved within a few days”.\nAdd the PI page for the eGFR statement."}
+                  <Field label="MLR comments · one per line" multiline rows={5} value={comments} placeholder={"Lesson 2: remove “usually approved within a few days”.\nAdd the PI page for the eGFR statement."}
                     onChange={(e) => setComments((e.target as unknown as HTMLTextAreaElement).value)} />
                   <div className="flex justify-end">
                     <Button disabled={!comments.trim()} onClick={() => { app.recordChanges(course.id, comments.split("\n").map((x) => x.trim()).filter(Boolean)); showToast("Comments recorded"); }}>Record changes requested</Button>
@@ -273,7 +273,7 @@ export function ReviewAndVersions() {
         ) : <Button onClick={() => { setPublished(null); router.push(`${base}/assign`); }}>Assign it</Button>}>
         <div className="flex flex-col items-center gap-3 py-2 text-center">
           <div className="success-pop grid size-14 place-items-center rounded-full bg-ok-bg text-ok"><CircleCheck className="size-7" aria-hidden="true" /></div>
-          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify on this one. They're back on their list, due in 14 days." : "Reps assigned to this course now see the new version."}</Text>
+          <Text size="body-lg" tone="muted">{published?.recert ? "Everyone certified on the old version must recertify on this one. They're back on their list, due in 14 days." : "Reps assigned to this training now see the new version."}</Text>
         </div>
       </Modal>
 
@@ -300,7 +300,7 @@ export function FindingList({ findings, ack, setAck, base, hideAck }: { findings
             <Text size="body-lg" weight="semibold">{f.title}</Text>
             <Text size="body" tone="muted">{f.detail}</Text>
           </div>
-          {f.severity !== "green" && f.moduleId && <Link href={`${base}?module=${f.moduleId}`} className="shrink-0 text-body font-semibold text-brand-deep hover:underline">{f.fixable ? "Fix with AI" : "Open module"}</Link>}
+          {f.severity !== "green" && f.moduleId && <Link href={`${base}?module=${f.moduleId}`} className="shrink-0 text-body font-semibold text-brand-deep hover:underline">{f.fixable ? "Fix with AI" : "Open lesson"}</Link>}
           {f.severity === "orange" && !hideAck && (
             <label className="flex shrink-0 items-center gap-1.5 text-body font-semibold text-warn">
               <input type="checkbox" className="size-4 accent-[var(--color-warn)]" checked={ack.includes(f.id)} onChange={(e) => setAck(e.target.checked ? [...ack, f.id] : ack.filter((x) => x !== f.id))} />Acknowledge
@@ -326,8 +326,8 @@ export function CompareModal({ versions, pair, onClose }: { versions: CourseVers
     <Modal open onClose={onClose} title={`Compare v${a.version} → v${b.version}`} description="Block-level changes between the two versions." size="lg">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          {[...modsB].filter((m) => !modsA.has(m)).map((m) => <Chip key={m} tone="ok" size="md">+ module · {m}</Chip>)}
-          {[...modsA].filter((m) => !modsB.has(m)).map((m) => <Chip key={m} tone="danger" size="md">− module · {m}</Chip>)}
+          {[...modsB].filter((m) => !modsA.has(m)).map((m) => <Chip key={m} tone="ok" size="md">+ lesson · {m}</Chip>)}
+          {[...modsA].filter((m) => !modsB.has(m)).map((m) => <Chip key={m} tone="danger" size="md">− lesson · {m}</Chip>)}
         </div>
         {added.map(([t, m]) => <div key={t} className="rounded-chip bg-ok-bg px-3 py-2 text-body text-ok"><span className="text-micro font-bold">{m} · </span>+ {t}</div>)}
         {removed.map(([t, m]) => <div key={t} className="rounded-chip bg-danger-bg px-3 py-2 text-body text-danger line-through"><span className="text-micro font-bold no-underline">{m} · </span>{t}</div>)}

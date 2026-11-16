@@ -35,7 +35,7 @@ function journey(p: Progress, c: Course, blockedBy: Course[]): Step[] {
         : { label: "Screening", state: p.state === "screening" || p.state === "not_started" ? "current" : "todo", detail: p.state === "screening" ? "Started, not finished" : "Not taken yet" });
     }
     steps.push({ label: p.path?.kind === "remediation" ? "Retake path" : "Learning path", state: learnDone ? "done" : ["learning", "remediation", "needs_coaching"].includes(p.state) ? "current" : "todo",
-      detail: p.path ? `${pr.modulesDone} of ${pr.modules} modules · ${pr.done} of ${pr.total} blocks` : "Built after screening" });
+      detail: p.path ? `${pr.modulesDone} of ${pr.modules} lessons · ${pr.done} of ${pr.total} blocks` : "Built after screening" });
     steps.push({ label: "Final assessment", state: passed ? "done" : fails ? "attention" : p.state === "assessment" ? "current" : "todo",
       detail: passed ? `${fmtDate(passed.at, true)} · ${passed.overall}%` : fails ? `${fails} attempt${fails > 1 ? "s" : ""} not passed · ${c.settings.attempts - fails} left` : undefined });
     if (c.settings.verify === "manager") {
@@ -43,7 +43,7 @@ function journey(p: Progress, c: Course, blockedBy: Course[]): Step[] {
         detail: p.verify?.status === "approved" ? fmtDate(p.verify.at, true) : p.state === "needs_coaching" ? "Sent back for coaching" : p.state === "awaiting_verify" ? `Waiting since ${fmtDate(p.verify?.requestedAt)}` : undefined });
     }
   } else {
-    steps.push({ label: "Modules", state: learnDone ? "done" : p.state === "not_started" ? "todo" : "current", detail: `${pr.done} of ${pr.total} blocks` });
+    steps.push({ label: "Lessons", state: learnDone ? "done" : p.state === "not_started" ? "todo" : "current", detail: `${pr.done} of ${pr.total} blocks` });
     steps.push({ label: "Attestation", state: p.attestedAt ? "done" : learnDone ? "current" : "todo", detail: p.attestedAt ? fmtDate(p.attestedAt, true) : undefined });
   }
   steps.push({ label: "Certified", state: p.certifiedAt ? "done" : "todo", detail: p.certifiedAt ? `Valid to ${fmtDate(p.certExpiresAt, true)}` : undefined });
@@ -101,7 +101,7 @@ export function CourseProgress({ p, course, mods, user }: { p: Progress; course:
         )}
       </Card>
 
-      <Card title="Modules" eyebrow={`${mods.length} in v${p.version}${p.path ? ` · ${p.path.moduleIds.length} in their path` : ""}`}>
+      <Card title="Lessons" eyebrow={`${mods.length} in v${p.version}${p.path ? ` · ${p.path.moduleIds.length} in their path` : ""}`}>
         <ul className="-mx-2 flex flex-col">
           {mods.map((m) => {
             const st = moduleStatus(m, p, explored);

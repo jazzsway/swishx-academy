@@ -98,7 +98,7 @@ export function DesignSystem() {
           <Spec label="IconButton">{(["default", "brand", "danger"] as const).map((t) => <IconButton key={t} tone={t} aria-label={t}><X className="size-4" /></IconButton>)}<IconButton aria-label="Sparkle" size={9}><AgentIcon className="size-4" /></IconButton></Spec>
           <Spec label="Chip · tone / selected">{(["default", "brand", "ok", "warn", "danger"] as const).map((t) => <Chip key={t} tone={t} size="md">{t}</Chip>)}{(["default", "brand"] as const).map((t) => <Chip key={t + "s"} tone={t} size="md" selected onClick={() => {}}>selected</Chip>)}</Spec>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Field" placeholder="Search courses" iconLeft={<Search className="size-4" />} hint="Label, hint and error are props." />
+            <Field label="Field" placeholder="Search trainings" iconLeft={<Search className="size-4" />} hint="Label, hint and error are props." />
             <Field label="Field · error" defaultValue="LUM-US" error="Document number looks incomplete." />
           </div>
           <Spec label="Surface · tone">{(["card", "subtle", "tint", "ok", "warn", "danger"] as const).map((t) => <Surface key={t} tone={t} padding="md" radius="panel"><Text size="caption" weight="semibold">{t}</Text></Surface>)}</Spec>

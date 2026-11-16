@@ -19,7 +19,7 @@ export function ScreeningPicker({ value, onChange, kind }: { value: boolean; onC
         </div>
       </div>
     );
-  const what = kind === "direct" ? "A 5-minute call with the course's AI doctor" : "A short quiz and a 5-minute call with an AI doctor";
+  const what = kind === "direct" ? "A 5-minute call with the training's AI doctor" : "A short quiz and a 5-minute call with an AI doctor";
   const opts = [
     { v: true, label: "Screen reps first", hint: `${what} before the content. Reps skip what they already know, and the score is the baseline you measure progress from.` },
     { v: false, label: "Everyone takes everything", hint: "No screening. Every rep goes through every " + (kind === "direct" ? "file" : "module") + ", in order." },
@@ -43,7 +43,7 @@ export function ScreeningPicker({ value, onChange, kind }: { value: boolean; onC
         })}
       </div>
       {value && (
-        <Text size="caption" tone="subtle" className="flex items-start gap-1.5"><ScanSearch className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Safety content is never skipped. You can change this later from the course&apos;s rep journey.</Text>
+        <Text size="caption" tone="subtle" className="flex items-start gap-1.5"><ScanSearch className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Safety content is never skipped. You can change this later from the training&apos;s rep journey.</Text>
       )}
     </div>
   );

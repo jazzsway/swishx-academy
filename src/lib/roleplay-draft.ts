@@ -7,7 +7,7 @@ import { SOURCES, product } from "@/data/org";
  * what must never be said. Deterministic, so the demo drafts the same call every time.
  */
 
-const SPECIALIST: Record<string, string> = {
+export const SPECIALIST: Record<string, string> = {
   Dermatology: "Dermatologist", Cardiology: "Cardiologist", Endocrinology: "Endocrinologist", Gastroenterology: "Gastroenterologist",
   Hematology: "Hematologist", "Infectious disease": "Infectious disease specialist", Nephrology: "Nephrologist", Neurology: "Neurologist",
   Oncology: "Oncologist", Psychiatry: "Psychiatrist", Pulmonology: "Pulmonologist", "Rare disease": "Rare disease specialist",
@@ -33,7 +33,7 @@ export const STAGE_RUBRIC = (sellingModel: boolean, brand: string): Omit<RubricC
     { label: "Asks for a next step", competency: "c-objections", weight: 15, keywords: ["would you", "consider", "next patient", "try"], good: `"Would you consider ${brand} for the next patient who fits?"` },
   ];
 
-function objections(brand: string, prefix: string): Objection[] {
+export function objections(brand: string, prefix: string): Objection[] {
   return [
     {
       id: `${prefix}-ob1`, label: "No time today", competency: "c-opening",
@@ -41,7 +41,7 @@ function objections(brand: string, prefix: string): Objection[] {
       pushback: "You still haven't told me why this is worth my two minutes.",
       handled: "Okay, that patient I do see. Go on, briefly.",
       keywords: ["one patient", "60 seconds", "minute", "which patients", "quick", "patient who"],
-      answer: "Of course, one minute. Which of your patients still aren't where you'd like them on what they're taking now? That's who I'd like to talk about.",
+      answer: "Of training, one minute. Which of your patients still aren't where you'd like them on what they're taking now? That's who I'd like to talk about.",
     },
     {
       id: `${prefix}-ob2`, label: "Happy with current treatment", competency: "c-objections",
@@ -63,7 +63,7 @@ function objections(brand: string, prefix: string): Objection[] {
   ];
 }
 
-function rules(brand: string, prefix: string): ProhibitedRule[] {
+export function rules(brand: string, prefix: string): ProhibitedRule[] {
   return [
     { id: `${prefix}-pr1`, label: "Outcome guarantee", critical: true, keywords: ["cure", "cures", "guarantee", "guaranteed", "will definitely"], explanation: `${brand} can't be promised to cure or to work for every patient.` },
     { id: `${prefix}-pr2`, label: "Minimising risk", critical: true, keywords: ["no side effects", "completely safe", "zero risk", "totally safe", "risk-free"], explanation: "Never minimise risk. Labelled side effects must be stated in balance." },
@@ -72,7 +72,7 @@ function rules(brand: string, prefix: string): ProhibitedRule[] {
 }
 
 /** The two moments every pharma call can throw at a rep: a reported side effect, and an off-label question. */
-function moments(brand: string, prefix: string): Objection[] {
+export function moments(brand: string, prefix: string): Objection[] {
   return [
     {
       id: `${prefix}-ae`, label: "Adverse event", competency: "c-compliance", moment: "ae",
@@ -96,7 +96,7 @@ function moments(brand: string, prefix: string): Objection[] {
 const FEMALE = /Lena|Elena|Priya|Sofia|Ana\b/;
 
 /** How a new actor works: drafted from the same documents, so every line of it can be traced. */
-function draftConfig(o: { productId?: string; sources: Source[]; sellingModelId?: string; name: string; regular: number }): ActorConfig {
+export function draftConfig(o: { productId?: string; sources: Source[]; sellingModelId?: string; name: string; regular: number }): ActorConfig {
   const p = product(o.productId);
   const pi = p ? SOURCES.find((s) => s.id === p.piSourceId) : undefined;
   const va = p ? SOURCES.find((s) => s.productId === p.id && s.type === "Visual aid") : undefined;
@@ -158,7 +158,7 @@ export function draftScenario(o: { courseId: string; productId?: string; sources
     objectionIds: obs.map((x) => x.id),
     rubric: STAGE_RUBRIC(selling, brand).map((r, i) => ({ ...r, id: `${prefix}-r${i + 1}` })),
     prohibitedIds: prs.map((x) => x.id),
-    behaviourNote: "The AI doctor stays in persona, gives no medical advice, and raises objections only from this call's list. It never states product facts beyond the course's own material.",
+    behaviourNote: "The AI doctor stays in persona, gives no medical advice, and raises objections only from this call's list. It never states product facts beyond the training's own material.",
     use: ["practice", "assessment"],
     config: draftConfig({ productId: o.productId, sources: o.sources, sellingModelId: o.sellingModelId, name, regular: regular.length }),
     custom: {
@@ -234,7 +234,7 @@ export function editCall(sc: Scenario, prompt: string, focus?: CallFocus): CallE
       pushback: "That doesn't really answer it. What would you tell my patients?",
       handled: "Okay, that's a fair answer.",
       keywords: [...new Set([...words(topic), "understand", "fair", "data"])].slice(0, 8),
-      answer: `That's a fair concern. Here's what the course material says about ${topic}, and what I'd suggest for your next patient.`,
+      answer: `That's a fair concern. Here's what the training material says about ${topic}, and what I'd suggest for your next patient.`,
     };
     return set(withCustom({ objections: [...obs, ob] }), `Added "${label}" as objection ${obs.length + 1}. Tap it in the tree to rewrite the line or the good answer.`, [`objection:${id}`]);
   }

@@ -3,7 +3,7 @@ import { TODAY_ISO } from "@/data/org";
 
 /** What each kind of learning earns. Shown to reps as is, so keep it simple. */
 export const POINTS: Record<PointKind, { points: number; label: string }> = {
-  module: { points: 20, label: "Finish a module" },
+  module: { points: 20, label: "Finish a lesson" },
   check: { points: 10, label: "Pass a quick check (+5 on the first try)" },
   practice: { points: 15, label: "Finish a practice call (quizzes 10, flashcards 5)" },
   assessment: { points: 50, label: "Pass a final assessment" },

@@ -58,8 +58,8 @@ export function PersonKpis({ s, mine }: { s: AppState; mine: Progress[] }) {
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Card padded><Stat label="Certified" value={`${certified.length} of ${mine.length}`} sub={certified.length ? `${onTime} on time` : "None yet"} tone={certified.length ? "ok" : "default"} /></Card>
       <Card padded><Stat label="Knowledge gain" value={gained.length ? `+${avg(gained.map((m) => m.after - m.before))} pts` : "—"}
-        sub={gained.length ? `${avg(gained.map((m) => m.before))} → ${avg(gained.map((m) => m.after))} across ${gained.length} course${gained.length === 1 ? "" : "s"}` : "Shows after a screening and a final"} tone={gained.length ? "ok" : "default"} /></Card>
-      <Card padded><Stat label="Time in training" value={hours(minutes)} sub={saved ? `${hours(saved)} skipped: screening showed they knew it` : "Across every course"} /></Card>
+        sub={gained.length ? `${avg(gained.map((m) => m.before))} → ${avg(gained.map((m) => m.after))} across ${gained.length} training${gained.length === 1 ? "" : "s"}` : "Shows after a screening and a final"} tone={gained.length ? "ok" : "default"} /></Card>
+      <Card padded><Stat label="Time in training" value={hours(minutes)} sub={saved ? `${hours(saved)} skipped: screening showed they knew it` : "Across every training"} /></Card>
       <Card padded><Stat label="Right now" value={overdue ? `${overdue} overdue` : inProgress ? `${inProgress} in progress` : notStarted ? `${notStarted} not started` : scheduled ? `${scheduled} scheduled` : "All done"}
         tone={overdue ? "danger" : "default"} sub={breakdown || "Nothing assigned"} /></Card>
     </div>
@@ -73,7 +73,7 @@ export function BeforeAfter({ s, mine, first, onOpen }: { s: AppState; mine: Pro
   const unmeasured = mine.filter((p) => courseOf(p).type !== "personalised").length;
   const waiting = mine.filter((p) => courseOf(p).type === "personalised" && !p.screening).length;
   return (
-    <Card title="Before and after, by course" eyebrow="Screening score, then the final assessment">
+    <Card title="Before and after, by training" eyebrow="Screening score, then the final assessment">
       {measured.length === 0 ? (
         <Text tone="subtle">No screening yet. When {first} takes one, it sets their starting point, and the final assessment shows how far they got.</Text>
       ) : (
@@ -97,15 +97,15 @@ export function BeforeAfter({ s, mine, first, onOpen }: { s: AppState; mine: Pro
                   <span className="absolute -top-1 h-4.5 w-0.5 rounded-full bg-ink/50" style={{ left: `${c.settings.passOverall}%` }} title={`Pass mark ${c.settings.passOverall}%`} />
                 </span>
                 <Text size="caption" tone="subtle">
-                  Screening {fmtDate(p.screening!.at)}{after !== undefined ? ` · final ${fmtDate((p.attempts.filter((a) => a.passed).at(-1) ?? p.attempts.at(-1))!.at)}` : ""} · pass mark {c.settings.passOverall}%{p.path?.kind === "screening" && c.modules.length > p.path.moduleIds.length ? ` · tested out of ${Math.max(0, c.modules.length - p.path.moduleIds.length)} module${c.modules.length - p.path.moduleIds.length === 1 ? "" : "s"}` : ""}
+                  Screening {fmtDate(p.screening!.at)}{after !== undefined ? ` · final ${fmtDate((p.attempts.filter((a) => a.passed).at(-1) ?? p.attempts.at(-1))!.at)}` : ""} · pass mark {c.settings.passOverall}%{p.path?.kind === "screening" && c.modules.length > p.path.moduleIds.length ? ` · tested out of ${Math.max(0, c.modules.length - p.path.moduleIds.length)} lesson${c.modules.length - p.path.moduleIds.length === 1 ? "" : "s"}` : ""}
                 </Text>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {measured.length > 0 && waiting > 0 && <Text size="caption" tone="subtle">{waiting} more personalised course{waiting === 1 ? " starts" : "s start"} with a screening that hasn&apos;t been taken yet.</Text>}
-      {unmeasured > 0 && <Text size="caption" tone="subtle">{unmeasured} course{unmeasured === 1 ? " is" : "s are"} the same for everyone, with no screening, so there&apos;s no before score.</Text>}
+      {measured.length > 0 && waiting > 0 && <Text size="caption" tone="subtle">{waiting} more personalised training{waiting === 1 ? " starts" : "s start"} with a screening that hasn&apos;t been taken yet.</Text>}
+      {unmeasured > 0 && <Text size="caption" tone="subtle">{unmeasured} training{unmeasured === 1 ? " is" : "s are"} the same for everyone, with no screening, so there&apos;s no before score.</Text>}
     </Card>
   );
 }
@@ -183,8 +183,8 @@ export function FocusNext({ s, mine, user }: { s: AppState; mine: Progress[]; us
   const text = !skills.length
     ? `${user.first} hasn't been screened yet.${nextDue ? ` ${courseOf(nextDue).title} is due ${fmtDate(nextDue.dueAt)}.` : ""}`
     : weak.now >= 80
-      ? `${user.first} is proficient across every skill on record.${open.length ? ` ${open.length} course${open.length === 1 ? "" : "s"} still open.` : ""}`
-      : `${competency(weak.id)?.name} is ${user.first}'s lowest skill at ${weak.now}.${covering ? ` ${courseOf(covering).title} covers it and is already on their list.` : " Nothing on their list covers it yet; consider assigning a course that does."}`;
+      ? `${user.first} is proficient across every skill on record.${open.length ? ` ${open.length} training${open.length === 1 ? "" : "s"} still open.` : ""}`
+      : `${competency(weak.id)?.name} is ${user.first}'s lowest skill at ${weak.now}.${covering ? ` ${courseOf(covering).title} covers it and is already on their list.` : " Nothing on their list covers it yet; consider assigning a training that does."}`;
   return (
     <Card tone="ink" padded>
       <div className="flex items-start gap-2.5">
