@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { askForScenario, useTrainingChat } from "./training-chat-store";
 
-/** One colour per competency slot, the same in the bar and its legend. */
+/** One colour per criterion, the same wherever it's shown. */
 const SEG = ["bg-brand", "bg-info", "bg-ok", "bg-warn", "bg-ink-3", "bg-brand-2"];
 
 /** Who the rep meets, as an icon: the role, not a made-up face. */
@@ -26,7 +26,7 @@ const useOf = (c: Course, sc: Scenario) => ({ practice: sc.use.includes("practic
 
 /**
  * Step 2: the training's scenarios, as a list in call order. Reps take them back to back in one call;
- * each has one character and its own competency weights. A row opens in place; the agent adds new ones.
+ * each has one character and its own weighted criteria. A row opens in place; the agent adds new ones.
  */
 export function ScenarioList({ course, editable }: { course: Course; editable: boolean }) {
   const custom = useApp((s) => s.scenarios);
@@ -134,7 +134,7 @@ export function useAddScenario(course: Course) {
     const sc = draftFromPrompt(c, prompt, used);
     const ch = CHARACTERS[characterOf(sc)];
     const ws = weightsOf(sc).map((w) => `${competency(w.competency)?.name} ${w.pct}%`).join(", ");
-    const steps = [`Reading ${c.brief ? "your brief and " : ""}the demo-call documents`, `Choosing the character: ${ch.label.toLowerCase()}, ${sc.persona.name}`, "Writing the opening, the objections and the close", `Weighting the competencies: ${ws}`];
+    const steps = [`Reading ${c.brief ? "your brief and " : ""}the demo-call documents`, `Choosing the character: ${ch.label.toLowerCase()}, ${sc.persona.name}`, "Writing the opening, the objections and the close", `Weighting the criteria: ${ws}`];
     setDrafting(sc.title);
     let at = 0;
     onStep(steps, 0);
@@ -172,7 +172,7 @@ function ScenarioDetail({ sc, course, editable }: { sc: Scenario; course: Course
 }
 
 /**
- * What a scenario is scored on, and how much each competency counts. SwishX proposes them; the
+ * What a scenario is scored on: its criteria, and how much each counts. SwishX proposes them; the
  * trainer adjusts the percentages, adds or drops one. They add up to 100.
  */
 export function WeightsEditor({ sc, course, canEdit }: { sc: Scenario; course: Course; canEdit: boolean }) {
@@ -211,9 +211,9 @@ export function WeightsEditor({ sc, course, canEdit }: { sc: Scenario; course: C
         ))}
       </ul>
       {canEdit && unused.length > 0 && (
-        <select aria-label="Add a competency" value="" onChange={(e) => e.target.value && save(evenTo100([...ws, { competency: e.target.value, pct: Math.round(100 / (ws.length + 1)) }]))}
+        <select aria-label="Add a criterion" value="" onChange={(e) => e.target.value && save(evenTo100([...ws, { competency: e.target.value, pct: Math.round(100 / (ws.length + 1)) }]))}
           className="self-start rounded-control bg-transparent text-caption font-semibold text-brand-deep outline-none hover:underline">
-          <option value="">+ Add a competency</option>
+          <option value="">+ Add a criterion</option>
           {unused.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}

@@ -17,6 +17,7 @@ import { scoreCall, type CallState } from "@/features/roleplay/engine";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { useVoice } from "@/features/roleplay/use-voice";
 import { ScenarioRun } from "@/features/roleplay/scenario-run";
+import { CriteriaScores } from "@/features/roleplay/criteria-scores";
 import { CHARACTERS, characterOf, scenarioScore, screeningOf } from "@/lib/scenario-set";
 import type { Scenario } from "@/data/types";
 
@@ -330,7 +331,7 @@ function RunTest({ kind }: { kind: "all" | "screening" }) {
       {top}
       <div className="flex flex-col gap-1">
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">{kind === "screening" ? "Your screening call" : "Your test of the full call"}</Text>
-        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Screening isn't graded: these scores set a rep's baseline and decide which lessons they can skip." : `Each scenario is scored on its own competency weights. A rep passes a scenario at ${pass}%.`} Nothing was saved.</Text>
+        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Screening isn't graded: these scores set a rep's baseline and decide which lessons they can skip." : `Each scenario is scored on its own criteria, weighted as you set them. A rep passes a scenario at ${pass}%.`} Nothing was saved.</Text>
       </div>
       <ol className="flex flex-col gap-2.5">
         {list.map((sc, i) => {
@@ -338,7 +339,8 @@ function RunTest({ kind }: { kind: "all" | "screening" }) {
           const score = done ? scenarioScore(sc, done.r) : undefined;
           const ok = done && score! >= pass && !done.r.flags.some((f) => f.critical);
           return (
-            <li key={sc.id} className="squircle flex flex-wrap items-center gap-4 rounded-card border border-hair bg-card p-4">
+            <li key={sc.id} className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-4">
+              <div className="flex flex-wrap items-center gap-4">
               <span className="grid size-6 place-items-center rounded-glyph bg-black/[0.06] text-micro font-bold text-ink-3">{i + 1}</span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-body-lg font-bold text-ink">{sc.title}</span>
@@ -348,7 +350,10 @@ function RunTest({ kind }: { kind: "all" | "screening" }) {
               {done ? (
                 <Ring value={score!} size={48} stroke={5} tone={kind === "screening" ? "brand" : ok ? "ok" : "brand"} label={`${score}%`}><Text size="body" weight="extrabold" tabular>{score}</Text></Ring>
               ) : <Chip size="sm">Not reached</Chip>}
-              {done && kind !== "screening" && <Chip size="sm" tone={ok ? "ok" : "danger"}>{ok ? "Passes" : "Retry"}</Chip>}
+              {done && kind !== "screening" && <Chip size="sm" tone={ok ? "ok" : "danger"}>{ok ? "Passes" : "Below the pass mark"}</Chip>}
+              </div>
+              {/* What it measured, and how the call did on each. */}
+              {done && <div className="border-t border-hair pt-3 sm:pl-10"><CriteriaScores sc={sc} scores={done.r.competencyScores} fallback={done.r.score} pass={kind === "screening" ? 50 : pass} /></div>}
             </li>
           );
         })}

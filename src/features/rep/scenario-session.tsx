@@ -14,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Meter } from "@/components/patterns/academy";
 import { ScenarioRun } from "@/features/roleplay/scenario-run";
+import { CriteriaScores } from "@/features/roleplay/criteria-scores";
 
 /** A training's scenarios, in order, and where this rep stands on each. */
 export function scenarioStatus(c: Course, p: Progress) {
@@ -69,7 +70,7 @@ export function ScenarioSession({ courseId }: { courseId: string }) {
         onScenarioDone={(sc, r) => {
           const score = scenarioScore(sc, r);
           const ok = score >= st.passRoleplay && !r.flags.some((f) => f.critical);
-          s.saveScenarioRun(p.id, sc.id, { score, passed: ok, call: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score, typed: r.typed, durationSec: r.durationSec } });
+          s.saveScenarioRun(p.id, sc.id, { score, passed: ok, scores: r.competencyScores, call: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score, typed: r.typed, durationSec: r.durationSec } });
           setSession((x) => ({ done: (x?.done ?? 0) + 1, passed: (x?.passed ?? 0) + (ok ? 1 : 0) }));
         }}
         onFinish={() => { setRunning(null); s.touchStreak(me.id); settle(); }}
@@ -100,7 +101,8 @@ export function ScenarioSession({ courseId }: { courseId: string }) {
           const ch = CHARACTERS[characterOf(sc)];
           const next = !r && sc.id === todo[0]?.id;
           return (
-            <li key={sc.id} className={cn("squircle flex items-center gap-3 rounded-panel border p-3", r?.passed ? "border-ok-line bg-ok-bg/50" : r ? "border-danger-line bg-danger-bg/40" : next ? "border-tint-line bg-tint/50" : "border-hair bg-card")}>
+            <li key={sc.id} className={cn("squircle flex flex-col gap-2.5 rounded-panel border p-3", r?.passed ? "border-ok-line bg-ok-bg/50" : r ? "border-danger-line bg-danger-bg/40" : next ? "border-tint-line bg-tint/50" : "border-hair bg-card")}>
+              <div className="flex items-center gap-3">
               <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body font-extrabold text-white">
                 {personInitials(sc.persona.name)}
                 <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-card bg-ink text-[10px] font-bold text-white">{i + 1}</span>
@@ -118,6 +120,9 @@ export function ScenarioSession({ courseId }: { courseId: string }) {
                   : <span className="shrink-0 rounded-chip bg-danger-bg px-2 py-0.5 text-caption font-bold text-danger">{r.score} · no tries left</span>
               )}
               {!r && <span className={cn("shrink-0 rounded-chip px-2 py-0.5 text-caption font-bold", next ? "bg-brand text-white" : "bg-subtle text-ink-3")}>{next ? "Up next" : "Not yet"}</span>}
+              </div>
+              {/* How the last try went on each criterion this scenario measures. */}
+              {r && <div className="border-t border-black/5 pt-2.5"><CriteriaScores sc={sc} scores={r.scores ?? {}} fallback={r.score} pass={st.passRoleplay} /></div>}
             </li>
           );
         })}

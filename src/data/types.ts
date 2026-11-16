@@ -473,7 +473,7 @@ export interface Progress {
   coachingNotes: { at: string; by: string; text: string }[];
 }
 
-export interface ScenarioRun { at: string; score: number; passed: boolean; tries: number; call?: RoleplayResult }
+export interface ScenarioRun { at: string; score: number; passed: boolean; tries: number; call?: RoleplayResult; /** Score on each criterion the scenario measures. */ scores?: Record<string, number> }
 
 export interface Campaign {
   id: string;

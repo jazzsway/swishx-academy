@@ -30,7 +30,7 @@ const SUGGEST = {
 const HELP = {
   details: "Here I can rename the training, make it public or private, change the brief, and move, rename or remove lessons. Attach a file with the paperclip to add it as a lesson.",
   scenarios: "Describe a scenario and I'll draft it: who the rep meets and what happens. I can also change which scenarios screening uses. Attach a document to use it as a source for the demo call.",
-  scenario: "Tell me how to change this scenario: tougher or easier, add or drop an objection, a line in quotes, the call length, or how much a competency counts.",
+  scenario: "Tell me how to change this scenario: tougher or easier, add or drop an objection, a line in quotes, the call length, or how much a criterion counts.",
   assign: "Here I can set the pass mark, the tries on each scenario, the wait between tries, and hints on the scored call. Assigning opens once the training is published.",
 };
 

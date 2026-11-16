@@ -161,7 +161,7 @@ function PassRules({ courseId }: { courseId: string }) {
   return (
     <Card title="How reps pass" eyebrow="The scenario call">
       <div className="flex flex-col">
-        <Row label="Pass mark on each scenario" hint="Each scenario's score is its competencies, weighted the way you set them. A critical compliance flag always fails it.">
+        <Row label="Pass mark on each scenario" hint="Each scenario's score is its criteria, weighted the way you set them. A critical compliance flag always fails it.">
           <Num label="Pass mark" value={st.passRoleplay} suffix="%" onChange={(n) => set({ passRoleplay: Math.max(1, Math.min(100, n)) })} />
         </Row>
         <Row label="Tries on each scenario" hint="A failed scenario can be retried on its own; the passed ones stay passed.">

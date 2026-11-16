@@ -115,7 +115,7 @@ export interface AppState extends Seeded {
   completeBlock: (progressId: string, blockId: string, minutes: number) => void;
   submitAssessment: (progressId: string, attempt: Attempt) => void;
   /** One scenario of a direct training's call, scored. A retry replaces the earlier result. */
-  saveScenarioRun: (progressId: string, scenarioId: string, r: { score: number; passed: boolean; call?: RoleplayResult }) => void;
+  saveScenarioRun: (progressId: string, scenarioId: string, r: { score: number; passed: boolean; call?: RoleplayResult; scores?: Record<string, number> }) => void;
   attest: (progressId: string, name: string) => void;
   addPractice: (s: Omit<PracticeSession, "id" | "deletesAt">) => string;
   setPracticeShared: (id: string, shared: boolean) => void;
