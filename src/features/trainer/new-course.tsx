@@ -29,7 +29,7 @@ import { Portal } from "@/components/ui/portal";
 /* The outline is drafted from the same material either way; short form then breaks it into cards. */
 const TARGET_MINUTES = 60;
 
-const STEPS = ["Goal", "Materials", "Competencies", "Outline", "Generate"];
+const STEPS = ["Goal", "Materials", "Criteria", "Outline", "Generate"];
 /* v1-hidden: Competencies is no longer its own step; it sits at the top of Outline. Step numbers stay the same inside. */
 const SHOWN = [0, 1, 3, 4];
 const prevStep = (n: number) => SHOWN[SHOWN.indexOf(n) - 1] ?? 0;
@@ -358,7 +358,7 @@ export function NewCourseWizard() {
       {false && step === 2 && (
         <Card>
           <div className="flex flex-col gap-1">
-            <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Which competencies does this build?</Text>
+            <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Which criteria does this build?</Text>
             <Text tone="subtle" size="body-lg">SwishX picked these from your title and objective. Each one gets its own questions and screening score, and reports roll up by them.</Text>
           </div>
           <div className="flex flex-col gap-4">
@@ -394,7 +394,7 @@ export function NewCourseWizard() {
           </div>
           <div className="squircle flex flex-col gap-2.5 rounded-panel bg-subtle px-4 py-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <Text size="body-lg" weight="semibold">Competencies it builds</Text>
+              <Text size="body-lg" weight="semibold">Criteria it builds</Text>
               <button type="button" onClick={() => setCompsOpen(!compsOpen)} className="text-body font-semibold text-brand-deep hover:underline">{compsOpen ? "Done" : "Change"}</button>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -488,7 +488,7 @@ export function NewCourseWizard() {
             <Text size="body" tone="inverse" className="hidden opacity-75 sm:inline">
               {step === 0 && "Next: add your materials"}
               {step === 1 && `${showItems.length} in the training · ${background.length} source material${background.length === 1 ? "" : "s"}`}
-              {step === 2 && `${comps.length} competencies`}
+              {step === 2 && `${comps.length} criteria`}
               {step === 3 && (outline ? "Ready to write the training" : "Draft the outline first")}
             </Text>
             <Button disabled={!canNext} onClick={() => (step === 3 ? generate() : setStep(nextStep(step)))}>

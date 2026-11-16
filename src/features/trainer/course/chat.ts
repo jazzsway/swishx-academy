@@ -56,7 +56,7 @@ export const SUGGESTIONS = [
 export const QUESTION_SUGGESTIONS = [
   "Add an open question for this lesson",
   "Add a quick check to this lesson",
-  "Which competencies have fewer than 6 questions?",
+  "Which criteria have fewer than 6 questions?",
   "Add 3 harder questions on dosing",
   "Retire the questions nobody gets wrong",
 ];
@@ -220,7 +220,7 @@ export function respond(prompt: string, course: Course, moduleId?: string): Chat
       id: uid(), from: "ai",
       text: low.length
         ? `${low.map((x) => `${competency(x.c).name} (${x.n})`).join(", ")} ${low.length === 1 ? "has" : "have"} fewer than 6 questions. Want me to draft more from your sources?`
-        : `Every competency has at least 6 questions. ${course.items.length} in total.`,
+        : `Every criterion has at least 6 questions. ${course.items.length} in total.`,
     };
   }
 

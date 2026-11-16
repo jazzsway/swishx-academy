@@ -82,7 +82,7 @@ export function ManagerHome() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Card title="Team competency map" eyebrow="Lumora · latest assessment, else screening">
+        <Card title="Team criteria map" eyebrow="Lumora · latest assessment, else screening">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-separate border-spacing-1 text-body">
               <thead><tr className="text-left text-caption text-ink-3"><th className="px-1 font-semibold" />{domains.map((d) => <th key={d.id} className="px-1 font-semibold">{d.short}</th>)}</tr></thead>

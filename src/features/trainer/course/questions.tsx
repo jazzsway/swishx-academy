@@ -66,7 +66,7 @@ export function QuestionBank() {
         {course.items.length > 0 && (
           <div className="mt-3 rounded-panel border border-hair bg-card p-3">
             <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="block">Coverage</Text>
-            <Text size="caption" tone="subtle" className="mb-2 block">Aim for 6+ questions per competency.</Text>
+            <Text size="caption" tone="subtle" className="mb-2 block">Aim for 6+ questions per criterion.</Text>
             <ul className="flex flex-col gap-1">
               {coverage.map(({ c, n }) => (
                 <li key={c} className="flex justify-between gap-2 text-caption">
@@ -84,7 +84,7 @@ export function QuestionBank() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <Text as="h2" size="display" weight="bold" tracking="tight">{mod?.title ?? "Across the training"}</Text>
-              <Text size="body-lg" tone="subtle">{mod ? `The questions that test “${mod.title}”.` : "Questions that test a competency no single lesson teaches."}</Text>
+              <Text size="body-lg" tone="subtle">{mod ? `The questions that test “${mod.title}”.` : "Questions that test a criterion no single lesson teaches."}</Text>
             </div>
             {editable && !copilotOpen && <Button variant="soft" size="sm" onClick={() => setCopilotOpen(true)}><AgentIcon className="size-4" aria-hidden="true" />Ask SwishX AI Agent</Button>}
           </div>

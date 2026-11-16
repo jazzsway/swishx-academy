@@ -147,7 +147,7 @@ export function TrainerAnalytics() {
 
       {/* 3 · Skills */}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Card title="Skills, at screening and now" eyebrow={skills.length ? `${skills.filter((x) => x.now > x.before).length} of ${skills.length} competencies improved · weakest first` : "Needs screened and assessed reps"}>
+        <Card title="Skills, at screening and now" eyebrow={skills.length ? `${skills.filter((x) => x.now > x.before).length} of ${skills.length} criteria improved · weakest first` : "Needs screened and assessed reps"}>
           {skills.length === 0 ? <Text tone="subtle">No one in this view has a screening and a final assessment yet.</Text> : (
             <div className="flex flex-col gap-3">
               {skills.map((x) => (

@@ -215,7 +215,7 @@ export function CourseCompetencies({ p, course }: { p: Progress; course: Course 
   const below = scored.filter((r) => r.critical && r.after < course.settings.passCritical);
   const final = finalScore(p);
   return (
-    <Card title="Competencies, before and after" eyebrow={scored.length ? "Screening, then the latest assessment" : "Screening baseline"}>
+    <Card title="Criteria, before and after" eyebrow={scored.length ? "Screening, then the latest assessment" : "Screening baseline"}>
       {scored.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="squircle flex flex-col rounded-panel bg-ok-bg px-4 py-3"><Text size="caption" tone="subtle">Improved</Text><Text size="title" weight="extrabold" tone="ok" tabular>{improved} of {scored.length}</Text></div>

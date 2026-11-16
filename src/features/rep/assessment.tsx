@@ -126,7 +126,7 @@ export function Assessment() {
         )}
         {!callOnly && (
           <section className="flex flex-col gap-2.5">
-            <Text size="subhead" weight="bold">By competency</Text>
+            <Text size="subhead" weight="bold">By criterion</Text>
             {Object.entries(result.competencyScores).map(([k, v]) => (
               <div key={k} className="flex flex-col gap-1">
                 <div className="flex justify-between text-body"><span className={cn(result.failedCompetencies.includes(k) && "font-semibold text-danger")}>{competency(k)?.name}</span><strong className="tabular-nums">{v}</strong></div>

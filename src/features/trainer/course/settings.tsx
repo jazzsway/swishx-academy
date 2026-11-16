@@ -153,7 +153,7 @@ export function CourseSettingsTab() {
           {personalised && s.screening && (
             <Card title="Screening" eyebrow="The baseline">
               <div className="-mt-2 flex flex-col">
-                <Row label="Adaptive quiz length" hint="At least one question per competency."><Num label="Screening items" value={s.screeningItems} suffix="questions" disabled={d} onChange={(n) => set({ screeningItems: n })} /></Row>
+                <Row label="Adaptive quiz length" hint="At least one question per criterion."><Num label="Screening items" value={s.screeningItems} suffix="questions" disabled={d} onChange={(n) => set({ screeningItems: n })} /></Row>
                 <Row label="Voice call with an AI doctor" hint={hasScenario ? "~5 minutes. Typed fallback if the mic isn't available." : "Add a roleplay scenario for this product first."}><Toggle label="Screening call" on={s.screeningCall} disabled={d || !hasScenario} onChange={(v) => set({ screeningCall: v })} /></Row>
                 {/* v1-hidden: scenario picker. Each call has one doctor, set up in the AI roleplay tab.
                 {s.screeningCall && hasScenario && <Row label="Scenario"><select aria-label="Screening scenario" disabled={d} value={s.screeningScenarioId} onChange={(e) => set({ screeningScenarioId: e.target.value })} className="h-10 rounded-control border border-hair-2 bg-card px-3 text-body">{SCENARIOS.filter((x) => course.scenarioIds.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select></Row>}
@@ -163,7 +163,7 @@ export function CourseSettingsTab() {
           )}
 
           {personalised && (
-            <Card title="Final assessment" eyebrow="Pass criteria" className="xl:col-span-2">
+            <Card title="Final assessment" eyebrow="Pass rules" className="xl:col-span-2">
               <div className="-mt-2 flex flex-col">
                 <Row label="Quiz length" hint="Includes up to 2 written answers."><Num label="Assessment items" value={s.assessmentItems} suffix="questions" disabled={d} onChange={(n) => set({ assessmentItems: n })} /></Row>
                 <Row label="Roleplay call" hint={hasScenario ? "Counts for 40% of the final score. The doctor is set up in the AI roleplay tab." : "Add a roleplay scenario for this product first."}><Toggle label="Assessment call" on={s.assessmentCall && hasScenario} disabled={d || !hasScenario} onChange={(v) => set({ assessmentCall: v })} /></Row>

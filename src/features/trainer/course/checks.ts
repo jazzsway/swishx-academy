@@ -85,7 +85,7 @@ export function runChecks(course: Course): Finding[] {
       const n = course.items.filter((it) => it.competency === cid).length;
       if (n < 3) f.push({ id: `cov-${cid}`, severity: "orange", title: `Few questions for ${competency(cid)?.name}`, detail: `${n} question(s). Aim for at least 6 across screening, assessment and practice.` });
     }
-    f.push({ id: "cov-ok", severity: "green", title: "Question bank coverage", detail: `${course.items.length} questions across ${new Set(course.items.map((i) => i.competency)).size} competencies` });
+    f.push({ id: "cov-ok", severity: "green", title: "Question bank coverage", detail: `${course.items.length} questions across ${new Set(course.items.map((i) => i.competency)).size} criteria` });
   }
   /* Direct courses carry no generated text, so there's nothing to grade for reading level or citations. */
   if (course.origin === "direct") {

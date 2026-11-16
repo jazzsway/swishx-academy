@@ -9,7 +9,7 @@ const TABS = [
   { id: "org", label: "Organisation", href: "/trainer/settings" },
   { id: "people", label: "People", href: "/trainer/settings/people" },
   { id: "products", label: "Products", href: "/trainer/settings/products" },
-  { id: "competencies", label: "Competencies", href: "/trainer/settings/competencies" },
+  { id: "competencies", label: "Criteria", href: "/trainer/settings/competencies" },
   // v1-hidden: { id: "compliance", label: "Privacy & consent", href: "/trainer/settings/compliance" },
 ];
 

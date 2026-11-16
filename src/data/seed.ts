@@ -378,7 +378,7 @@ function mkAttempt(at: string, overall: number, passed: boolean, scores: Record<
   return {
     at, quiz: overall, roleplay: passed ? Math.max(76, overall - 2) : overall - 6, overall, passed,
     competencyScores: s, failedCompetencies: failed,
-    reason: passed ? undefined : "Below 70 on a critical competency",
+    reason: passed ? undefined : "Below 70 on a critical criterion",
   };
 }
 

@@ -94,7 +94,7 @@ export function Screening() {
           : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>}
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{pool.length ? "Now, a short call" : "Start with a short call"}</Text>
         <Text size="subhead" tone="muted" className="leading-relaxed">{screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back, about 3 minutes in all.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} files you can skip; anything marked for everyone stays.`}</Text>
-        <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by competency, not the recording.</Text></div>
+        <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
         <div className="mt-auto flex flex-col gap-2">
           <Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
           <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every file"}</Button>
@@ -160,7 +160,7 @@ export function ScreeningResults() {
         <div className="squircle flex flex-col gap-1 rounded-panel bg-warn-bg p-4"><Text size="caption" weight="bold" tone="warn">TO WORK ON</Text>{weakest.map((x) => <Text key={x.id} size="body" weight="semibold">{x.name}</Text>)}</div>
       </div>
       <section className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
-        <div className="flex items-baseline justify-between"><Text size="subhead" weight="bold">By competency</Text><Text size="caption" tone="subtle">{p.screening.overall}% overall</Text></div>
+        <div className="flex items-baseline justify-between"><Text size="subhead" weight="bold">By criterion</Text><Text size="caption" tone="subtle">{p.screening.overall}% overall</Text></div>
         {comps.map((x) => (
           <div key={x.id} className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2"><Text size="body" weight="semibold">{x.name}</Text><span className="flex items-center gap-2"><Text size="body" tabular>{scores[x.id]}</Text><BandChip score={scores[x.id]} size="xs" /></span></div>

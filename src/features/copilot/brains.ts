@@ -150,7 +150,7 @@ export const trainerBrain = {
     if (c && has(p, "question", "bank", "item")) {
       const rows = c.competencyIds.map((id) => ({ id, n: c.items.filter((i) => i.competency === id).length })).sort((a, b) => a.n - b.n);
       return {
-        text: `${plural(c.items.length, "question")} across ${plural(c.competencyIds.length, "competency", "competencies")}. Screening needs at least one per competency; I'd aim for 6+.`,
+        text: `${plural(c.items.length, "question")} across ${plural(c.competencyIds.length, "competency", "competencies")}. Screening needs at least one per criterion; I'd aim for 6+.`,
         items: rows.map((r) => ({ tone: r.n < 6 ? "warn" : "ok", title: competency(r.id)?.name ?? r.id, sub: plural(r.n, "question") })),
         actions: [{ label: "Open the question bank", href: `/trainer/courses/${c.id}/questions` }],
       };
@@ -169,7 +169,7 @@ export const trainerBrain = {
         actions: [nudgeAll(s, ps, "u-maya")],
       };
     }
-    if (has(p, "weak", "gap", "struggl", "competenc", "skill")) {
+    if (has(p, "weak", "gap", "struggl", "competenc", "criteri", "skill")) {
       const ps = s.progress.filter((x) => x.courseId === "c-lumora-launch");
       const rows = heatmap(s, ps, "assessment");
       const weak = weakestDomains(rows).slice(0, 3);

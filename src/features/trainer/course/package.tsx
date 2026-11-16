@@ -53,7 +53,7 @@ export function MlrPackage() {
           {course.type === "personalised" && (
             <div className="rounded-panel border border-hair bg-subtle px-4 py-3">
               <Text size="body" weight="bold">Personalisation statement</Text>
-              <Text as="p" size="body" tone="muted" className="mt-1">Learners receive subsets of the approved blocks in this package, selected and ordered by their measured competency gaps. No other content is shown. Blocks marked “Required for everyone” are always included.</Text>
+              <Text as="p" size="body" tone="muted" className="mt-1">Learners receive subsets of the approved blocks in this package, selected and ordered by their measured criterion gaps. No other content is shown. Blocks marked “Required for everyone” are always included.</Text>
             </div>
           )}
           {prev && <div className="flex flex-col gap-1"><Text size="caption" weight="bold" tone="subtle">Change summary vs v{prev.version}</Text><Text size="body">{cur.modules.length - prev.modules.length >= 0 ? `${cur.modules.length} lessons (was ${prev.modules.length}).` : ""} See the block-level comparison in Review &amp; versions.</Text></div>}
