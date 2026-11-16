@@ -2,46 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Mic, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Briefcase, ChevronDown, Mic, Pill, Plus, ShieldCheck, Stethoscope, Syringe, Trash2, X, type LucideIcon } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import { COMPETENCIES, competency } from "@/data/org";
-import type { Course, Scenario } from "@/data/types";
-import { CHARACTERS, characterOf, draftFromPrompt, evenTo100, personInitials, screeningOf, weightsOf, withWeights } from "@/lib/scenario-set";
+import type { Character, Course, Scenario } from "@/data/types";
+import { CHARACTERS, characterOf, draftFromPrompt, evenTo100, screeningOf, weightsOf, withWeights } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { askForScenario, useTrainingChat } from "./training-chat-store";
 
 /** One colour per competency slot, the same in the bar and its legend. */
 const SEG = ["bg-brand", "bg-info", "bg-ok", "bg-warn", "bg-ink-3", "bg-brand-2"];
 
+/** Who the rep meets, as an icon: the role, not a made-up face. */
+const ROLE_ICON: Record<Character, LucideIcon> = { doctor: Stethoscope, nurse: Syringe, manager: Briefcase, pharmacist: Pill };
+
 const useOf = (c: Course, sc: Scenario) => ({ practice: sc.use.includes("practice"), final: c.settings.assessmentScenarioId === sc.id });
 
-/** How a scenario's score is made up, as one bar and its legend. */
-export function CompetencyBar({ sc, compact }: { sc: Scenario; compact?: boolean }) {
-  const ws = weightsOf(sc);
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex h-2 overflow-hidden rounded-full bg-black/[0.06]" aria-hidden="true">
-        {ws.map((w, i) => <span key={w.competency} className={cn("h-full", SEG[i % SEG.length])} style={{ width: `${w.pct}%` }} />)}
-      </div>
-      <ul className={cn("flex flex-wrap gap-x-3 gap-y-1", compact && "gap-x-2")} aria-label="Competencies measured">
-        {ws.map((w, i) => (
-          <li key={w.competency} className="flex items-center gap-1.5 text-caption text-ink-2">
-            <span className={cn("size-2 shrink-0 rounded-full", SEG[i % SEG.length])} />{competency(w.competency)?.name ?? w.competency}<b className="tabular-nums text-ink">{w.pct}%</b>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /**
- * Step 2: the training's scenarios, as a list. Reps take them back to back in one call; each has one
- * character and its own competency weights. A scenario is added by describing it to the agent.
+ * Step 2: the training's scenarios, as a list in call order. Reps take them back to back in one call;
+ * each has one character and its own competency weights. A row opens in place; the agent adds new ones.
  */
 export function ScenarioList({ course, editable }: { course: Course; editable: boolean }) {
   const custom = useApp((s) => s.scenarios);
@@ -49,12 +34,16 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
   const drafting = useCopilot((s) => s.drafting);
   /* The scenario the agent just added, shown where it lands. */
   const fresh = useTrainingChat((s) => s.added);
-  useEffect(() => { if (fresh) window.setTimeout(() => document.querySelector(`a[href$="sc=${fresh}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }, [fresh]);
+  useEffect(() => { if (fresh) window.setTimeout(() => document.getElementById(`sc-${fresh}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }, [fresh]);
+  /* A tile opens in place; ?sc= says which, so the chat knows what's open. */
+  const router = useRouter();
+  const openId = useSearchParams().get("sc");
+  useEffect(() => { if (openId) window.setTimeout(() => document.getElementById(`sc-${openId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }, [openId]);
   const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const base = `/trainer/courses/${course.id}`;
   const screen = screeningOf(course, scs);
   const inScreen = new Set(screen.map((x) => x.id));
-  useEffect(() => { if (window.location.hash === "#screening") document.getElementById("screening")?.scrollIntoView({ block: "start" }); }, []);
+  const screening = course.settings.screening && scs.length > 0;
 
   function toggleScreen(id: string) {
     const ids = inScreen.has(id) ? screen.map((x) => x.id).filter((x) => x !== id) : [...screen.map((x) => x.id), id];
@@ -63,78 +52,74 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Step 2 of 3</Text>
-          <Text as="h1" size="display" weight="extrabold" tracking="tight">Scenarios</Text>
-          <Text size="body-lg" tone="subtle">Reps take these back to back in one call. Each has one character and is scored on its own competencies.</Text>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Text as="h1" size="display" weight="extrabold" tracking="tight">Scenarios <span className="font-semibold text-ink-4">{scs.length || ""}</span></Text>
+          <Text size="body" tone="subtle">Reps take them in this order, back to back in one call.</Text>
         </div>
-        {scs.length > 0 && <Link href={`${base}/roleplay/test?run=all`} className="inline-flex h-10 items-center gap-2 rounded-control border border-hair-2 bg-card px-3.5 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle"><Mic className="size-4" aria-hidden="true" />Test the full call</Link>}
-        {editable && <Button onClick={askForScenario}><Plus className="size-4" aria-hidden="true" />Add scenario</Button>}
+        {scs.length > 0 && <Link href={`${base}/roleplay/test?run=all`} className="inline-flex h-9 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-3 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle"><Mic className="size-4" aria-hidden="true" />Test the full call</Link>}
+        {editable && <Button size="sm" onClick={askForScenario}><Plus className="size-4" aria-hidden="true" />Add scenario</Button>}
       </div>
 
-      {course.settings.screening && scs.length > 0 && (
-        <section id="screening" className="squircle flex scroll-mt-4 flex-col gap-3 rounded-card border border-info/25 bg-info-bg/50 p-4">
-          <div className="flex flex-wrap items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-info text-white"><ShieldCheck className="size-4" aria-hidden="true" /></span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <Text size="title" weight="bold">Screening · before the lessons</Text>
-              <Text size="body" tone="muted">Reps start with a short call, about 3 minutes, built from {screen.length === 1 ? "this scenario" : `these ${screen.length} scenarios`}. It isn&apos;t graded: it sets each rep&apos;s baseline and lets them skip lessons they already know.</Text>
-            </div>
-            <Link href={`${base}/roleplay/test?run=screening`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-info px-3 text-body font-semibold text-white transition-opacity hover:opacity-90"><Mic className="size-4" aria-hidden="true" />Test the screening call</Link>
-          </div>
-          <div className="flex flex-wrap gap-1.5 pl-12" role="group" aria-label="Scenarios in the screening call">
-            {scs.map((sc) => {
-              const on = inScreen.has(sc.id);
-              return (
-                <button key={sc.id} type="button" aria-pressed={on} disabled={!editable || (on && screen.length === 1)} onClick={() => toggleScreen(sc.id)}
-                  className={cn("flex items-center gap-1.5 rounded-chip border px-2.5 py-1 text-caption font-semibold transition-colors disabled:cursor-default", on ? "border-info bg-card text-info" : "border-dashed border-hair-3 text-ink-3 hover:border-info hover:text-info")}>
-                  {on ? <Check className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}{sc.title}
-                </button>
-              );
-            })}
-          </div>
+      {screening && (
+        <section id="screening" className="squircle flex scroll-mt-4 flex-wrap items-center gap-3 rounded-panel border border-info/20 bg-info-bg/40 px-4 py-2.5">
+          <ShieldCheck className="size-4 shrink-0 text-info" aria-hidden="true" />
+          <Text size="body" tone="muted" className="min-w-0 flex-1"><b className="text-ink">Screening</b> · a 3-minute call from {screen.length} scenario{screen.length === 1 ? "" : "s"} before the lessons. Not graded.</Text>
+          <Link href={`${base}/roleplay/test?run=screening`} className="text-body font-semibold text-info hover:underline">Test it</Link>
         </section>
       )}
 
-      <ol className="flex flex-col gap-2.5" aria-label="Scenarios">
+      {/* The call, in order: one row per scenario, opened in place. */}
+      <ol className="squircle flex flex-col overflow-hidden rounded-card border border-hair bg-card" aria-label="Scenarios, in call order">
         {scs.map((sc, i) => {
           const ch = CHARACTERS[characterOf(sc)];
+          const Icon = ROLE_ICON[characterOf(sc)];
+          const open = openId === sc.id;
+          const on = inScreen.has(sc.id);
           return (
-            <li key={sc.id}>
-              <Link href={`${base}/roleplay?sc=${sc.id}`} className={cn("squircle group flex gap-4 rounded-card border bg-card p-4 transition-all hover:border-hair-3 hover:shadow-hair", fresh === sc.id ? "node-flash border-brand" : "border-hair")}>
-                <span className="flex flex-col items-center gap-2">
-                  <span className="grid size-6 place-items-center rounded-glyph bg-black/[0.06] text-micro font-bold text-ink-3">{i + 1}</span>
-                  <span className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body font-extrabold text-white">{personInitials(sc.persona.name)}</span>
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-body-lg font-bold text-ink">{sc.title}</span>
-                    <span className="rounded-chip bg-tint px-2 py-0.5 text-micro font-bold text-brand-deep">{ch.label}</span>
-                    {course.settings.screening && inScreen.has(sc.id) && <span className="rounded-chip bg-info-bg px-2 py-0.5 text-micro font-bold text-info">In screening</span>}
+            <li key={sc.id} id={`sc-${sc.id}`} className={cn("scroll-mt-4 border-b border-hair last:border-0", fresh === sc.id && !open && "node-flash")}>
+              <div className={cn("flex items-center gap-3 px-4 py-3 transition-colors", open ? "bg-tint/50" : "hover:bg-subtle/60")}>
+                <span className="w-5 shrink-0 text-center text-caption font-bold tabular-nums text-ink-4">{i + 1}</span>
+                <button type="button" aria-expanded={open} onClick={() => router.replace(open ? `${base}/roleplay` : `${base}/roleplay?sc=${sc.id}`, { scroll: false })}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><Icon className="size-4.5" aria-hidden="true" /></span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-body-lg font-semibold text-ink">{sc.title}</span>
+                    <span className="truncate text-caption text-ink-3">{ch.label} · {sc.persona.name.replace(/,.*$/, "")} · {sc.durationMin} min</span>
                   </span>
-                  <span className="text-caption text-ink-3">{sc.persona.name}{sc.persona.specialty !== ch.label ? ` · ${sc.persona.specialty}` : ""} · about {sc.durationMin} min</span>
-                  {sc.description && <span className="line-clamp-2 text-body text-ink-2">{sc.description}</span>}
-                  <span className="pt-1"><CompetencyBar sc={sc} /></span>
-                </span>
-                <ChevronRight className="mt-1 size-4 shrink-0 text-ink-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
+                </button>
+                {screening && (
+                  <button type="button" aria-pressed={on} disabled={!editable || (on && screen.length === 1)} onClick={() => toggleScreen(sc.id)}
+                    title={on ? "In the screening call. Click to take it out." : "Add it to the screening call"}
+                    className={cn("hidden shrink-0 items-center gap-1 rounded-chip px-2 py-0.5 text-caption font-semibold transition-colors disabled:cursor-default sm:flex", on ? "bg-info-bg text-info" : "text-ink-4 hover:bg-subtle hover:text-ink")}>
+                    <ShieldCheck className="size-3.5" aria-hidden="true" />{on ? "Screening" : "Add to screening"}
+                  </button>
+                )}
+                <Link href={`${base}/roleplay/test?sc=${sc.id}`} title="Test this scenario" aria-label={`Test ${sc.title}`} className="grid size-8 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-brand-deep"><Mic className="size-4" /></Link>
+                <button type="button" aria-label={open ? "Close" : "Open"} onClick={() => router.replace(open ? `${base}/roleplay` : `${base}/roleplay?sc=${sc.id}`, { scroll: false })}
+                  className="grid size-8 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-subtle"><ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" /></button>
+              </div>
+              {open && <ScenarioDetail sc={sc} course={course} editable={editable} />}
             </li>
           );
         })}
         {drafting && (
-          <li className="squircle shimmer flex items-center gap-4 rounded-card border border-tint-line bg-tint p-4">
-            <span className="grid size-11 place-items-center rounded-full bg-card text-brand"><AgentIcon className="size-5" aria-hidden="true" /></span>
-            <span className="flex flex-col"><span className="text-body-lg font-bold text-ink">{drafting}</span><span className="text-caption text-ink-3">Drafting the scenario…</span></span>
+          <li className="shimmer flex items-center gap-3 border-b border-hair bg-tint px-4 py-3 last:border-0">
+            <span className="w-5" />
+            <span className="grid size-9 place-items-center rounded-control bg-card text-brand"><AgentIcon className="size-4.5" aria-hidden="true" /></span>
+            <span className="flex flex-col"><span className="text-body-lg font-semibold text-ink">{drafting}</span><span className="text-caption text-ink-3">Drafting…</span></span>
+          </li>
+        )}
+        {editable && !drafting && (
+          <li>
+            <button type="button" onClick={askForScenario} className="flex w-full items-center gap-3 px-4 py-3 text-left text-body font-semibold text-brand-deep transition-colors hover:bg-tint">
+              <span className="w-5" />
+              <span className="grid size-9 place-items-center rounded-control border border-dashed border-tint-line"><Plus className="size-4" aria-hidden="true" /></span>
+              Add scenario<span className="font-normal text-ink-3">· describe it to the agent</span>
+            </button>
           </li>
         )}
       </ol>
-      {editable && !drafting && (
-        <button type="button" onClick={askForScenario}
-          className="squircle flex items-center justify-center gap-2 rounded-card border border-dashed border-hair-3 p-4 text-body font-semibold text-brand-deep transition-colors hover:border-brand hover:bg-tint">
-          <Plus className="size-4" aria-hidden="true" />Add scenario<span className="font-normal text-ink-3">· describe it to the agent</span>
-        </button>
-      )}
     </div>
   );
 }
@@ -165,8 +150,30 @@ export function useAddScenario(course: Course) {
 }
 
 /**
- * The competencies a scenario measures and how much each counts. SwishX proposes them from the
- * scenario; the trainer adjusts the percentages, swaps or adds one. They should add up to 100.
+ * A scenario, opened in its tile: what happens and who the rep meets on the left, what it's scored on
+ * on the right. Changes to the call itself go through the chat.
+ */
+function ScenarioDetail({ sc, course, editable }: { sc: Scenario; course: Course; editable: boolean }) {
+  const router = useRouter();
+  const base = `/trainer/courses/${course.id}`;
+  const canEdit = editable && !!sc.custom;
+  return (
+    <div className="grid gap-5 bg-tint/20 px-4 pb-5 pt-2 sm:pl-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-8">
+      <div className="flex flex-col gap-3">
+        <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">What happens</Text>
+        {sc.description && <Text size="body" className="leading-relaxed text-ink-2">{sc.description}</Text>}
+        <span className="flex flex-wrap gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-subtle px-2 py-0.5 text-caption font-semibold text-ink-2">{t}</span>)}</span>
+        <Text size="body" tone="muted"><b className="text-ink-2">Rep&apos;s goal:</b> {sc.objective}</Text>
+        {canEdit && <span className="mt-auto pt-1"><DeleteScenario sc={sc} onDeleted={() => router.replace(`${base}/roleplay`, { scroll: false })} /></span>}
+      </div>
+      <WeightsEditor sc={sc} course={course} canEdit={canEdit} />
+    </div>
+  );
+}
+
+/**
+ * What a scenario is scored on, and how much each competency counts. SwishX proposes them; the
+ * trainer adjusts the percentages, adds or drops one. They add up to 100.
  */
 export function WeightsEditor({ sc, course, canEdit }: { sc: Scenario; course: Course; canEdit: boolean }) {
   const saveScenario = useApp((s) => s.saveScenario);
@@ -174,50 +181,41 @@ export function WeightsEditor({ sc, course, canEdit }: { sc: Scenario; course: C
   const total = ws.reduce((a, w) => a + w.pct, 0);
   const unused = COMPETENCIES.filter((c) => !ws.some((w) => w.competency === c.id));
   const save = (next: { competency: string; pct: number }[]) => saveScenario(withWeights(sc, next), useOf(course, sc));
-  const set = (i: number, patch: Partial<{ competency: string; pct: number }>) => save(ws.map((w, k) => (k === i ? { ...w, ...patch } : w)));
+  const set = (i: number, pct: number) => save(ws.map((w, k) => (k === i ? { ...w, pct } : w)));
   return (
-    <section aria-label="Competencies measured" className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Scored on</Text>
-          <Text as="h2" size="title" weight="bold">Competencies measured</Text>
-          <Text size="caption" tone="subtle">SwishX proposed these from the scenario. {canEdit ? "Adjust how much each counts; they add up to 100%." : "Read-only."}</Text>
-        </div>
-        <span className={cn("rounded-chip px-2.5 py-1 text-caption font-bold tabular-nums", total === 100 ? "bg-ok-bg text-ok" : "bg-warn-bg text-warn")}>{total}% of 100%</span>
+    <section aria-label="Scored on" className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="flex-1">Scored on</Text>
+        {total !== 100 && <>
+          <span className="rounded-chip bg-warn-bg px-2 py-0.5 text-caption font-bold tabular-nums text-warn">{total}%</span>
+          {canEdit && <button type="button" onClick={() => save(evenTo100(ws))} className="text-caption font-semibold text-brand-deep hover:underline">Scale to 100%</button>}
+        </>}
       </div>
-      <ul className="flex flex-col divide-y divide-hair rounded-panel border border-hair">
+      <ul className="flex flex-col">
         {ws.map((w, i) => (
-          <li key={w.competency} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-            <span className={cn("size-2.5 shrink-0 rounded-full", SEG[i % SEG.length])} />
-            {canEdit ? (
-              <select aria-label="Competency" value={w.competency} onChange={(e) => set(i, { competency: e.target.value })}
-                className="h-9 min-w-0 flex-1 basis-48 rounded-control border border-hair-2 bg-card px-2 text-body font-semibold text-ink">
-                {[competency(w.competency), ...unused].filter(Boolean).map((c) => <option key={c!.id} value={c!.id}>{c!.name}</option>)}
-              </select>
-            ) : <span className="min-w-0 flex-1 basis-48 text-body font-semibold text-ink">{competency(w.competency)?.name}</span>}
+          <li key={w.competency} className="group flex items-center gap-2.5 py-1.5">
+            <span className={cn("size-2 shrink-0 rounded-full", SEG[i % SEG.length])} />
+            <span className="min-w-0 flex-1 truncate text-body text-ink">{competency(w.competency)?.name}</span>
             <input type="range" min={5} max={90} step={5} value={w.pct} disabled={!canEdit} aria-label={`${competency(w.competency)?.name} weight`}
-              onChange={(e) => set(i, { pct: Number(e.target.value) })} className="w-32 accent-[var(--color-brand)] sm:w-44" />
-            <span className="flex items-center gap-0.5">
+              onChange={(e) => set(i, Number(e.target.value))} className="w-20 accent-[var(--color-brand)] xl:w-28" />
+            <span className="flex w-14 items-center justify-end gap-0.5">
               <input type="number" min={1} max={100} value={w.pct} disabled={!canEdit} aria-label={`${competency(w.competency)?.name} percent`}
-                onChange={(e) => set(i, { pct: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })}
-                className="h-9 w-14 rounded-control border border-hair-2 bg-card px-2 text-right text-body font-bold tabular-nums text-ink" />
-              <span className="text-body text-ink-3">%</span>
+                onChange={(e) => set(i, Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                className="w-9 rounded-glyph bg-transparent text-right text-body font-bold tabular-nums text-ink outline-none focus:bg-subtle" />
+              <span className="text-caption text-ink-3">%</span>
             </span>
-            {canEdit && ws.length > 1 && <IconButton aria-label={`Remove ${competency(w.competency)?.name}`} onClick={() => save(evenTo100(ws.filter((_, k) => k !== i)))}><X className="size-4" /></IconButton>}
+            {canEdit && ws.length > 1
+              ? <button type="button" aria-label={`Remove ${competency(w.competency)?.name}`} onClick={() => save(evenTo100(ws.filter((_, k) => k !== i)))} className="grid size-6 place-items-center rounded-glyph text-ink-4 opacity-0 transition-opacity hover:bg-subtle hover:text-ink group-hover:opacity-100 focus:opacity-100"><X className="size-3.5" /></button>
+              : <span className="size-6" />}
           </li>
         ))}
       </ul>
-      {canEdit && (
-        <div className="flex flex-wrap items-center gap-2">
-          {unused.length > 0 && (
-            <select aria-label="Add a competency" value="" onChange={(e) => e.target.value && save(evenTo100([...ws, { competency: e.target.value, pct: Math.round(100 / (ws.length + 1)) }]))}
-              className="h-9 rounded-control border border-dashed border-hair-3 bg-card px-2 text-body font-semibold text-brand-deep">
-              <option value="">+ Add a competency</option>
-              {unused.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-          {total !== 100 && <Button size="sm" variant="secondary" onClick={() => save(evenTo100(ws))}>Scale to 100%</Button>}
-        </div>
+      {canEdit && unused.length > 0 && (
+        <select aria-label="Add a competency" value="" onChange={(e) => e.target.value && save(evenTo100([...ws, { competency: e.target.value, pct: Math.round(100 / (ws.length + 1)) }]))}
+          className="self-start rounded-control bg-transparent text-caption font-semibold text-brand-deep outline-none hover:underline">
+          <option value="">+ Add a competency</option>
+          {unused.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       )}
     </section>
   );
@@ -244,6 +242,6 @@ export function DeleteScenario({ sc, onDeleted }: { sc: Scenario; onDeleted: () 
       <Button size="sm" variant="secondary" onClick={() => setConfirm(false)}>Keep</Button>
     </div>
   ) : (
-    <button type="button" onClick={() => setConfirm(true)} className="flex items-center gap-1.5 self-start px-1 text-caption font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Delete this scenario</button>
+    <button type="button" onClick={() => setConfirm(true)} className="flex items-center gap-1.5 self-start text-caption font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Delete scenario</button>
   );
 }

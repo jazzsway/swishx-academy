@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, FileText, Flag, Lock, Mic, MessageSquarePlus, Minus, Plus, RotateCcw, ShieldAlert, Trash2, Undo2, X } from "lucide-react";
+import { Check, FileText, Flag, Lock, Mic, MessageSquarePlus, Minus, Plus, RotateCcw, ShieldAlert, Trash2, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios, objection, prohibited } from "@/data/scenarios";
@@ -19,8 +19,7 @@ import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 import { SourcePreview } from "../source-preview";
-import { CHARACTERS, characterOf, personInitials } from "@/lib/scenario-set";
-import { DeleteScenario, ScenarioList, WeightsEditor, useAddScenario } from "./scenarios";
+import { ScenarioList, useAddScenario } from "./scenarios";
 import { useTrainingChat } from "./training-chat-store";
 
 type Role = "screening" | "final";
@@ -109,9 +108,9 @@ export function RoleplaySetup() {
   if (!data || !course) return null;
   const base = `/trainer/courses/${course.id}`;
   const editable = data.editable;
-  /* A training with the trainer's own material lists its scenarios first; ?sc= opens one. */
+  /* A training with the trainer's own material shows its scenarios as a list; ?sc= opens one in place. */
   const direct = course.origin === "direct";
-  if (direct && !search.get("sc")) return <ScenarioList course={course} editable={editable} />;
+  if (direct) return <ScenarioList course={course} editable={editable} />;
 
   const chat = editable && !direct && (
     <CopilotOverride>
@@ -164,40 +163,10 @@ export function RoleplaySetup() {
 
   const node = { isSel, flashing, pick, addToChat, canEdit, flashN: flash.n };
 
-  const ch = CHARACTERS[characterOf(sc)];
   return (
     <div className="flex flex-col gap-4">
-      {direct && <Link href={`${base}/roleplay`} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />All scenarios</Link>}
       {/* The actor, and what the course uses them for. */}
       <section className={cn("squircle overflow-hidden rounded-card border bg-card", isSel({ kind: "persona" }) ? "border-brand ring-2 ring-brand/20" : "border-hair")}>
-        {direct ? (
-          <div className="flex flex-wrap items-start gap-4 p-5">
-            <button type="button" onClick={() => pick({ kind: "persona" })} aria-label={`Select ${sc.persona.name}`} key={`p${flashing({ kind: "persona" }) ? flash.n : 0}`}
-              className={cn("relative grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-title font-extrabold text-white shadow-brand-lift transition-transform hover:scale-105", flashing({ kind: "persona" }) && "node-flash")}>
-              {personInitials(sc.persona.name)}
-              <span className="absolute -bottom-0.5 -right-0.5 grid size-6 place-items-center rounded-full border-2 border-card bg-ink text-white"><Mic className="size-3" aria-hidden="true" /></span>
-            </button>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Scenario {scs.indexOf(sc) + 1} of {scs.length}</Text>
-              <Text as="h1" size="display" weight="extrabold" tracking="tight">{sc.title}</Text>
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="rounded-chip bg-tint px-2.5 py-1 text-caption font-bold text-brand-deep">{ch.label}</span>
-                <Text size="body-lg" tone="muted">{sc.persona.name}{sc.persona.specialty !== ch.label ? ` · ${sc.persona.specialty}` : ""} · about {sc.durationMin} min</Text>
-              </span>
-              {sc.description && <Text size="body-lg" className="max-w-[640px] leading-relaxed text-ink-2">{sc.description}</Text>}
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                {sc.persona.traits.map((t) => <Chip key={t} size="sm">{t}</Chip>)}
-                {sc.custom?.sourceIds.map((sid) => <button key={sid} type="button" onClick={() => setPreview(sid)} title="Preview" className="inline-flex items-center gap-1 rounded-glyph bg-info-bg px-1.5 py-0.5 text-micro font-bold text-info transition-colors hover:bg-info hover:text-white"><FileText className="size-3" aria-hidden="true" />{source(sid)?.title ?? "Your document"}</button>)}
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-2">
-              <Link href={`${base}/roleplay/test?sc=${sc.id}`} data-anchor="test" className="inline-flex h-10 items-center gap-2 rounded-control bg-brand px-4 text-body-lg font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
-                <Mic className="size-4" aria-hidden="true" />Test this scenario
-              </Link>
-              {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
-            </div>
-          </div>
-        ) : (
         <div className="flex flex-wrap items-start gap-4 p-5">
           <button type="button" onClick={() => pick({ kind: "persona" })} aria-label={`Select ${sc.persona.name}`} key={`p${flashing({ kind: "persona" }) ? flash.n : 0}`}
             className={cn("relative grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-title font-extrabold text-white shadow-brand-lift transition-transform hover:scale-105", flashing({ kind: "persona" }) && "node-flash")}>
@@ -225,11 +194,8 @@ export function RoleplaySetup() {
             {isSel({ kind: "persona" }) && canEdit && <AddPill onClick={() => addToChat({ kind: "persona" })} />}
           </div>
         </div>
-        )}
         <HowItWorks sc={sc} course={course} roles={roles} canEdit={canEdit} flash={flashing({ kind: "config", part: "knows" }) ? flash.n : 0} onChat={(part) => addToChat({ kind: "config", part })} onPreview={setPreview} />
       </section>
-
-      {direct && <WeightsEditor sc={sc} course={course} canEdit={canEdit} />}
 
       {!sc.custom && editable && (
         <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
@@ -256,8 +222,7 @@ export function RoleplaySetup() {
           : <ListView sc={sc} obs={obs} rules={rules} inCall={inCall} callsOf={callsOf} passMark={course.settings.passRoleplay} n={node} />}
       </section>
 
-      {editable && sc.custom && direct && <DeleteScenario sc={sc} onDeleted={() => router.replace(`${base}/roleplay`)} />}
-      {editable && sc.custom && !direct && (
+      {editable && sc.custom && (
         confirmRemove
           ? <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-danger-line bg-danger-bg p-3">
               <Text size="body" weight="semibold" tone="danger" className="flex-1">Remove {sc.persona.name} from this training?</Text>

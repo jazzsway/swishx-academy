@@ -279,7 +279,7 @@ export function DirectSetup() {
                         <span className={cn("grid size-9 shrink-0 place-items-center rounded-control", f.role === "lesson" ? THUMB[kindOf(f.src)] : "bg-info-bg text-info")}><Icon className="size-4" aria-hidden="true" /></span>
                         <span className="flex min-w-[160px] flex-1 flex-col">
                           <span className="truncate text-body font-semibold text-ink">{f.src.title}</span>
-                          <span className="truncate text-caption text-ink-3">{f.role === "lesson" ? `Lesson · ${directKind(f.src)} · ${lengthOf(f.src)}` : "Only the AI reads it"}</span>
+                          <span className="truncate text-caption text-ink-3">{f.role === "lesson" ? `Lesson · ${directKind(f.src)} · ${lengthOf(f.src)}` : "Used for the training experience"}</span>
                         </span>
                         <span className="ml-auto flex shrink-0 items-center gap-1">
                           <Segmented aria-label={`What ${f.src.title} is`}>
@@ -300,7 +300,7 @@ export function DirectSetup() {
                   <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
                 </label>
               </div>
-              <Text size="caption" tone="subtle">Training material becomes lessons reps see, exactly as uploaded, in this order. Information sources only feed the AI.</Text>
+              <Text size="caption" tone="subtle">Training material becomes lessons reps see, exactly as uploaded, in this order. Information sources are used for the training experience, like the scenarios; reps don&apos;t see them.</Text>
             </Card>
             {stage === "drafting" && (
               <Card label="Scenarios" hint="Drafting from your objective">

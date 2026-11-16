@@ -239,7 +239,8 @@ export function TrainingChat({ course }: { course: Course }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {thread.map((t) => t.from === "divider" ? (
+        {/* A step passed through without a word shows no marker of its own. */}
+        {thread.filter((t, i) => t.from !== "divider" || thread[i + 1]?.from !== "divider").map((t) => t.from === "divider" ? (
           <div key={t.id} className="flex items-center gap-2 py-1 text-micro font-bold uppercase tracking-wider text-ink-4"><span className="h-px flex-1 bg-hair" />{t.text}<span className="h-px flex-1 bg-hair" /></div>
         ) : (
           <div key={t.id} className={cn("flex flex-col gap-1.5", t.from === "you" && "items-end")}>
