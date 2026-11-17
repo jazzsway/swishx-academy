@@ -23,7 +23,7 @@ import { BLOCK_META } from "@/features/shared/block-view";
 import { useCourse } from "./use-course";
 import { questionCount } from "./question-index";
 import { runChecks } from "./checks";
-import { DirectTopBar } from "./step-rail";
+import { DirectTopBar, StepperRail } from "./step-rail";
 import { TrainingChat } from "./training-chat";
 
 const PANEL_MIN = 320;
@@ -65,8 +65,7 @@ function Workspace({ children }: { children: ReactNode }) {
   function startResize(e: React.PointerEvent) {
     const x0 = e.clientX, w0 = width;
     setResizing(true);
-    /* The agent sits on the left of a training with the trainer's own material, on the right otherwise. */
-    const move = (ev: PointerEvent) => setWidth(Math.max(PANEL_MIN, Math.min(PANEL_MAX, w0 + (direct ? ev.clientX - x0 : x0 - ev.clientX))));
+    const move = (ev: PointerEvent) => setWidth(Math.max(PANEL_MIN, Math.min(PANEL_MAX, w0 + (x0 - ev.clientX))));
     const up = () => {
       setResizing(false);
       window.removeEventListener("pointermove", move);
@@ -77,12 +76,12 @@ function Workspace({ children }: { children: ReactNode }) {
     window.addEventListener("pointerup", up);
   }
 
-  /* A training with the trainer's own material keeps the agent on the left, as when it was set up, and its three steps in the top bar. */
+  /* A training with the trainer's own material has its three steps down the left instead of the course rail. */
   const direct = data.course.origin === "direct";
   const agent = open && (
-    <aside aria-label="SwishX AI Agent" style={{ width }} className={cn("copilot-in relative hidden shrink-0 flex-col bg-card md:flex", direct ? "border-r border-hair" : "border-l border-hair")}>
+    <aside aria-label="SwishX AI Agent" style={{ width }} className="copilot-in relative hidden shrink-0 flex-col border-l border-hair bg-card md:flex">
       <span onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label="Resize the agent panel"
-        className={cn("absolute inset-y-0 z-10 w-2 cursor-col-resize transition-colors hover:bg-brand/20", direct ? "-right-1" : "-left-1", resizing && "bg-brand/30")} />
+        className={cn("absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize transition-colors hover:bg-brand/20", resizing && "bg-brand/30")} />
       <AgentDock course={data.course} />
     </aside>
   );
@@ -90,7 +89,7 @@ function Workspace({ children }: { children: ReactNode }) {
     <div className={cn("flex h-dvh flex-col bg-canvas", resizing && "select-none")}>
       {direct ? <DirectTopBar /> : <TopBar />}
       <div className="flex min-h-0 flex-1">
-        {direct ? agent : sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
+        {direct ? <StepperRail course={data.course} /> : sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
         <main className="min-w-0 flex-1 overflow-y-auto bg-subtle/60 [scrollbar-width:thin]" id="workspace-canvas">
           <div className="page-enter mx-auto flex w-full max-w-[980px] flex-col gap-4 px-5 py-6 lg:px-8">
             {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay") || pathname.endsWith("/details")) && (
@@ -102,7 +101,7 @@ function Workspace({ children }: { children: ReactNode }) {
             {children}
           </div>
         </main>
-        {!direct && agent}
+        {agent}
       </div>
     </div>
   );
@@ -310,6 +309,8 @@ export function AgentDock({ course }: { course: Course }) {
   const [tab, setTab] = useState<"agent" | "checks">("agent");
   const issues = useMemo(() => runChecks(course).filter((f) => f.severity !== "green"), [course]);
   const base = `/trainer/courses/${course.id}`;
+  /* A training with the trainer's own material: just its one chat for every stage, no tabs or header. The top bar shows and hides it. */
+  if (course.origin === "direct") return <div className="flex min-h-0 flex-1 flex-col"><TrainingChat course={course} /></div>;
   return (
     <>
       <div className="flex h-12 shrink-0 items-center gap-1 border-b border-hair px-2.5">
@@ -322,18 +323,15 @@ export function AgentDock({ course }: { course: Course }) {
         <button type="button" onClick={() => setOpen(false)} aria-label="Hide the agent" className="ml-auto grid size-8 place-items-center rounded-control text-ink-3 hover:bg-subtle hover:text-ink"><X className="size-4" /></button>
       </div>
       <div className={cn("min-h-0 flex-1 flex-col", tab === "agent" ? "flex" : "hidden")}>
-        {/* A training with the trainer's own material has one chat for all three steps; pages don't swap it out. */}
-        {course.origin === "direct" ? <TrainingChat course={course} /> : <>
-          <div ref={setSlot} className={cn("min-h-0 flex-1 flex-col", overridden ? "flex" : "hidden")} />
-          {!overridden && <RoleCopilot role="trainer" onGo={() => undefined} />}
-        </>}
+        <div ref={setSlot} className={cn("min-h-0 flex-1 flex-col", overridden ? "flex" : "hidden")} />
+        {!overridden && <RoleCopilot role="trainer" onGo={() => undefined} />}
       </div>
       {tab === "checks" && (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
           {issues.length === 0 && (
             <div className="squircle flex flex-col items-center gap-1 rounded-panel bg-ok-bg px-4 py-6 text-center">
               <Text size="body-lg" weight="bold" tone="ok">Nothing to fix</Text>
-              <Text size="caption" tone="subtle">{course.origin === "direct" ? "Your files go in as they are, so there's no generated text to check." : "Every sentence is cited and on-label."}</Text>
+              <Text size="caption" tone="subtle">Every sentence is cited and on-label.</Text>
             </div>
           )}
           {issues.map((f) => (

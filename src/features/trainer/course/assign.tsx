@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, Rocket, Users } from "lucide-react";
+import { Rocket, Users } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { useApp, audienceMatches } from "@/store/app-store";
 import { TODAY } from "@/data/org";
 import type { AudienceRules, Progress } from "@/data/types";
@@ -13,9 +14,11 @@ import { Field } from "@/components/ui/field";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { Card, Avatar } from "@/components/patterns/academy";
 import { useToast, Toast } from "@/components/patterns/toast";
-import { AudienceBuilder, EMPTY_RULES, targetRules } from "../audience";
+import { AudienceBuilder, CompactAudience, EMPTY_RULES, targetRules } from "../audience";
 import { useCourse } from "./use-course";
-import { Num, Row, Toggle } from "./settings";
+import { StageHeader } from "./stage-ui";
+import { Line } from "./training-settings";
+import { turnId, useTrainingChat } from "./training-chat-store";
 
 const today = TODAY.toISOString().slice(0, 10);
 const in30 = new Date(TODAY.getTime() + 30 * 86400000).toISOString().slice(0, 10);
@@ -44,41 +47,11 @@ export function AssignCourse() {
   const fresh = matched.filter((u) => !already.has(u.id));
 
   const direct = course.origin === "direct";
-  const base = `/trainer/courses/${course.id}`;
-  const assignedHere = progress.filter((p) => p.courseId === course.id).length;
-  const head = direct && (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Step 3 of 3</Text>
-        <Text as="h1" size="display" weight="extrabold" tracking="tight">Assign to people</Text>
-        <Text size="body-lg" tone="subtle">How reps pass the scenario call, and who takes the training.</Text>
-      </div>
-      {assignedHere > 0 && <Link href={`${base}/people`} className="inline-flex h-10 items-center gap-2 rounded-control border border-hair-2 bg-card px-3.5 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle"><Users className="size-4" aria-hidden="true" />{assignedHere} assigned · see progress</Link>}
-    </div>
-  );
-
-  if (!lv)
-    return direct ? (
-      <div className="flex flex-col gap-4">
-        {head}
-        <PassRules courseId={course.id} />
-        <Card>
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><Rocket className="size-5" aria-hidden="true" /></span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <Text size="title" weight="bold">Publish, then pick who takes it</Text>
-              <Text size="body" tone="subtle">Only a published version can be assigned, so reps never see a draft.</Text>
-            </div>
-            <Button onClick={() => router.push(`${base}/review`)}>Publish<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          </div>
-        </Card>
-      </div>
-    ) : <Card><Text tone="subtle">Only a published version can be assigned. Publish it first from Publish & versions.</Text></Card>;
+  if (direct) return <DirectAssign />;
+  if (!lv) return <Card><Text tone="subtle">Only a published version can be assigned. Publish it first from Publish & versions.</Text></Card>;
 
   return (
     <div className="flex flex-col gap-4">
-    {head}
-    {direct && <PassRules courseId={course.id} />}
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex min-w-0 flex-col gap-5">
         <Card title="Who" eyebrow={`Assign v${lv.version}`}>
@@ -87,8 +60,8 @@ export function AssignCourse() {
         <Card title="What they do">
           <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="What they do">
             {([
-              { v: "learn", label: direct ? "Lessons + scenarios" : "Learn + practice", hint: direct ? "Screening, the lessons, then the scenario call. For new hires and anyone new to the product." : "The lessons, then practice calls and the final test. For new hires and anyone new to the product." },
-              { v: "practice", label: direct ? "Scenarios only" : "Practice only", hint: direct ? "No lessons. Straight to the scenario call. For experienced reps." : "No lessons. Straight to practice calls and the final test. For experienced reps." },
+              { v: "learn", label: direct ? "Lessons + call" : "Learn + practice", hint: direct ? "Screening, the lessons, then the call. For new hires and anyone new to the product." : "The lessons, then practice calls and the final test. For new hires and anyone new to the product." },
+              { v: "practice", label: direct ? "Call only" : "Practice only", hint: direct ? "No lessons. Straight to the call. For experienced reps." : "No lessons. Straight to practice calls and the final test. For experienced reps." },
             ] as const).map((o) => (
               <button key={o.v} type="button" role="radio" aria-checked={mode === o.v} onClick={() => setMode(o.v)}
                 className={`squircle flex flex-col gap-1 rounded-panel border p-4 text-left transition-colors ${mode === o.v ? "border-brand bg-tint/60 ring-1 ring-brand" : "border-hair-2 bg-card hover:bg-subtle"}`}>
@@ -151,32 +124,105 @@ export function AssignCourse() {
   );
 }
 
-/** How reps pass a training's scenario call: set here, next to who takes it. */
-function PassRules({ courseId }: { courseId: string }) {
-  const data = useCourse(courseId);
-  const updateSettings = useApp((s) => s.updateSettings);
+/**
+ * Stage 4 for a training with the trainer's own material: who takes it, what they do and by when, with
+ * who'll get it always in view. Assigning needs a published version; until then, the one thing here is
+ * to publish it.
+ */
+function DirectAssign() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const data = useCourse(id);
+  const users = useApp((s) => s.users);
+  const progress = useApp((s) => s.progress);
+  const assign = useApp((s) => s.assign);
+  const setPublishOpen = useTrainingChat((s) => s.setPublishOpen);
+  const { message, open, showToast } = useToast();
+  const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, roles: ["rep"], divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
+  const [type, setType] = useState<Progress["assignType"]>("required");
+  const [mode, setMode] = useState<"learn" | "practice">("learn");
+  const [due, setDue] = useState(in30);
+  const [start, setStart] = useState(today);
+  const matched = useMemo(() => audienceMatches(users, targetRules(rules)), [users, rules]);
   if (!data) return null;
-  const st = data.course.settings;
-  const set = (patch: Parameters<typeof updateSettings>[1]) => updateSettings(courseId, patch);
-  return (
-    <Card title="How reps pass" eyebrow="The scenario call">
-      <div className="flex flex-col">
-        <Row label="Pass mark on each scenario" hint="Each scenario's score is its criteria, weighted the way you set them. A critical compliance flag always fails it.">
-          <Num label="Pass mark" value={st.passRoleplay} suffix="%" onChange={(n) => set({ passRoleplay: Math.max(1, Math.min(100, n)) })} />
-        </Row>
-        <Row label="Tries on each scenario" hint="A failed scenario can be retried on its own; the passed ones stay passed.">
-          <Num label="Tries" value={st.attempts} onChange={(n) => set({ attempts: Math.max(1, n) })} />
-        </Row>
-        <Row label="Wait between tries" hint="Time to go back over the lessons first.">
-          <Num label="Wait" value={st.cooldownHours} suffix="hours" onChange={(n) => set({ cooldownHours: Math.max(0, n) })} />
-        </Row>
-        <Row label="No hints on the scored call" hint="No prompts and no tap-to-answer lines. Screening never has hints either.">
-          <Toggle label="No hints" on={!!st.finalNoHints} onChange={(v) => set({ finalNoHints: v })} />
-        </Row>
-        <Row label="Screening sets a baseline" hint="Each rep's screening score is their starting point; progress is shown from it.">
-          <Toggle label="Baseline" on={!!st.baseline} onChange={(v) => set({ baseline: v })} />
-        </Row>
+  const { course, cur, lv } = data;
+  const base = `/trainer/courses/${course.id}`;
+  const already = new Set(progress.filter((p) => p.courseId === course.id).map((p) => p.userId));
+  const fresh = matched.filter((u) => !already.has(u.id));
+  const badDates = type !== "recommended" && !!due && due < start;
+  const day = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const dateInput = "h-9 rounded-control border border-hair-2 bg-card px-2.5 text-body text-ink outline-none focus:border-brand/60";
+
+  const head = (
+    <StageHeader n={4} sub={lv ? `v${lv.version} is live. Choose who takes it, and by when.` : "Publish it, then choose who takes it."}
+      actions={already.size > 0 && <Link href={`${base}/people`} className="inline-flex h-9 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-3 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle"><Users className="size-4" aria-hidden="true" />{already.size} assigned · see progress</Link>} />
+  );
+
+  if (!lv)
+    return (
+      <div className="flex flex-col gap-4">
+        {head}
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <span className="grid size-12 place-items-center rounded-full bg-tint text-brand"><Rocket className="size-6" aria-hidden="true" /></span>
+            <Text size="title" weight="bold">Publish v{cur.version} to start assigning</Text>
+            <Text size="body" tone="subtle" className="max-w-[440px]">Reps only ever see a published version. Check what goes live, publish it, and choose who takes it here.</Text>
+            <Button onClick={() => setPublishOpen(true)}><Rocket className="size-4" aria-hidden="true" />Publish v{cur.version}</Button>
+          </div>
+        </Card>
       </div>
-    </Card>
+    );
+
+  return (
+    <div className="flex flex-col gap-4">
+      {head}
+      {cur.state !== "published" && (
+        <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-warn/30 bg-warn-bg px-4 py-2.5">
+          <Text size="body" className="min-w-0 flex-1">You&apos;re assigning <b>v{lv.version}</b>. Your changes in v{cur.version} reach reps once you publish them.</Text>
+          <Button size="sm" variant="secondary" onClick={() => setPublishOpen(true)}>Publish v{cur.version}</Button>
+        </div>
+      )}
+      <Card title="Who" eyebrow={`Assign v${lv.version}`}>
+        <CompactAudience rules={rules} onChange={setRules} />
+      </Card>
+      <Card title="What and when" eyebrow="The assignment">
+        <ul className="-mt-1 flex flex-col">
+          <Line label="What they do" hint={mode === "learn" ? "Screening, the lessons, then the scored call. For new hires and anyone new to the product." : "No lessons, straight to the scored call. For experienced reps."}>
+            <Segmented aria-label="What they do">
+              <SegmentedButton active={mode === "learn"} onClick={() => setMode("learn")}>Lessons + call</SegmentedButton>
+              <SegmentedButton active={mode === "practice"} onClick={() => setMode("practice")}>Call only</SegmentedButton>
+            </Segmented>
+          </Line>
+          <Line label="Assignment" hint={type === "default" ? "Everyone who matches now, and anyone who matches later (new hires, transfers), gets it." : type === "required" ? "With a due date. Reminders 7, 3 and 1 day before." : "Optional. No due date, no reminders."}>
+            <Segmented aria-label="Assignment type">
+              <SegmentedButton active={type === "required"} onClick={() => setType("required")}>Required</SegmentedButton>
+              <SegmentedButton active={type === "default"} onClick={() => setType("default")}>Onboarding</SegmentedButton>
+              <SegmentedButton active={type === "recommended"} onClick={() => setType("recommended")}>Optional</SegmentedButton>
+            </Segmented>
+          </Line>
+          <Line label="Dates" hint={badDates ? "Pick a due date after the start date." : start > today ? "Reps see it now but can't start until then." : "Reps can start right away."}>
+            <label className="flex items-center gap-1.5 text-caption text-ink-3">Starts<input type="date" aria-label="Starts" value={start} min={today} onChange={(e) => setStart(e.target.value || today)} className={dateInput} /></label>
+            {type !== "recommended" && <label className="flex items-center gap-1.5 text-caption text-ink-3">Due<input type="date" aria-label="Due" value={due} min={start} onChange={(e) => setDue(e.target.value)} className={cn(dateInput, badDates && "border-danger")} /></label>}
+          </Line>
+        </ul>
+      </Card>
+      {/* Who gets it, always in view, with the one action. */}
+      <div className="sticky bottom-0 z-10 -mx-1 px-1 pb-1 pt-2">
+        <div className="squircle flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel border border-hair bg-card/95 px-4 py-3 shadow-float backdrop-blur">
+          <Text size="display" weight="extrabold" tabular className="leading-none">{fresh.length}</Text>
+          <div className="flex min-w-[200px] flex-1 flex-col">
+            <Text size="body" weight="semibold">{fresh.length === 1 ? "rep gets it" : "reps get it"}{matched.length > fresh.length ? <span className="font-normal text-ink-3"> · {matched.length - fresh.length} already have it</span> : null}</Text>
+            <Text size="caption" tone="subtle" truncate>{fresh.length ? `${fresh.slice(0, 2).map((u) => u.name).join(", ")}${fresh.length > 2 ? ` and ${fresh.length - 2} more` : ""} · ` : ""}{mode === "learn" ? "lessons + call" : "call only"} · {type === "default" ? "onboarding" : type === "required" ? "required" : "optional"} · {start > today ? `opens ${day(start)}` : "opens now"}{type !== "recommended" && due ? ` · due ${day(due)}` : ""}</Text>
+          </div>
+          <Button disabled={!fresh.length || badDates} onClick={() => {
+            const n = assign(course.id, targetRules(rules), type, type === "recommended" ? undefined : due, undefined, start, mode);
+            showToast(`Assigned to ${n} ${n === 1 ? "rep" : "reps"}`);
+            useTrainingChat.getState().push(course.id, { id: turnId("a"), from: "ai", text: `Assigned to ${n} rep${n === 1 ? "" : "s"}. You'll see their progress under People.` });
+            window.setTimeout(() => router.push(`${base}/people`), 900);
+          }}>Assign to {fresh.length}</Button>
+        </div>
+      </div>
+      <Toast message={message} open={open} />
+    </div>
   );
 }

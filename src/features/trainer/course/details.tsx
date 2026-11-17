@@ -1,28 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, Lock, PencilLine } from "lucide-react";
-import { AgentIcon } from "@/components/ui/logo-mark";
+import { ArrowRight, ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { source } from "@/data/org";
 import type { Block, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
-import { Card } from "@/components/patterns/academy";
-import { VisibilityPicker } from "../content-type";
-import { directKind, directModules } from "../materials";
-import { SourcePreview } from "../source-preview";
-import { DemoDocs, Dropzone, LessonList, lengthOf, useUpload } from "../direct-course";
+import { Button, IconButton } from "@/components/ui/button";
+import { directModules } from "../materials";
+import { FORMAT_ICON, FORMAT_LABEL, SourcePreview } from "../source-preview";
+import { THUMB, kindOf, lengthOf, useUpload } from "../direct-course";
 import { useCourse } from "./use-course";
+import { Card } from "@/components/patterns/academy";
+import { StageHeader } from "./stage-ui";
 
 const sourceOf = (b?: Block) => b?.file?.sourceId ?? b?.visualaid?.sourceId ?? b?.document?.sourceId;
 
 /**
- * Step 1 of a training with the trainer's own material: the details set at creation (name, who can
- * find it, the brief) and the materials, editable here. The lessons are the files reps see, in order;
- * the demo-call documents are what the AI builds the scenarios from.
+ * Stage 1, basic details: the name, the objective, and the material. Every file is either visible to
+ * reps (a lesson, exactly as uploaded, in this order) or information only, which the training uses
+ * for its objectives and situations but reps never see.
  */
 export function TrainingDetails() {
   const { id } = useParams<{ id: string }>();
@@ -32,96 +31,107 @@ export function TrainingDetails() {
   const setModules = useApp((s) => s.setModules);
   useApp((s) => s.uploads);
   const upload = useUpload(data?.course.productId);
-  const [editingBrief, setEditingBrief] = useState(false);
-  const [brief, setBrief] = useState(data?.course.brief ?? "");
   const [preview, setPreview] = useState<Source | null>(null);
   if (!data) return null;
   const { course, editable } = data;
   const base = `/trainer/courses/${course.id}`;
-  const lessons = course.modules.map((m, i) => {
-    const src = source(sourceOf(m.blocks[0]) ?? "");
-    return { id: m.id, title: m.title, sub: `Lesson ${i + 1} · ${src ? `${directKind(src)} · ${lengthOf(src)}` : `${m.minutes} min`}`, src };
-  });
-  const rpIds = course.roleplaySourceIds ?? [];
-  const demo = rpIds.map((x) => source(x)).filter((x): x is Source => !!x);
+  const lessons = course.modules.map((m) => ({ m, src: source(sourceOf(m.blocks[0]) ?? "") }));
+  const info = (course.roleplaySourceIds ?? []).map((x) => source(x)).filter((x): x is Source => !!x);
 
   function move(from: number, to: number) {
-    if (to < 0 || to >= course.modules.length || from === to) return;
+    if (to < 0 || to >= course.modules.length) return;
     const next = [...course.modules];
     const [x] = next.splice(from, 1);
     next.splice(to, 0, x);
     setModules(course.id, next);
   }
-  function addLessons(items: Source[]) {
-    setModules(course.id, [...course.modules, ...directModules(items, `d${Date.now().toString(36).slice(-4)}`)]);
+  /* Switching a file between the two: a lesson reps see, or information only. */
+  function hide(moduleId: string, src?: Source) {
+    setModules(course.id, course.modules.filter((m) => m.id !== moduleId));
+    if (src) updateCourse(course.id, { roleplaySourceIds: [...(course.roleplaySourceIds ?? []), src.id] });
   }
-  const addDemo = (ids: string[]) => updateCourse(course.id, { roleplaySourceIds: [...rpIds, ...ids], sourceIds: [...new Set([...course.sourceIds, ...ids])] });
+  function show(src: Source) {
+    updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) });
+    setModules(course.id, [...course.modules, ...directModules([src], `d${Date.now().toString(36).slice(-4)}`)]);
+  }
+  function addFiles(files: File[]) {
+    const added = upload(files, "f");
+    setModules(course.id, [...course.modules, ...directModules(added, `d${Date.now().toString(36).slice(-4)}`)]);
+    updateCourse(course.id, { sourceIds: [...new Set([...course.sourceIds, ...added.map((a) => a.id)])] });
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text size="micro" weight="bold" tone="brand-deep" uppercase tracking="wider">Step 1 of 3</Text>
-          <Text as="h1" size="display" weight="extrabold" tracking="tight">Details & materials</Text>
-          <Text size="body-lg" tone="subtle">What you set up when you created it. Change anything here; reps only see it once you publish.</Text>
-        </div>
-        <Button variant="secondary" onClick={() => router.push(`${base}/roleplay`)}>Next: scenarios<ArrowRight className="size-4" aria-hidden="true" /></Button>
-      </div>
+    <div className="flex flex-col gap-3">
+      <StageHeader n={1} sub="Name it, set the objective, and choose which files reps see." />
 
-      <Card>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <Field label="Training name" value={course.title} disabled={!editable} onChange={(e) => updateCourse(course.id, { title: e.target.value })} />
-          <VisibilityPicker value={course.visibility === "assigned" ? "private" : "public"} onChange={(v) => editable && updateCourse(course.id, { visibility: v === "public" ? "audience" : "assigned" })} teams="the field team" />
-        </div>
-      </Card>
+      <Section label="Name">
+        <input aria-label="Training name" value={course.title} disabled={!editable} onChange={(e) => updateCourse(course.id, { title: e.target.value })}
+          className="w-full bg-transparent text-title font-bold text-ink outline-none placeholder:text-ink-4" placeholder="Name the training" />
+      </Section>
 
-      <Card>
-        <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-white"><AgentIcon className="size-4" aria-hidden="true" /></span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <Text size="title" weight="bold" className="flex-1">Objective brief</Text>
-              {editable && !editingBrief && <Button size="sm" variant="ghost" onClick={() => setEditingBrief(true)}><PencilLine className="size-3.5" aria-hidden="true" />Edit</Button>}
-            </div>
-            {editingBrief ? (
-              <div className="flex flex-col gap-2">
-                <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} autoFocus aria-label="Objective brief"
-                  className="w-full resize-none rounded-panel border border-hair-2 bg-card px-3 py-2.5 text-body-lg leading-relaxed text-ink outline-none focus:border-brand/60" />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => { updateCourse(course.id, { brief: brief.trim() || undefined }); setEditingBrief(false); }}>Save brief</Button>
-                  <Button size="sm" variant="secondary" onClick={() => { setBrief(course.brief ?? ""); setEditingBrief(false); }}>Cancel</Button>
-                </div>
-              </div>
-            ) : (
-              <Text size="body-lg" tone={course.brief ? "default" : "subtle"} className="leading-relaxed">{course.brief ?? "No brief yet. Tell SwishX what reps should be able to do; it uses this when it drafts scenarios."}</Text>
-            )}
-            <Text size="caption" tone="subtle">SwishX drafted the first scenarios from this. Editing it doesn&apos;t change them; add or change scenarios in step 2.</Text>
-          </div>
-        </div>
-      </Card>
+      <Section label="Objective" hint="What reps should be able to do overall">
+        <textarea aria-label="Objective" value={course.brief ?? ""} disabled={!editable} rows={3} onChange={(e) => updateCourse(course.id, { brief: e.target.value, objective: e.target.value })}
+          className="w-full resize-none rounded-control border border-hair-2 bg-card px-3 py-2 text-body-lg leading-relaxed text-ink outline-none focus:border-brand/60" placeholder="e.g. Reps can present the new trial results exactly as approved." />
+      </Section>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <Card>
-          <div className="flex flex-col gap-0.5">
-            <Text as="h2" size="title" weight="bold">Lessons<span className="font-semibold text-ink-3"> · {lessons.length}</span></Text>
-            <Text size="body" tone="subtle">Your files, one lesson each, shown to reps exactly as uploaded. Drag to reorder.</Text>
-          </div>
-          <LessonList items={lessons} onMove={(a, b) => editable && move(a, b)} onPreview={(x) => (x.src ? setPreview(x.src) : router.push(`${base}?module=${x.id}`))}
-            onRemove={editable ? (x) => setModules(course.id, course.modules.filter((m) => m.id !== x.id)) : undefined} />
-          {editable && <Dropzone label="Add files as lessons" kinds="Video, audio, PDF, slides or images" onFiles={(f) => addLessons(upload(f, "rep"))} />}
-        </Card>
-        <Card>
-          <div className="flex flex-col gap-0.5">
-            <Text as="h2" size="title" weight="bold">Materials for the demo call<span className="font-semibold text-ink-3"> · {demo.length}</span></Text>
-            <Text size="body" tone="subtle" className="flex items-start gap-1.5"><Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Only the AI reads these, to build the scenarios. Reps never see them.</Text>
-          </div>
-          {demo.length === 0 && <Text size="body" tone="subtle">None yet. The scenarios are drafted from your lessons.</Text>}
-          <DemoDocs docs={demo} onPreview={setPreview}
-            onRemove={editable ? (x) => updateCourse(course.id, { roleplaySourceIds: rpIds.filter((r) => r !== x) }) : undefined} />
-          {editable && <Dropzone label="Add call scenarios, objection lists or your selling model" kinds="PDF, Word or slides" onFiles={(f) => addDemo(upload(f, "rp").map((a) => a.id))} />}
-        </Card>
-      </div>
+      <Section label="Materials" hint={`${lessons.length} visible to reps · ${info.length} information only`}>
+        <ul className="flex flex-col gap-1.5">
+          {lessons.map(({ m, src }, i) => (
+            <Row key={m.id} title={m.title} src={src} visible sub={`Lesson ${i + 1} · ${src ? `${FORMAT_LABEL[kindOf(src)]} · ${lengthOf(src)}` : `${m.minutes} min`}`}
+              onToggle={editable ? () => hide(m.id, src) : undefined} onPreview={() => (src ? setPreview(src) : router.push(`${base}?module=${m.id}`))}
+              onRemove={editable ? () => setModules(course.id, course.modules.filter((x) => x.id !== m.id)) : undefined}
+              order={editable ? <><IconButton aria-label={`Move ${m.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp className="size-4" /></IconButton><IconButton aria-label={`Move ${m.title} down`} disabled={i === lessons.length - 1} onClick={() => move(i, i + 1)}><ChevronDown className="size-4" /></IconButton></> : undefined} />
+          ))}
+          {info.map((src) => (
+            <Row key={src.id} title={src.title} src={src} visible={false} sub="Information only. Used for the training, not visible to reps."
+              onToggle={editable ? () => show(src) : undefined} onPreview={() => setPreview(src)}
+              onRemove={editable ? () => updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) }) : undefined} />
+          ))}
+        </ul>
+        {editable && (
+          <label className="flex cursor-pointer items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline">
+            <Plus className="size-4" aria-hidden="true" />Add files
+            <input type="file" multiple className="sr-only" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+          </label>
+        )}
+        <Text size="caption" tone="subtle">Files reps don&apos;t see are still used for the training: the agent, the objectives and the situations draw on them.</Text>
+      </Section>
       {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
     </div>
+  );
+}
+
+function Section({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <Card title={label} actions={hint ? <Text size="caption" tone="subtle">{hint}</Text> : undefined}>
+      <div className="-mt-1 flex flex-col gap-3">{children}</div>
+    </Card>
+  );
+}
+
+/** A file in the training: what it is, whether reps see it, and the controls for it. */
+function Row({ title, sub, src, visible, onToggle, onPreview, onRemove, order }: {
+  title: string; sub: string; src?: Source; visible: boolean; onToggle?: () => void; onPreview: () => void; onRemove?: () => void; order?: ReactNode;
+}) {
+  const k = src ? kindOf(src) : "pdf";
+  const Icon = FORMAT_ICON[k];
+  return (
+    <li className="squircle flex items-center gap-3 rounded-panel border border-hair-2 bg-card p-2.5 pr-2">
+      <span className={cn("grid size-10 shrink-0 place-items-center rounded-control", visible ? THUMB[k] : "bg-subtle text-ink-4")}><Icon className="size-4.5" aria-hidden="true" /></span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-body font-semibold text-ink">{title}</span>
+        <span className="truncate text-caption text-ink-3">{sub}</span>
+      </span>
+      {onToggle && (
+        <button type="button" role="switch" aria-checked={visible} onClick={onToggle} title={visible ? "Visible to reps" : "Hidden from reps"}
+          className="flex shrink-0 items-center gap-2 rounded-control px-2 py-1 text-caption font-semibold text-ink-2 hover:bg-subtle">
+          {visible ? <Eye className="size-3.5 text-ok" aria-hidden="true" /> : <EyeOff className="size-3.5 text-ink-4" aria-hidden="true" />}<span className="hidden sm:inline">Visible to reps</span>
+          <span className={cn("relative h-5 w-9 rounded-full transition-colors", visible ? "bg-ok" : "bg-hair-3")}><span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow-hair transition-all", visible ? "left-[18px]" : "left-0.5")} /></span>
+        </button>
+      )}
+      {order}
+      <IconButton aria-label={`Preview ${title}`} onClick={onPreview}><Eye className="size-4" /></IconButton>
+      {onRemove && <IconButton aria-label={`Remove ${title}`} onClick={onRemove}><Trash2 className="size-4" /></IconButton>}
+    </li>
   );
 }

@@ -243,7 +243,25 @@ export interface Persona {
 }
 
 /** Who the rep meets in a scenario. One character per scenario. */
-export type Character = "doctor" | "nurse" | "manager" | "pharmacist";
+export type Character = "doctor" | "nurse" | "manager" | "pharmacist" | "patient";
+
+/**
+ * What a training wants reps to be able to do, e.g. state the label's age limit exactly. It can involve
+ * several kinds of people; it's scored on its own criteria, and it's drawn from the trainer's material.
+ * Example situations under it show the trainer how it gets tested on a call.
+ */
+export interface Objective {
+  id: string;
+  title: string;
+  description: string;
+  people: Character[];
+  /** The criteria it's scored on and how much each counts, in percent. Adds up to 100. */
+  weights: { competency: string; pct: number }[];
+  /** Where in the trainer's material it comes from. */
+  cites: { sourceId: string; page: number; quote: string }[];
+  /** What good looks like on a call: what a rep who meets it says or does. */
+  lookFors?: string[];
+}
 
 export interface Scenario {
   id: string;
@@ -251,6 +269,8 @@ export interface Scenario {
   title: string;
   /** What happens in this scenario, in a line or two. */
   description?: string;
+  /** The objective this situation is an example of. */
+  objectiveId?: string;
   character?: Character;
   /** The competencies this scenario measures and how much each counts, in percent. Adds up to 100. */
   weights?: { competency: string; pct: number }[];
@@ -341,6 +361,8 @@ export interface Course {
   roleplaySourceIds?: string[];
   /** The trainer's objective brief, written at creation. The first scenarios are drafted from it. */
   brief?: string;
+  /** Trainings with the trainer's own material: what reps should be able to do, each with example situations. */
+  objectives?: Objective[];
   /** long: modules of videos, documents and decks. short: the same content broken into swipeable cards. */
   format: "long" | "short";
   /** Short form only: the card template SwishX writes to. */

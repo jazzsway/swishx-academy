@@ -6,38 +6,40 @@ import { ArrowRight, Check, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
-import { COMPETENCIES, competency } from "@/data/org";
-import type { Course, CourseSettings } from "@/data/types";
-import { editCall } from "@/lib/roleplay-draft";
-import { CHARACTERS, characterOf, evenTo100, weightsOf, withWeights } from "@/lib/scenario-set";
+import { COMPETENCIES, competency, source } from "@/data/org";
+import type { Course, CourseSettings, Objective } from "@/data/types";
+import { CHARACTERS, evenTo100 } from "@/lib/scenario-set";
+import { objectiveFromPrompt } from "@/lib/objectives";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Composer, Suggestions } from "@/features/copilot/composer";
 import { directModules } from "../materials";
 import { useUpload } from "../direct-course";
 import { applyChanges, directRespond } from "./chat";
-import { useAddScenario } from "./scenarios";
+import { draftObjectivesFor, removeSituation, saveObjectiveWeights, useAddScenario } from "./scenarios";
 import { useCourse } from "./use-course";
-import { stepOf, turnId, useTrainingChat, type TrainingTurn } from "./training-chat-store";
+import { STAGES, stepOf, turnId, useTrainingChat, type TrainingTurn } from "./training-chat-store";
 
 const EMPTY: TrainingTurn[] = [];
 const SUGGEST = {
-  details: ["Make it public", "Move lesson 2 to the start", "Brief: reps can handle a first call with a dermatologist", "Rename the training to “Lumora first calls”"],
-  scenarios: ["A practice nurse worried about who teaches the injections", "A tough pharmacist asking about storage and the formulary", "Use the first 3 scenarios in screening"],
-  scenario: ["Make it tougher", "Add an objection about dosing", "Put 40% on objection handling", "Make it a 4-minute call"],
-  assign: ["Set the pass mark to 80%", "Allow 2 tries on each scenario", "Wait 24 hours between tries", "Turn hints off on the scored call"],
+  details: ["Next", "Rename the training to “Lumora first calls”", "Brief: reps can handle a first call with a dermatologist", "Move lesson 2 to the start"],
+  objectives: ["Draft objectives", "Generate example situations", "Add an objective: reps explain the missed-dose guidance to nurses", "Next"],
+  objective: ["Add a situation: a patient asks if it's safe long term", "Put 40% on objection handling", "Rename this objective to “Quote the label exactly”"],
+  settings: ["Set the pass mark to 80%", "Allow 2 tries on each situation", "Wait 24 hours between tries", "Next"],
+  assign: ["Publish", "Who should take it?"],
 };
 const HELP = {
-  details: "Here I can rename the training, make it public or private, change the brief, and move, rename or remove lessons. Attach a file with the paperclip to add it as a lesson.",
-  scenarios: "Describe a scenario and I'll draft it: who the rep meets and what happens. I can also change which scenarios screening uses. Attach a document to use it as a source for the demo call.",
-  scenario: "Tell me how to change this scenario: tougher or easier, add or drop an objection, a line in quotes, the call length, or how much a criterion counts.",
-  assign: "Here I can set the pass mark, the tries on each scenario, the wait between tries, and hints on the scored call. Assigning opens once the training is published.",
+  details: "Here I can rename the training, change the objective, and move, rename or remove lessons. Attach a file with the paperclip to add it as a lesson. Say “next” for the objectives.",
+  objectives: "Describe an objective and I'll add it, drawn from your material: what reps should be able to do, and who it involves. Open one to add situations or change its criteria. Attach a file to use it as information for the training.",
+  objective: "Add a situation to this objective (who the rep meets and what happens), rename it, or tell me how much a criterion counts, like “put 40% on objection handling”.",
+  settings: "Here I can set the pass mark, the tries on each situation, the wait between tries, hints on the scored call, and which situations screening uses. Say “next” to publish and assign.",
+  assign: "Once it's published, choose who takes it on this page: the teams or people, required or optional, and by when.",
 };
 
 /**
  * The agent for a training built with the trainer's own material: one conversation for all three
- * steps, on the left of the editor. It knows the step (and the scenario) on screen and changes
- * whatever the trainer asks there: details and lessons, scenarios, the pass rules. Edits can be undone;
+ * steps, on the right of the editor. It knows the step (and the objective) on screen and changes
+ * whatever the trainer asks there: details and lessons, objectives and their situations, the pass rules. Edits can be undone;
  * lesson changes wait for an OK.
  */
 export function TrainingChat({ course }: { course: Course }) {
@@ -49,7 +51,6 @@ export function TrainingChat({ course }: { course: Course }) {
   const updateCourse = useApp((s) => s.updateCourse);
   const updateSettings = useApp((s) => s.updateSettings);
   const setModules = useApp((s) => s.setModules);
-  const saveScenario = useApp((s) => s.saveScenario);
   const upload = useUpload(course.productId);
   const addScenario = useAddScenario(course);
   const chat = useTrainingChat();
@@ -60,11 +61,10 @@ export function TrainingChat({ course }: { course: Course }) {
 
   const base = `/trainer/courses/${course.id}`;
   const step = stepOf(pathname, base);
-  const sc = step === 2 && search.get("sc") ? allScenarios().find((x) => x.id === search.get("sc")) : undefined;
-  const ctx = step === 1 ? "details" : step === 3 ? "assign" : sc ? "scenario" : "scenarios";
-  const where = step === 1 ? "Details & materials" : step === 3 ? "Assign to people" : sc ? `Scenario · ${sc.title}` : "Scenarios";
+  const ob = step === 2 && search.get("obj") ? course.objectives?.find((x) => x.id === search.get("obj")) : undefined;
+  const ctx = step === 1 ? "details" : step === 3 ? "settings" : step === 4 ? "assign" : ob ? "objective" : "objectives";
+  const where = step === 2 && ob ? `Objective · ${ob.title}` : STAGES[step - 1].label;
   const editable = !!data?.editable;
-  const focus = chat.focus && sc && chat.focus.scId === sc.id ? chat.focus : null;
   const say = (t: string, extra?: Partial<TrainingTurn>) => chat.push(course.id, { id: turnId("a"), from: "ai", text: t, ...extra });
 
   /* A training opened without a setup conversation starts with a hello; every move to another step leaves a marker. */
@@ -72,7 +72,7 @@ export function TrainingChat({ course }: { course: Course }) {
     const s = useTrainingChat.getState();
     if (!s.threads[course.id]?.length)
       s.push(course.id, { id: turnId("a"), from: "ai", text: data?.editable
-        ? `I'm with you on all three steps of ${course.title}: details and lessons, scenarios, and assigning. Tell me what to change, or pick a suggestion.`
+        ? `I'm with you on all three steps of ${course.title}: details and lessons, objectives and their situations, and assigning. Tell me what to change, or pick a suggestion.`
         : `${course.title} v${data?.cur.version} is live and locked. Use “Edit as v${(data?.cur.version ?? 0) + 1}” in the top bar and I'll make changes there.` });
   }, [course.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -82,40 +82,91 @@ export function TrainingChat({ course }: { course: Course }) {
     /* Passing through a step without a word moves the marker instead of stacking another. */
     if (last?.from === "divider") { if (last.text !== where) s.patch(course.id, last.id, { text: where }); }
     else if ([...t].reverse().find((x) => x.from === "divider")?.text !== where) s.push(course.id, { id: turnId("d"), from: "divider", text: where });
-  }, [where, course.id]);
-  /* "Add scenario" on the page: the agent asks for it here. */
-  const asked = useRef(chat.asks);
+    /* The first time at each stage, the agent says what it's for and what comes next. */
+    if (editable && !(s.threads[course.id] ?? []).some((x) => x.id === `stage-${course.id}-${step}`) && !(step === 1 && t.some((x) => x.id === "s-set"))) s.push(course.id, { id: `stage-${course.id}-${step}`, from: "ai", text: intro(step) });
+  }, [where, course.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* "Add objective" or "Add a situation" on the page: the agent asks for it here, and takes the next message as it. */
+  const asked = useRef(chat.asked?.n ?? 0);
   useEffect(() => {
-    if (chat.asks === asked.current) return;
-    asked.current = chat.asks;
-    say("Tell me about the scenario: who the rep meets (a doctor, nurse, practice manager or pharmacist), what happens on the call, and what you want to test.");
+    if (!chat.asked || chat.asked.n === asked.current) return;
+    asked.current = chat.asked.n;
+    say(chat.asked.kind === "objective"
+      ? "What's the objective? Tell me what reps should be able to do, and who it involves (a doctor, nurse, practice manager, pharmacist or patient). I'll tie it to your material."
+      : `Describe a situation${ob ? ` for “${ob.title}”` : ""}: who the rep meets (one person) and what happens on the call.`);
     window.setTimeout(() => document.getElementById("training-chat")?.focus(), 60);
-  }, [chat.asks]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (focus) document.getElementById("training-chat")?.focus(); }, [focus]);
+  }, [chat.asked]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [thread.length, busy]);
   if (!data) return null;
 
   const cur = () => useApp.getState().courses.find((c) => c.id === course.id) ?? course;
+  const go = (n: number) => router.push(`${base}${STAGES[Math.max(0, Math.min(3, n - 1))].path}`);
+  function intro(n: number) {
+    const c = cur();
+    const situations = c.scenarioIds.length, obs = c.objectives?.length ?? 0;
+    if (n === 1) return "Stage 1 of 4 · Basic details. Check the name, the objective, and which files reps see. Say “next” when it's right.";
+    if (n === 2) return !obs && !situations ? "Stage 2 of 4 · Objectives & situations. Say “draft objectives” and I'll draw them from your brief and files, each tied to where it comes from. Or describe your own."
+      : `Stage 2 of 4 · Objectives & situations. ${obs} objective${obs === 1 ? "" : "s"}, ${situations} situation${situations === 1 ? "" : "s"}. ${situations ? "Open one to add situations or change its criteria, or say “next”." : "Say “generate” and I'll write example situations for each."}`;
+    if (n === 3) return `Stage 3 of 4 · Settings. Pass mark ${c.settings.passRoleplay}% on each situation, ${c.settings.attempts} tries, screening ${c.settings.screening ? "on" : "off"}. Change anything, or say “next”.`;
+    return data?.lv ? "Stage 4 of 4 · Assign. It's published: choose who takes it, and by when." : "Stage 4 of 4 · Assign. Publish it first; reps only ever see a published version. Then choose who takes it.";
+  }
 
-  function draftScenario(prompt: string) {
+  /** A situation under an objective (the open one, or the first), drafted in steps the trainer watches. */
+  function draftSituation(prompt: string, target?: Objective) {
+    const c = cur();
+    /* A situation always sits under an objective: the open one, the first, or a new one from the brief. */
+    let under = target ?? c.objectives?.[0];
+    if (!under) {
+      const materials = c.sourceIds.map((x) => source(x)).filter((x): x is NonNullable<typeof x> => !!x);
+      under = objectiveFromPrompt(c.brief ?? c.objective ?? c.title, materials, 0);
+      updateCourse(c.id, { objectives: [under] });
+    }
     const id = turnId("a");
     chat.push(course.id, { id, from: "ai", text: "", steps: [], at: 0 });
-    addScenario(prompt, (steps, at) => useTrainingChat.getState().patch(course.id, id, { steps, at }), (d) => {
-      const ws = weightsOf(d).map((w) => `${competency(w.competency)?.name.toLowerCase()} (${w.pct}%)`).join(", ");
-      useTrainingChat.getState().patch(course.id, id, { steps: undefined, text: `Added “${d.title}” with ${d.persona.name}, scored on ${ws}.`, link: { href: `${base}/roleplay?sc=${d.id}`, label: "Open it" } });
+    addScenario(prompt.replace(/^(add|new|create)\s+(a\s+)?(situation|scenario|case)\s*(:|-)?\s*/i, ""), (steps, at) => useTrainingChat.getState().patch(course.id, id, { steps, at }), (d) => {
+      useTrainingChat.getState().patch(course.id, id, { steps: undefined, text: `Added “${d.title}” with ${d.persona.name} under “${under!.title}”, scored on its criteria.`, link: { href: `${base}/roleplay?obj=${under!.id}`, label: "Show it" } });
       useTrainingChat.getState().setAdded(d.id);
-      if (step !== 2) router.push(`${base}/roleplay`);
-    });
+      router.replace(`${base}/roleplay?obj=${under!.id}`, { scroll: false });
+    }, under);
+  }
+
+  /** An objective the trainer described, tied to the training's material. */
+  function addObjective(prompt: string) {
+    const c = cur();
+    const prev = c.objectives ?? [];
+    const materials = c.sourceIds.map((x) => source(x)).filter((x): x is NonNullable<typeof x> => !!x);
+    const next = objectiveFromPrompt(prompt, materials, prev.length);
+    updateCourse(c.id, { objectives: [...prev, next] });
+    useTrainingChat.getState().setAdded(next.id);
+    router.replace(`${base}/roleplay?obj=${next.id}`, { scroll: false });
+    say(`Added objective ${prev.length + 1}: “${next.title}”, with ${next.people.map((p) => CHARACTERS[p].label.toLowerCase()).join(", ")}${next.cites.length ? `, from ${next.cites.map((x) => `${source(x.sourceId)?.title ?? "your file"} p. ${x.page}`).join(" and ")}` : ""}. It's scored on ${next.weights.map((w) => `${competency(w.competency)?.name.toLowerCase()} (${w.pct}%)`).join(", ")}. Want a couple of example situations for it? Say “add a situation: …”.`,
+      { undo: () => updateCourse(c.id, { objectives: prev }) });
   }
 
   /** What the trainer asked, wherever they are. Settings and scenarios work from any step. */
-  function handle(prompt: string, f: typeof focus) {
+  function handle(prompt: string, pending?: "objective" | "situation") {
     const l = prompt.toLowerCase();
     const c = cur();
     const st = c.settings;
     const scs = allScenarios().filter((x) => c.scenarioIds.includes(x.id));
+    const open = ob ? c.objectives?.find((x) => x.id === ob.id) : undefined;
 
-    if (/\b(add|create|new|another|draft)\b.*\bscenarios?\b/.test(l) && !/screening/.test(l)) return draftScenario(prompt);
+    /* Moving between the stages. */
+    if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (step === 4) return say(HELP.assign); if (step === 3 && data!.cur.state !== "published") { say("Here's what goes live. Publish it, and you'll choose who takes it next."); return useTrainingChat.getState().setPublishOpen(true); } say(`On to ${STAGES[step].label.toLowerCase()}.`); return go(step + 1); }
+    if (/^(back|previous|go back)\b/.test(l)) { if (step === 1) return say("This is the first stage."); say(`Back to ${STAGES[step - 2].label.toLowerCase()}.`); return go(step - 1); }
+    if (/draft (the )?objectives|suggest objectives/.test(l)) { if (step !== 2) go(2); draftObjectivesFor(c); return; }
+    if (/^generate|example situations|write (the )?examples/.test(l)) {
+      if (!(c.objectives ?? []).length) return say("There are no objectives yet. Say “draft objectives” first.");
+      if (step !== 2) go(2);
+      say("Writing example situations for each objective. It takes about two minutes; you can skip ahead on the page.");
+      return useTrainingChat.getState().generate();
+    }
+    if (/^(save and publish|publish( it)?)$/.test(l)) {
+      if (data!.cur.state === "published") return say("It's already published. Choose who takes it on this page.", { link: { href: `${base}/assign`, label: "Assign" } });
+      say("Here's what goes live. Check it, then publish.");
+      return useTrainingChat.getState().setPublishOpen(true);
+    }
+    if (pending === "objective" || /\b(add|create|new|another)\b.{0,12}\bobjective\b/.test(l)) return addObjective(prompt);
+    if (pending === "situation" || (/\b(add|create|new|another|draft)\b.{0,12}\b(situation|scenario|case)s?\b/.test(l) && !/screening/.test(l))) return draftSituation(prompt, open);
 
     const name = prompt.match(/(?:rename|call)\s+(?:the\s+|this\s+)?training\s+(?:to\s+)?["“]?(.+?)["”]?\.?$/i)?.[1];
     if (name) {
@@ -166,29 +217,35 @@ export function TrainingChat({ course }: { course: Course }) {
     if (/\bassign\b|who takes/.test(l))
       return data!.lv ? say("Pick who takes it on the Assign step.", { link: { href: `${base}/assign`, label: "Assign to people" } }) : say("Publish it first; then you can pick who takes it. Reps never see a draft.", { link: { href: `${base}/review`, label: "Go to publish" } });
 
-    /* The open scenario. */
-    if (sc) {
-      const now = useApp.getState().scenarios.find((x) => x.id === sc.id) ?? sc;
+    /* The open objective: its name and what it's scored on. */
+    if (open) {
+      const re = prompt.match(/rename\s+(?:this\s+|the\s+)?objective\s+(?:to\s+)?["“]?(.+?)["”]?\.?$/i)?.[1];
+      if (re) {
+        const prev = c.objectives ?? [];
+        updateCourse(c.id, { objectives: prev.map((x) => (x.id === open.id ? { ...x, title: re } : x)) });
+        return say(`It's “${re}” now.`, { undo: () => updateCourse(c.id, { objectives: prev }) });
+      }
       const pct = Number(l.match(/(\d{1,2})\s*%/)?.[1]);
       const comp = pct ? COMPETENCIES.find((x) => x.name.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 4).some((w) => l.includes(w))) : undefined;
       if (comp) {
-        const ws = weightsOf(now);
-        const others = ws.filter((w) => w.competency !== comp.id);
+        const others = open.weights.filter((w) => w.competency !== comp.id);
         const scaled = evenTo100(others.length ? others : [{ competency: comp.id, pct: 100 }]).map((w) => ({ ...w, pct: Math.max(1, Math.round((w.pct * (100 - pct)) / 100)) }));
         const next = evenTo100([{ competency: comp.id, pct }, ...scaled.filter((w) => w.competency !== comp.id)]);
-        saveScenario(withWeights(now, next), { practice: now.use.includes("practice"), final: c.settings.assessmentScenarioId === now.id });
-        return say(`${comp.name} counts for ${next[0].pct}% now; the others are scaled to fit: ${next.slice(1).map((w) => `${competency(w.competency)?.name} ${w.pct}%`).join(", ")}.`, { undo: () => saveScenario(now, { practice: now.use.includes("practice"), final: c.settings.assessmentScenarioId === now.id }) });
+        const before = open.weights;
+        saveObjectiveWeights(c, open, next);
+        return say(`${comp.name} counts for ${next[0].pct}% now; the others are scaled to fit: ${next.slice(1).map((w) => `${competency(w.competency)?.name} ${w.pct}%`).join(", ")}. Its situations are scored the same way.`, { undo: () => saveObjectiveWeights(cur(), open, before) });
       }
-      const r = editCall(now, prompt, f?.focus);
-      /* The edit replies speak of "the doctor"; this scenario's character may be someone else. */
-      const who = CHARACTERS[characterOf(now)].label.toLowerCase();
-      if (who !== "doctor") r.reply = r.reply.replace(/\b([Tt])he doctor\b/g, (_m, t) => `${t}he ${who}`);
-      if (r.next) {
-        saveScenario(r.next, { practice: now.use.includes("practice"), final: c.settings.assessmentScenarioId === now.id });
-        useTrainingChat.getState().setFlash(r.changed);
-        return say(r.reply, { undo: () => { saveScenario(now, { practice: now.use.includes("practice"), final: c.settings.assessmentScenarioId === now.id }); useTrainingChat.getState().setFlash([]); } });
-      }
-      return say(r.reply);
+      if (prompt.trim().split(/\s+/).length >= 4) return draftSituation(prompt, open);
+    }
+    const n = Number(l.match(/objective\s*(\d+)/)?.[1]);
+    if (n && /remove|delete|drop/.test(l)) {
+      const prev = c.objectives ?? [];
+      const gone = prev[n - 1];
+      if (!gone) return say(`There's no objective ${n}.`);
+      const its = scs.filter((x) => x.objectiveId === gone.id);
+      its.forEach(removeSituation);
+      updateCourse(c.id, { objectives: prev.filter((x) => x.id !== gone.id) });
+      return say(`Removed “${gone.title}”${its.length ? ` and its ${its.length} situation${its.length === 1 ? "" : "s"}` : ""}.`);
     }
 
     /* Lessons. */
@@ -196,23 +253,24 @@ export function TrainingChat({ course }: { course: Course }) {
       const r = directRespond(prompt, c, search.get("module") ?? undefined);
       return chat.push(course.id, { id: r.id, from: "ai", text: r.text, changes: r.changes, status: r.status });
     }
-    /* On the scenario list, a description is a new scenario. */
-    if (step === 2 && prompt.trim().split(/\s+/).length >= 4 && !/tough|easier|minute|objection|line/.test(l)) return draftScenario(prompt);
-    if (step === 2) return say("Open a scenario first, then tell me what to change in it. Or describe a new one and I'll draft it.");
+    /* On the objectives, a description is a new objective. */
+    if (step === 2 && prompt.trim().split(/\s+/).length >= 4) return addObjective(prompt);
     return say(HELP[ctx]);
   }
 
   function send(prompt: string) {
     if (!prompt.trim() || busy) return;
-    chat.push(course.id, { id: turnId("u"), from: "you", text: prompt.trim(), focus: focus?.label });
+    chat.push(course.id, { id: turnId("u"), from: "you", text: prompt.trim() });
     setText("");
     if (!editable) { say(`This version is live and locked. Use “Edit as v${(data!.cur.version) + 1}” in the top bar first, and I'll make the change there.`); return; }
     setBusy(true);
-    const f = focus;
-    window.setTimeout(() => { handle(prompt.trim(), f); chat.setFocus(null); setBusy(false); }, 600);
+    const pending = chat.asked?.kind;
+    chat.clearAsk();
+    asked.current = 0;
+    window.setTimeout(() => { handle(prompt.trim(), pending); setBusy(false); }, 600);
   }
 
-  /* On the scenarios, a file is a source for the demo call; anywhere else, a new lesson. */
+  /* On the objectives, a file is information for the training (reps don't see it); anywhere else, a new lesson. */
   function attach(files: File[]) {
     if (!files.length || !editable) return;
     const added = upload(files, step === 2 ? "rp" : "rep");
@@ -221,7 +279,7 @@ export function TrainingChat({ course }: { course: Course }) {
     if (step === 2) {
       const prev = c.roleplaySourceIds ?? [];
       updateCourse(c.id, { roleplaySourceIds: [...prev, ...added.map((a) => a.id)], sourceIds: [...new Set([...c.sourceIds, ...added.map((a) => a.id)])] });
-      return say(`Added ${added.length === 1 ? "it" : "them"} as ${added.length === 1 ? "a source" : "sources"} for the demo call. New scenarios I draft will use ${added.length === 1 ? "it" : "them"}; reps never see ${added.length === 1 ? "it" : "them"}.`, { undo: () => updateCourse(c.id, { roleplaySourceIds: prev }) });
+      return say(`Added ${added.length === 1 ? "it" : "them"} as information for the training: new objectives and situations draw on ${added.length === 1 ? "it" : "them"}, and reps don't see ${added.length === 1 ? "it" : "them"}.`, { undo: () => updateCourse(c.id, { roleplaySourceIds: prev }) });
     }
     const mods = directModules(added, `d${Date.now().toString(36).slice(-4)}`);
     chat.push(course.id, { id: turnId("a"), from: "ai", text: `I'll add ${added.length === 1 ? "it as a new lesson" : `them as ${added.length} new lessons`} at the end, exactly as uploaded.`, changes: mods.map((m) => ({ kind: "addModule" as const, module: m })), status: "pending" });
@@ -281,14 +339,8 @@ export function TrainingChat({ course }: { course: Course }) {
       </div>
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         {started && editable && <Suggestions items={suggestions} onPick={send} variant="row" />}
-        {focus && (
-          <span className="flex items-center gap-1.5 self-start rounded-chip border border-tint-line bg-tint py-1 pl-2.5 pr-1 text-caption font-semibold text-brand-deep">
-            {focus.label}
-            <button type="button" aria-label="Remove from chat" onClick={() => chat.setFocus(null)} className="grid size-5 place-items-center rounded-full hover:bg-white/70"><X className="size-3" /></button>
-          </span>
-        )}
         <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} onAttach={attach}
-          placeholder={ctx === "details" ? "Rename, make it public, change the brief, or move a lesson" : ctx === "scenarios" ? "Describe a scenario to add, e.g. a nurse who asks about missed doses" : ctx === "scenario" ? (focus ? `Change ${focus.label.toLowerCase()}` : "Tell me what to change in this scenario") : "Set the pass mark, tries or wait between tries"}
+          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "details" ? "Rename, change the brief, or move a lesson" : ctx === "objectives" ? "Describe an objective to add" : ctx === "objective" ? "Add a situation, or change this objective" : "Set the pass mark, tries or wait between tries"}
           hint={`On ${where}. Every change can be undone.`} />
       </div>
     </div>

@@ -15,9 +15,10 @@ export const CHARACTERS: Record<Character, { label: string; names: string[]; set
   nurse: { label: "Nurse", names: ["Nurse Ana Ruiz", "Nurse Grace Obi", "Nurse Tom Becker"], setting: "Specialty clinic", callType: "Clinic visit", place: "At the nurses' station", minutes: 4 },
   manager: { label: "Practice manager", names: ["Dana Whitfield", "Luis Romero", "Karen Holt"], setting: "Multi-physician practice", callType: "Office meeting", place: "In the back office", minutes: 4 },
   pharmacist: { label: "Pharmacist", names: ["Mei Lin, PharmD", "Sam Patel, PharmD", "Jon Reyes, PharmD"], setting: "Hospital outpatient pharmacy", callType: "Pharmacy visit", place: "At the pharmacy counter", minutes: 4 },
+  patient: { label: "Patient", names: ["Rosa Delgado", "Mark Ellison", "Priya Shah"], setting: "Patient support event", callType: "Patient conversation", place: "At a support event", minutes: 4 },
 };
 
-const FEMALE = /Lena|Priya|Sofia|Ana\b|Grace|Dana|Karen|Mei/;
+const FEMALE = /Lena|Priya|Sofia|Ana\b|Grace|Dana|Karen|Mei|Rosa/;
 const rid = () => Math.random().toString(36).slice(2, 7);
 
 export const characterOf = (sc: Scenario): Character => sc.character ?? "doctor";
@@ -26,7 +27,7 @@ export const characterOf = (sc: Scenario): Character => sc.character ?? "doctor"
 export const personInitials = (name: string) => name.replace(/^(Dr|NP|Nurse)\.?\s+/, "").replace(/,.*$/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
 
 /** What each competency looks like on a call: the rubric line it becomes, and what the scorer listens for. */
-const CRITERIA: Record<string, { label: string; keywords: string[]; good: string }> = {
+export const CRITERIA: Record<string, { label: string; keywords: string[]; good: string }> = {
   "c-disease": { label: "Explains the unmet need", keywords: ["uncontrolled", "burden", "still", "flare", "itch", "unmet"], good: "\"Many of your patients are still flaring on what they take now...\"" },
   "c-moa": { label: "Explains how it works, simply", keywords: ["works", "blocks", "pathway", "target", "mechanism"], good: "\"It works by blocking one of the signals that drives the inflammation...\"" },
   "c-efficacy": { label: "Uses the approved data, exactly", keywords: ["study", "trial", "data", "weeks", "results", "label"], good: "\"In the pivotal study, at week 16...\"" },
@@ -98,6 +99,18 @@ function lines(c: Character, brand: string, prefix: string): { opening: string; 
         { id: `${prefix}-ob3`, label: "Copay worries", competency: "c-access", line: "Patients drop off when they see the copay. Is there anything for that?", pushback: "Is that a yes or a no?", handled: "Good. I'll tell the team to mention it up front.", keywords: ["copay", "savings", "card", "program", "eligible", "assistance"], answer: "Eligible commercially insured patients may pay less with the copay program. The hub checks eligibility for each patient.", finalOnly: true },
       ],
     };
+  if (c === "patient")
+    return {
+      opening: `My dermatologist mentioned ${brand}. I've tried so many creams. What would actually be different?`,
+      closing: "Okay. I'll talk to my doctor about it at my next visit.",
+      traits: ["Worried", "Tired of trying things", "Asks plain questions"],
+      obs: [
+        { id: `${prefix}-ob1`, label: "Is it safe", competency: "c-safety", line: "Is it safe to take for years? What are the side effects?", pushback: "That sounds like you're avoiding the question.", handled: "Okay, that's honest. I'll ask my doctor about those.", keywords: ["side effect", "doctor", "prescribing information", "common", "report", "talk to"], answer: "Every medicine has side effects, and the common ones are in the patient leaflet. Your doctor is the right person to weigh them up with you." },
+        { id: `${prefix}-ob2`, label: "Needles", competency: "c-dosing", line: "It's an injection? I really don't like needles.", pushback: "So I'd have to do it myself?", handled: "If someone shows me how, I could try.", keywords: ["training", "nurse", "support", "show you", "pen", "injection"], answer: "Many people feel that way. The support program can arrange for a nurse to show you how, step by step." },
+        { id: `${prefix}-ob3`, label: "Medical advice", competency: "c-compliance", line: "Should I stop my current cream and switch to this?", pushback: "But what would you do?", handled: "Right, I'll ask my doctor.", keywords: ["your doctor", "can't advise", "talk to", "medical information", "healthcare provider"], answer: "I can't give medical advice. That's a decision to make with your doctor; I can share the patient information to take with you." },
+        moments(brand, prefix)[0],
+      ],
+    };
   if (c === "pharmacist")
     return {
       opening: `We've had a few ${brand} scripts come through. I've got questions before we stock it.`,
@@ -136,10 +149,11 @@ const DEFAULT_WEIGHTS: Record<Character, string[]> = {
   nurse: ["c-dosing", "c-safety", "c-compliance"],
   manager: ["c-access", "c-objections", "c-opening"],
   pharmacist: ["c-dosing", "c-safety", "c-access"],
+  patient: ["c-safety", "c-compliance", "c-dosing"],
 };
 
 /** The competencies a description is about, most mentioned first, topped up from the character's usual ones. */
-function proposeWeights(text: string, c: Character): { competency: string; pct: number }[] {
+export function proposeWeights(text: string, c: Character): { competency: string; pct: number }[] {
   const l = text.toLowerCase();
   const hits = KEYWORDS.filter(([re]) => re.test(l)).map(([, id]) => id);
   const ids = [...new Set([...hits, ...DEFAULT_WEIGHTS[c]])].slice(0, 3);
@@ -147,9 +161,9 @@ function proposeWeights(text: string, c: Character): { competency: string; pct: 
 }
 
 const characterIn = (l: string): Character =>
-  /pharmac/.test(l) ? "pharmacist" : /manager|front desk|office|admin|billing/.test(l) ? "manager" : /nurse|\bnp\b|\bpa\b/.test(l) ? "nurse" : "doctor";
+  /pharmac/.test(l) ? "pharmacist" : /patient|caregiver|parent/.test(l) ? "patient" : /manager|front desk|office|admin|billing/.test(l) ? "manager" : /nurse|\bnp\b|\bpa\b/.test(l) ? "nurse" : "doctor";
 
-function build(o: { course: Course; character: Character; title: string; description: string; objective: string; weights: { competency: string; pct: number }[]; name: string; specialty?: string; traits?: string[]; difficulty?: "easy" | "standard" | "hard" }): Scenario {
+export function build(o: { course: Course; character: Character; title: string; description: string; objective: string; weights: { competency: string; pct: number }[]; name: string; specialty?: string; traits?: string[]; difficulty?: "easy" | "standard" | "hard" }): Scenario {
   const p = product(o.course.productId);
   const brand = p?.brand ?? "our product";
   const prefix = `sc-${rid()}`;
