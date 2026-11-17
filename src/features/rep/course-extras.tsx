@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Award, Check, ChevronRight, FileText, Film, Flag, Headphones, Image as ImageIcon, Lock, Mic, Presentation, TrendingUp } from "lucide-react";
+import { Award, BarChart3, Briefcase, Check, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, RotateCcw, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { fileLength } from "@/features/media/file-view";
 import { modulesOf, pathModules } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
-import { screeningOf } from "@/lib/scenario-set";
-import { scenarioStatus } from "./scenario-session";
-import type { Course, Module, Progress } from "@/data/types";
+import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
+import { objectiveGroups, scenarioStatus, type ObjectiveState } from "./situations";
+import type { Character, Course, Module, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 
 const initials = (name: string) => name.replace(/^Dr\.?\s*/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
@@ -104,102 +104,194 @@ function fileMeta(m: Module) {
   return { ...KIND.other, len: `${m.minutes} min` };
 }
 
+const ROLE: Record<Character, typeof Mic> = { doctor: Stethoscope, nurse: Syringe, manager: Briefcase, pharmacist: Pill, patient: UserRound };
+
+/** A small status pill, the same everywhere on the journey. */
+function Pill_({ tone, children }: { tone: "ok" | "danger" | "warn" | "brand" | "muted"; children: React.ReactNode }) {
+  return <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-chip px-2 py-0.5 text-micro font-bold",
+    tone === "ok" ? "bg-ok-bg text-ok" : tone === "danger" ? "bg-danger-bg text-danger" : tone === "warn" ? "bg-warn-bg text-warn" : tone === "brand" ? "bg-tint text-brand-deep" : "bg-subtle text-ink-3")}>{children}</span>;
+}
+
+/** One stage of the journey: a numbered marker on the rail, its title and status, then its content. */
+function Stage({ n, title, status, done, current, locked, last, children }: { n: number; title: string; status?: React.ReactNode; done?: boolean; current?: boolean; locked?: boolean; last?: boolean; children?: React.ReactNode }) {
+  return (
+    <li className="relative flex gap-3">
+      <span className="relative flex flex-col items-center">
+        <span className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 text-caption font-extrabold",
+          done ? "border-ok bg-ok text-white" : current ? "border-brand bg-brand text-white shadow-brand-lift" : locked ? "border-hair-2 bg-subtle text-ink-4" : "border-hair-2 bg-card text-ink-3")}>
+          {done ? <Check className="size-4" aria-hidden="true" /> : locked ? <Lock className="size-3.5" aria-hidden="true" /> : n}
+        </span>
+        {!last && <span className={cn("w-0.5 flex-1", done ? "bg-ok/50" : "bg-hair-2")} aria-hidden="true" />}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5 pb-6">
+        <div className="flex min-h-8 items-center gap-2">
+          <Text as="h3" size="body-lg" weight="bold" className={cn("min-w-0 flex-1", locked && "text-ink-3")}>{title}</Text>
+          {status}
+        </div>
+        {children}
+      </div>
+    </li>
+  );
+}
+
 /**
- * A direct course, for the rep, as one journey: the training team's files, as they are, then
- * practice with the course's doctor, then the scored final call, then certified.
+ * A training built from the trainer's own material, for the rep: the screening call (which can be
+ * stopped and resumed), the lessons it leaves in, then the scored calls, objective by objective. Every
+ * situation says where the rep stands on it (not taken, passed, to retry, waiting, out of tries) and
+ * what they can do: start, retry, or open the report.
  */
 export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
-  const s = useApp();
+  const presenter = useApp((x) => x.presenter);
   const mods = modulesOf(c);
+  const base = `/rep/course/${c.id}`;
   const practiceOnly = p.mode === "practice";
-  const sc = allScenarios().find((x) => x.id === (c.settings.assessmentScenarioId ?? c.scenarioIds[0]));
-  /* Screening first: it decides which files this rep still needs. */
-  const screens = c.settings.screening && !practiceOnly;
-  const filesDone = practiceOnly || ((!screens || !!p.screening) && (p.path ? pathModules(p, c) : mods).every((m) => m.blocks.every((b) => p.completedBlocks.includes(b.id))));
-  const practised = !!sc && s.practice.some((x) => x.userId === p.userId && x.title.startsWith(sc.title));
-  const passed = !!p.attempts.at(-1)?.passed || p.state === "certified";
-  const fails = p.attempts.filter((a) => !a.passed).length;
   const certified = p.state === "certified";
-  const screened = !!p.screening;
-  const pathIds = p.path?.moduleIds;
-  const needed = screened && pathIds ? mods.filter((m) => pathIds.includes(m.id)) : mods;
-  const skipped = screened && pathIds ? mods.filter((m) => !pathIds.includes(m.id)) : [];
-  const nextFile = needed.find((m) => !m.blocks.every((b) => p.completedBlocks.includes(b.id)));
-
-  type Step = { key: string; done: boolean; current?: boolean; locked?: boolean; href?: string; icon: React.ReactNode; title: string; sub: string; tag?: string };
-  const steps: Step[] = [];
-  /* Screening is a short call built from the training's scenarios; the assessment is all of them, back to back. */
+  const screens = c.settings.screening && !practiceOnly;
   const run = scenarioStatus(c, p);
   const screen = screeningOf(c, run.scs);
-  const screenTitle = screen.length > 1 ? `Screening call · ${screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}` : `Screening call with ${screen[0]?.persona.name ?? sc?.persona.name}`;
-  if (screens && screen.length)
-    steps.push(screened
-      ? { key: "screen", done: true, href: `/rep/course/${c.id}/results`, icon: <Mic className="size-4" aria-hidden="true" />, title: screenTitle,
-          sub: `Baseline ${p.screening!.overall} · ${skipped.length ? `you skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"}` : "every lesson stays in your path"}` }
-      : { key: "screen", done: false, current: true, href: `/rep/course/${c.id}/screening`, icon: <Mic className="size-4" aria-hidden="true" />, title: screenTitle,
-          sub: "About 3 min · not graded · decides which lessons you can skip" });
-  if (practiceOnly) {
-    steps.push({ key: "skip", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${mods.length} lessons`, sub: "Skipped: you're assigned the scenarios only", tag: "Skipped" });
-  } else {
-    needed.forEach((m) => {
-      const meta = fileMeta(m);
-      const done = m.blocks.every((b) => p.completedBlocks.includes(b.id));
-      const waiting = screens && !screened;
-      steps.push({ key: m.id, done, current: !done && !waiting && m.id === nextFile?.id && p.state !== "not_started", href: waiting ? undefined : `/rep/course/${c.id}/learn?module=${m.id}`,
-        icon: <meta.icon className="size-4" aria-hidden="true" />, title: m.title,
-        sub: `Lesson ${mods.indexOf(m) + 1} · ${meta.label} · ${meta.len}${m.required ? " · for everyone" : ""}${waiting ? " · after your screening" : ""}` });
-    });
-    if (skipped.length)
-      steps.push({ key: "tested-out", done: true, icon: <FileText className="size-4" aria-hidden="true" />, title: `${skipped.length} lesson${skipped.length === 1 ? "" : "s"} skipped`,
-        sub: `You already know this: ${skipped.map((m) => m.title).join(", ")}`, tag: "Tested out" });
-  }
-  void practised; void fails;
-  if (run.scs.length) {
-    const started = run.passed.length + run.failed.length > 0;
-    steps.push({ key: "final", done: passed || run.allPassed, current: filesDone && !passed && !run.allPassed, locked: !filesDone, href: filesDone ? `/rep/course/${c.id}/assessment` : undefined,
-      icon: <Flag className="size-4" aria-hidden="true" />, title: `Scenario call · ${run.scs.length} people, back to back`,
-      sub: run.allPassed || passed ? `All ${run.scs.length} passed` : started ? `${run.passed.length} of ${run.scs.length} passed${run.failed.length ? ` · ${run.failed.length} to retry` : ""}${run.todo.length ? ` · ${run.todo.length} left` : ""}` : `Scored · pass ${c.settings.passRoleplay} on each · stop and continue any time` });
-  }
-  steps.push({ key: "cert", done: certified, icon: <Award className="size-4" aria-hidden="true" />, title: "Certified", sub: certified ? "Done. It's on your record." : "Sign once you pass every scenario" });
+  const part = p.screeningPart ?? [];
+  const screened = !!p.screening;
+  const pathIds = p.path?.moduleIds;
+  const needed = practiceOnly ? [] : screened && pathIds ? mods.filter((m) => pathIds.includes(m.id)) : mods;
+  const skipped = screened && pathIds ? mods.filter((m) => !pathIds.includes(m.id)) : [];
+  const isDone = (m: Module) => m.blocks.every((b) => p.completedBlocks.includes(b.id));
+  const lessonsDone = needed.filter(isDone).length;
+  const waitScreen = screens && !screened;
+  const filesDone = !waitScreen && lessonsDone === needed.length;
+  const nextFile = needed.find((m) => !isDone(m));
+  const groups = objectiveGroups(c, p, presenter);
+  const total = groups.reduce((a, g) => a + g.scs.length, 0);
+  const passedAll = groups.reduce((a, g) => a + g.passed, 0);
+  const callsLocked = !filesDone;
+  let n = 0;
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Your journey">
+    <section className="flex flex-col gap-3" aria-label="Your journey">
       <div className="flex items-baseline justify-between gap-3">
         <Text as="h2" size="subhead" weight="bold">Your journey</Text>
-        <span className="flex items-center gap-1 rounded-chip bg-info-bg px-2 py-0.5 text-caption font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Your team&apos;s material, as it is</span>
+        <span className="flex items-center gap-1 rounded-chip bg-info-bg px-2 py-0.5 text-caption font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Your team&apos;s material</span>
       </div>
-      <ol className="relative flex flex-col">
-        {steps.map((st, i) => {
-          const last = i === steps.length - 1;
-          const body = (
-            <>
-              <span className="relative flex flex-col items-center self-stretch">
-                <span className={cn("relative z-10 grid size-9 shrink-0 place-items-center rounded-full border-2",
-                  st.done ? "border-ok bg-ok text-white" : st.current ? "border-brand bg-brand text-white shadow-brand-lift" : st.locked ? "border-hair-2 bg-subtle text-ink-4" : "border-hair-2 bg-card text-ink-3")}>
-                  {st.done ? <Check className="size-4" aria-hidden="true" /> : st.locked ? <Lock className="size-3.5" aria-hidden="true" /> : st.icon}
-                </span>
-                {!last && <span className={cn("w-0.5 flex-1", st.done ? "bg-ok/50" : "bg-hair-2")} aria-hidden="true" />}
+      <ol className="flex flex-col">
+        {screens && screen.length > 0 && (
+          <Stage n={++n} title="Screening call" done={screened} current={!screened}
+            status={screened ? <Pill_ tone="ok">Baseline {p.screening!.overall}</Pill_> : part.length ? <Pill_ tone="warn">Paused · {part.length} of {screen.length}</Pill_> : <Pill_ tone="brand">Up next</Pill_>}>
+            <div className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card p-3">
+              <span className="flex -space-x-1.5">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-8 place-items-center rounded-full border-2 border-card bg-tint text-brand-deep"><I className="size-3.5" aria-hidden="true" /></span>; })}</span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <Text size="body" weight="semibold" truncate>{screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
+                <Text size="caption" tone="subtle">{screened ? (skipped.length ? `You skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you already know` : "Every lesson stays in your path") : part.length ? `${part.length} of ${screen.length} done · what you did is saved` : "About 3 min · not graded · decides which lessons you skip"}</Text>
               </span>
-              <span className={cn("flex min-w-0 flex-1 flex-col pb-4 pt-1.5", st.current && "pb-5")}>
-                <span className="flex items-center gap-2">
-                  <span className={cn("truncate text-body-lg font-semibold", st.done ? "text-ink-2" : st.locked ? "text-ink-3" : "text-ink")}>{st.title}</span>
-                  {st.tag && <span className="shrink-0 rounded-glyph bg-subtle px-1.5 text-micro font-bold text-ink-3">{st.tag}</span>}
-                  {st.current && <span className="shrink-0 rounded-glyph bg-tint px-1.5 text-micro font-bold text-brand-deep">Up next</span>}
-                </span>
-                <span className="text-caption text-ink-3">{st.sub}</span>
-              </span>
-              {st.href && !st.locked && <ChevronRight className="mt-2.5 size-4 shrink-0 text-ink-4" aria-hidden="true" />}
-            </>
-          );
+              {screened
+                ? <Link href={`${base}/results`} className="shrink-0 text-caption font-bold text-brand-deep hover:underline">Results</Link>
+                : <Link href={`${base}/screening`} className="flex h-8 shrink-0 items-center gap-1 rounded-control bg-brand px-3 text-caption font-bold text-white"><Mic className="size-3.5" aria-hidden="true" />{part.length ? "Resume" : "Start"}</Link>}
+            </div>
+          </Stage>
+        )}
+
+        {!practiceOnly && (
+          <Stage n={++n} title="Lessons" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen}
+            status={waitScreen ? <Pill_ tone="muted">After screening</Pill_> : <Pill_ tone={filesDone ? "ok" : "muted"}>{lessonsDone} of {needed.length} done</Pill_>}>
+            <ul className="flex flex-col gap-1.5">
+              {needed.map((m) => {
+                const meta = fileMeta(m);
+                const done = isDone(m);
+                const cur = !waitScreen && m.id === nextFile?.id;
+                const body = (
+                  <>
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-control", done ? "bg-ok-bg text-ok" : cur ? "bg-tint text-brand-deep" : "bg-subtle text-ink-3")}>{done ? <Check className="size-4" aria-hidden="true" /> : <meta.icon className="size-4" aria-hidden="true" />}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <Text size="body" weight="semibold" truncate className={done ? "text-ink-2" : undefined}>{m.title}</Text>
+                      <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}{m.required ? " · for everyone" : ""}</Text>
+                    </span>
+                    {cur ? <Pill_ tone="brand">{p.completedBlocks.some((b) => m.blocks.some((x) => x.id === b)) ? "Continue" : "Next"}</Pill_> : !waitScreen && <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
+                  </>
+                );
+                return (
+                  <li key={m.id}>
+                    {waitScreen
+                      ? <div className="flex items-center gap-3 rounded-panel px-1 py-1 opacity-70">{body}</div>
+                      : <Link href={`${base}/learn?module=${m.id}`} className={cn("squircle flex items-center gap-3 rounded-panel px-1 py-1 transition-colors hover:bg-subtle", cur && "bg-tint/40")}>{body}</Link>}
+                  </li>
+                );
+              })}
+            </ul>
+            {skipped.length > 0 && <Text size="caption" tone="subtle">Skipped, you already know: {skipped.map((m) => m.title).join(", ")}. <Link href={`${base}/learn?module=${skipped[0].id}&optional=1`} className="font-semibold text-brand-deep hover:underline">Open anyway</Link></Text>}
+          </Stage>
+        )}
+
+        {groups.length > 0 && (
+          <Stage n={++n} title="The calls" done={run.allPassed} current={!callsLocked && !run.allPassed} locked={callsLocked}
+            status={callsLocked ? <Pill_ tone="muted">After the lessons</Pill_> : <Pill_ tone={run.allPassed ? "ok" : "muted"}>{passedAll} of {total} passed</Pill_>}>
+            <Text size="caption" tone="subtle" className="-mt-1">Scored · pass {c.settings.passRoleplay} on each situation · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} each{c.settings.finalNoHints === false ? " · hints allowed" : ""}. Stop between situations any time; what you&apos;ve done is kept.</Text>
+            <ul className="flex flex-col gap-2.5">
+              {groups.map((g, gi) => <ObjectiveCard key={g.ob?.id ?? "loose"} c={c} g={g} i={gi} locked={callsLocked} />)}
+            </ul>
+          </Stage>
+        )}
+
+        <Stage n={++n} title="Certified" last done={certified} current={run.allPassed && !certified} locked={!run.allPassed && !certified}
+          status={certified ? <Pill_ tone="ok">Done</Pill_> : run.allPassed ? <Pill_ tone="brand">Sign now</Pill_> : undefined}>
+          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : run.allPassed ? "Every situation passed. Sign the statement to get certified." : "Pass every situation, then sign once."}</Text>
+          {run.allPassed && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Sign and get certified</Link>}
+        </Stage>
+      </ol>
+    </section>
+  );
+}
+
+const OB_STATUS: Record<ObjectiveState, { label: string; tone: "ok" | "danger" | "warn" | "brand" | "muted" }> = {
+  todo: { label: "Not started", tone: "muted" }, started: { label: "In progress", tone: "brand" }, passed: { label: "Passed", tone: "ok" },
+  retry: { label: "Retry", tone: "danger" }, waiting: { label: "Retry later", tone: "warn" }, out: { label: "No tries left", tone: "danger" },
+};
+
+/** An objective on the rep's side: where they stand on it, its situations, and the one thing to do. */
+function ObjectiveCard({ c, g, i, locked }: { c: Course; g: ReturnType<typeof objectiveGroups>[number]; i: number; locked: boolean }) {
+  const base = `/rep/course/${c.id}`;
+  const st = OB_STATUS[g.state];
+  const retry = g.each.filter((x) => x.state === "retry");
+  const action = locked ? null
+    : g.todo > 0 ? { label: g.state === "started" ? `Continue · ${g.todo} left` : "Start", href: `${base}/assessment${g.ob ? `?obj=${g.ob.id}` : ""}`, icon: Mic }
+    : retry.length ? { label: retry.length > 1 ? `Retry ${retry.length}` : "Retry", href: `${base}/assessment${g.ob ? `?obj=${g.ob.id}` : `?sc=${retry[0].sc.id}`}`, icon: RotateCcw }
+    : null;
+  return (
+    <li className={cn("squircle flex flex-col overflow-hidden rounded-card border bg-card", g.state === "passed" ? "border-ok-line" : g.state === "retry" || g.state === "out" ? "border-danger-line" : "border-hair")}>
+      <div className="flex items-start gap-3 p-3.5 pb-3">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-control text-caption font-extrabold tabular-nums", g.state === "passed" ? "bg-ok text-white" : "bg-tint text-brand-deep")}>{g.state === "passed" ? <Check className="size-4" aria-hidden="true" /> : String(i + 1).padStart(2, "0")}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Text size="body" weight="bold" className="leading-snug">{g.ob?.title ?? "More situations"}</Text>
+          <Text size="caption" tone="subtle">{g.passed} of {g.scs.length} passed · about {g.scs.reduce((a, x) => a + x.durationMin, 0)} min</Text>
+        </span>
+        <Pill_ tone={st.tone}>{st.label}</Pill_>
+      </div>
+      <ul className="flex flex-col border-t border-hair">
+        {g.each.map(({ sc, state, run, triesLeft, retryAt }) => {
+          const I = ROLE[characterOf(sc)];
           return (
-            <li key={st.key}>
-              {st.href && !st.locked
-                ? <Link href={st.href} className="-mx-2 flex items-start gap-3 rounded-panel px-2 transition-colors hover:bg-subtle">{body}</Link>
-                : <div className="flex items-start gap-3">{body}</div>}
+            <li key={sc.id} className="flex items-center gap-2.5 border-b border-hair px-3.5 py-2.5 last:border-0">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><I className="size-3.5" aria-hidden="true" /></span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <Text size="caption" weight="semibold" truncate className="text-ink">{sc.title}</Text>
+                <Text size="micro" tone="subtle" truncate>
+                  {sc.persona.name.replace(/,.*$/, "")} · {CHARACTERS[characterOf(sc)].label}
+                  {state === "retry" ? ` · ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left` : state === "waiting" ? ` · retry ${retryAt!.toLocaleString("en-US", { weekday: "short", hour: "numeric" })}` : state === "out" ? " · no tries left" : ""}
+                </Text>
+              </span>
+              {run && <span className={cn("shrink-0 rounded-chip px-1.5 py-0.5 text-micro font-extrabold tabular-nums", run.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{run.score}</span>}
+              {run
+                ? <Link href={`${base}/assessment?report=${sc.id}`} className="flex h-7 shrink-0 items-center gap-1 rounded-control border border-hair-2 px-2 text-micro font-bold text-ink-2 hover:bg-subtle"><BarChart3 className="size-3" aria-hidden="true" />Report</Link>
+                : <Text size="micro" tone="subtle" className="shrink-0">Not taken</Text>}
+              {state === "retry" && !locked && <Link href={`${base}/assessment?sc=${sc.id}`} aria-label={`Retry ${sc.title}`} className="grid size-7 shrink-0 place-items-center rounded-control bg-danger-bg text-danger hover:bg-danger/15"><RotateCcw className="size-3.5" aria-hidden="true" /></Link>}
             </li>
           );
         })}
-      </ol>
-    </section>
+      </ul>
+      {action && (
+        <Link href={action.href} className="flex h-10 items-center justify-center gap-1.5 border-t border-hair bg-tint/50 text-body font-bold text-brand-deep transition-colors hover:bg-tint">
+          <action.icon className="size-4" aria-hidden="true" />{action.label}
+        </Link>
+      )}
+      {!action && g.state === "waiting" && <Text size="caption" tone="subtle" className="border-t border-hair px-3.5 py-2">Go back over the lessons; retries open after {c.settings.cooldownHours} hours.</Text>}
+      {!action && g.state === "out" && <Text size="caption" tone="subtle" className="border-t border-hair px-3.5 py-2">Out of tries on a situation. Your manager can reset it.</Text>}
+    </li>
   );
 }

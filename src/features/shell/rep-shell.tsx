@@ -52,7 +52,7 @@ function detailOf(pathname: string) {
 /** No copilot while being measured, or mid-call. */
 const NO_COPILOT = [/\/rep\/onboarding/, /\/rep\/course\/[^/]+\/(screening|call|assessment|attest)/, /\/rep\/practice\/call/];
 
-/** Phone-first shell (PRD §9.1: rep screens mobile-first at 375px). On a desktop it renders as a centred phone column. */
+/** Phone-first shell (PRD §9.1: rep screens mobile-first at 375px). From tablet width up it renders as a centred tablet (iPad portrait), the way most field reps use it. */
 export function RepShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const me = useMe();
@@ -74,7 +74,7 @@ export function RepShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-[#eceae6] sm:py-6">
-      <div data-frame className="relative mx-auto flex min-h-dvh w-full max-w-[460px] flex-col bg-canvas sm:h-[calc(100dvh-48px)] sm:min-h-0 sm:overflow-hidden sm:rounded-card sm:shadow-float">
+      <div data-frame className="relative mx-auto flex min-h-dvh w-full max-w-[460px] md:max-w-[768px] flex-col bg-canvas sm:h-[calc(100dvh-48px)] sm:min-h-0 sm:overflow-hidden sm:rounded-card sm:shadow-float">
         {tabs && (
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-hair bg-canvas/90 px-4 backdrop-blur">
             <BrandMark size={28} />
@@ -104,7 +104,7 @@ export function RepShell({ children }: { children: ReactNode }) {
         )}
         <main id="rep-scroll" className={cn("flex flex-1 flex-col sm:min-h-0 sm:overflow-y-auto", tabs && "pb-24 sm:pb-6")}>{children}</main>
         {tabs && (
-          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] grid-cols-5 items-end border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur-xl sm:static sm:pb-3">
+          <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[460px] md:max-w-[768px] grid-cols-5 items-end border-t border-hair bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),14px)] pt-2 backdrop-blur-xl sm:static sm:pb-3">
             {TABS.slice(0, 2).map((t) => <Tab key={t.href} t={t} active={t.exact ? pathname === t.href : pathname.startsWith(t.href)} />)}
             {/* The agent sits in the middle of the tab bar, raised: the one thing a rep can always ask. */}
             <button type="button" onClick={() => openCopilot(true)} disabled={!copilot} aria-label="Open SwishX AI Agent" aria-expanded={copilotOpen}

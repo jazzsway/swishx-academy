@@ -1,149 +1,187 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowRight, Check, Mic, RotateCcw, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, Lightbulb, Play, RotateCcw, X } from "lucide-react";
+import { CallPlayback } from "@/features/roleplay/call-playback";
 import { cn } from "@/lib/cn";
-import { nowIso, useApp } from "@/store/app-store";
+import { scenarioStatus, situationState } from "./situations";
+import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { allScenarios } from "@/data/scenarios";
 import type { Attempt, Course, Progress, Scenario } from "@/data/types";
-import { CHARACTERS, characterOf, personInitials, scenarioScore, weightsOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf, scenarioScore, weightsOf } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { Meter } from "@/components/patterns/academy";
 import { ScenarioRun } from "@/features/roleplay/scenario-run";
 import { CriteriaScores } from "@/features/roleplay/criteria-scores";
 
-/** A training's scenarios, in order, and where this rep stands on each. */
-export function scenarioStatus(c: Course, p: Progress) {
-  const scs = allScenarios().filter((x) => c.scenarioIds.includes(x.id)).sort((a, b) => c.scenarioIds.indexOf(a.id) - c.scenarioIds.indexOf(b.id));
-  const runs = p.scenarioRuns ?? {};
-  const todo = scs.filter((x) => !runs[x.id]);
-  const failed = scs.filter((x) => runs[x.id] && !runs[x.id].passed);
-  const passed = scs.filter((x) => runs[x.id]?.passed);
-  return { scs, runs, todo, failed, passed, allPassed: scs.length > 0 && passed.length === scs.length };
+export { scenarioStatus, situationState, type SituationState } from "./situations";
+
+/** Every situation passed: that's the assessment passed, once. */
+function settle(courseId: string, progressId: string) {
+  const s = useApp.getState();
+  const c = s.courses.find((x) => x.id === courseId);
+  const p = s.progress.find((x) => x.id === progressId);
+  if (!c || !p) return;
+  const now = scenarioStatus(c, p);
+  if (!now.allPassed || p.attempts.some((a) => a.passed)) return;
+  const scores = now.scs.map((x) => now.runs[x.id].score);
+  const comp: Record<string, number[]> = {};
+  for (const x of now.scs) for (const w of weightsOf(x)) (comp[w.competency] ??= []).push(now.runs[x.id].scores?.[w.competency] ?? now.runs[x.id].score);
+  const overall = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const attempt: Attempt = {
+    at: new Date().toISOString(), quiz: 0, roleplay: overall, overall, passed: true, failedCompetencies: [],
+    competencyScores: Object.fromEntries(Object.entries(comp).map(([k, v]) => [k, Math.round(v.reduce((a, b) => a + b, 0) / v.length)])),
+    call: now.runs[now.scs.at(-1)!.id].call,
+  };
+  s.submitAssessment(p.id, attempt);
 }
 
 /**
- * The rep's scenario call: every scenario back to back, in one call. The rep can stop between them;
- * Continue picks up the ones not done yet, and a failed scenario gets Retry on its own. Passing every
- * scenario passes the training's assessment.
+ * The scored call for a training built from the trainer's own material. It runs what the training page
+ * asked for: one objective's situations (`obj`), a single situation (`sc`), or the report on one
+ * (`report`). The situations play back to back; the rep can stop between them, and what's done is kept.
  */
 export function ScenarioSession({ courseId }: { courseId: string }) {
+  /* A new query (a report's Retry, say) is a new run. */
+  const search = useSearchParams();
+  return <Session key={search.toString()} courseId={courseId} />;
+}
+
+function Session({ courseId }: { courseId: string }) {
   const router = useRouter();
+  const search = useSearchParams();
   const me = useMe();
   const s = useApp();
-  const [running, setRunning] = useState<Scenario[] | null>(null);
-  const [session, setSession] = useState<{ done: number; passed: number } | null>(null);
   const p = s.progress.find((x) => x.userId === me.id && x.courseId === courseId);
   const c = s.courses.find((x) => x.id === courseId);
+  const back = `/rep/course/${courseId}`;
+  const obId = search.get("obj");
+  const scId = search.get("sc");
+  const report = search.get("report");
+  /* Fixed when the page opens, so saving a result mid-run doesn't change what's being run. */
+  const [list] = useState<Scenario[]>(() => {
+    if (!c || !p || report) return [];
+    const { scs } = scenarioStatus(c, p);
+    const can = (x: Scenario) => { const v = situationState(c, p, x, s.presenter).state; return v === "todo" || v === "retry"; };
+    if (scId) return scs.filter((x) => x.id === scId && can(x));
+    const mine = obId ? scs.filter((x) => x.objectiveId === obId) : scs;
+    const todo = mine.filter((x) => situationState(c, p, x, s.presenter).state === "todo");
+    return todo.length ? todo : mine.filter(can);
+  });
+  useEffect(() => { if (!report && !list.length) router.replace(back); }, [report, list.length, back, router]);
   if (!p || !c) return null;
-  const st = c.settings;
-  const { scs, runs, todo, failed, passed, allPassed } = scenarioStatus(c, p);
-  const triesLeft = (sc: Scenario) => st.attempts - (runs[sc.id]?.tries ?? 0);
-  const retryAt = (sc: Scenario) => runs[sc.id] ? new Date(new Date(runs[sc.id].at).getTime() + st.cooldownHours * 3600_000) : undefined;
-  const cooling = (sc: Scenario) => !s.presenter && st.cooldownHours > 0 && (retryAt(sc)?.getTime() ?? 0) > new Date(nowIso()).getTime();
-  const retryable = failed.filter((x) => triesLeft(x) > 0 && !cooling(x));
-
-  /* Every scenario passed: that's the assessment passed, once. */
-  function settle() {
-    const fresh = useApp.getState().progress.find((x) => x.id === p!.id)!;
-    const now = scenarioStatus(c!, fresh);
-    if (!now.allPassed || fresh.attempts.some((a) => a.passed)) return;
-    const scores = now.scs.map((x) => now.runs[x.id].score);
-    const comp: Record<string, number[]> = {};
-    for (const x of now.scs) for (const w of weightsOf(x)) (comp[w.competency] ??= []).push(now.runs[x.id].score);
-    const overall = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-    const attempt: Attempt = {
-      at: new Date().toISOString(), quiz: 0, roleplay: overall, overall, passed: true, failedCompetencies: [],
-      competencyScores: Object.fromEntries(Object.entries(comp).map(([k, v]) => [k, Math.round(v.reduce((a, b) => a + b, 0) / v.length)])),
-      call: now.runs[now.scs.at(-1)!.id].call,
-    };
-    s.submitAssessment(p!.id, attempt);
+  if (report) {
+    const sc = allScenarios().find((x) => x.id === report);
+    return sc ? <ScenarioReport c={c} p={p} sc={sc} /> : null;
   }
+  if (!list.length) return null;
+  const st = c.settings;
 
-  if (running)
-    return (
-      <ScenarioRun scenarios={running} mode="assessment" voiceAllowed={!!s.voiceConsent[me.id]}
-        onScenarioDone={(sc, r) => {
-          const score = scenarioScore(sc, r);
-          const ok = score >= st.passRoleplay && !r.flags.some((f) => f.critical);
-          s.saveScenarioRun(p.id, sc.id, { score, passed: ok, scores: r.competencyScores, call: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score, typed: r.typed, durationSec: r.durationSec } });
-          setSession((x) => ({ done: (x?.done ?? 0) + 1, passed: (x?.passed ?? 0) + (ok ? 1 : 0) }));
-        }}
-        onFinish={() => { setRunning(null); s.touchStreak(me.id); settle(); }}
-        onExit={() => setRunning(null)} />
-    );
-
-  const certified = p.state === "certified";
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
-      <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
-      <div className="flex flex-col gap-2">
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">The scenario call</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">{scs.length} people, back to back in one call. Stop between them whenever you need to; Continue picks up where you left off. Each scenario passes at {st.passRoleplay}%.</Text>
+    <ScenarioRun scenarios={list} mode="assessment" voiceAllowed={!!s.voiceConsent[me.id]} hints={st.finalNoHints === false}
+      onScenarioDone={(sc, r, meta) => {
+        const score = scenarioScore(sc, r);
+        const ok = score >= st.passRoleplay && !r.flags.some((f) => f.critical);
+        s.saveScenarioRun(p.id, sc.id, { score, passed: ok, scores: r.competencyScores, hints: meta.hints, call: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score, typed: r.typed, durationSec: r.durationSec } });
+        return { score, passed: ok };
+      }}
+      onFinish={(done) => { s.touchStreak(me.id); settle(c.id, p.id); router.push(`${back}?done=${done}&of=${list.length}${obId ? `&obj=${obId}` : ""}`); }}
+      onExit={() => router.push(back)} />
+  );
+}
+
+/** How one situation went: the score and the pass mark, each criterion, what was said that counted, and what's next. */
+function ScenarioReport({ c, p, sc }: { c: Course; p: Progress; sc: Scenario }) {
+  const router = useRouter();
+  const presenter = useApp((x) => x.presenter);
+  const [open, setOpen] = useState(false);
+  const { run, state, triesLeft, retryAt } = situationState(c, p, sc, presenter);
+  const back = `/rep/course/${c.id}`;
+  if (!run) return null;
+  const st = c.settings;
+  const ch = CHARACTERS[characterOf(sc)];
+  const ob = c.objectives?.find((o) => o.id === sc.objectiveId);
+  const met = run.call?.criteria.filter((x) => x.met) ?? [];
+  const missed = run.call?.criteria.filter((x) => !x.met) ?? [];
+  const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+  const when = retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+  return (
+    <div className="flex min-h-full flex-[1_0_auto] flex-col gap-5 px-5 pt-5">
+      <button type="button" onClick={() => router.push(back)} aria-label="Back to the training" className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Back to the training</button>
+      <div className="flex flex-col gap-1">
+        {ob && <Text size="caption" weight="bold" tone="brand-deep">{ob.title}</Text>}
+        <Text as="h1" size="display" weight="extrabold" tracking="tight" className="leading-tight">{sc.title}</Text>
+        <Text size="body" tone="subtle">{sc.persona.name} · {ch.label}</Text>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between text-caption font-semibold text-ink-3"><span>{passed.length} of {scs.length} passed</span>{failed.length > 0 && <span className="text-danger">{failed.length} to retry</span>}</div>
-        <Meter value={(passed.length / Math.max(1, scs.length)) * 100} height={8} tone="ok" label="Scenarios passed" />
-      </div>
-      {session && (
-        <div className="squircle rise-in flex items-start gap-3 rounded-panel bg-subtle p-3.5">
-          <Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />
-          <Text size="body" tone="muted">Saved: you took {session.done} scenario{session.done === 1 ? "" : "s"} and passed {session.passed}.{todo.length ? ` ${todo.length} still to go.` : ""}</Text>
+
+      <div className={cn("squircle flex items-center gap-4 rounded-card p-4", run.passed ? "bg-ok-bg" : "bg-danger-bg/70")}>
+        <span className={cn("grid size-16 shrink-0 place-items-center rounded-full text-display font-extrabold tabular-nums text-white", run.passed ? "bg-ok" : "bg-danger")}>{run.score}</span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <Text size="title" weight="bold">{run.passed ? "Passed" : run.call?.flags.some((f) => f.critical) ? "Not passed: a compliance flag" : "Not passed yet"}</Text>
+          <Text size="caption" tone="muted">Pass mark {st.passRoleplay} · try {run.tries} of {st.attempts}{run.call ? ` · ${mmss(run.call.durationSec)}` : ""}{run.hints ? ` · ${run.hints} hint${run.hints === 1 ? "" : "s"} used` : ""}</Text>
         </div>
+      </div>
+
+      {run.hints ? <Text size="caption" tone="subtle" className="-mt-3 flex items-center gap-1"><Lightbulb className="size-3.5 shrink-0" aria-hidden="true" />Hints don&apos;t change the score, but your trainer sees how many you used.</Text> : null}
+
+      {run.call?.flags.length ? (
+        <section className="flex flex-col gap-2">
+          {run.call.flags.map((f, i) => (
+            <div key={i} className={cn("squircle flex items-start gap-2.5 rounded-panel border p-3", f.critical ? "border-danger-line bg-danger-bg/50" : "border-warn-line bg-warn-bg")}>
+              <AlertTriangle className={cn("mt-0.5 size-4 shrink-0", f.critical ? "text-danger" : "text-warn")} aria-hidden="true" />
+              <span className="flex flex-col gap-0.5"><Text size="body" weight="bold">{f.label}</Text><Text size="caption" tone="muted">“{f.quote}”</Text><Text size="caption" tone="subtle">{f.explanation}</Text></span>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      <section className="flex flex-col gap-2">
+        <Text as="h2" size="body-lg" weight="bold">By criterion</Text>
+        <CriteriaScores sc={sc} scores={run.scores ?? {}} fallback={run.score} pass={st.passRoleplay} />
+      </section>
+
+      {(met.length > 0 || missed.length > 0) && (
+        <section className="flex flex-col gap-2">
+          <Text as="h2" size="body-lg" weight="bold">What counted</Text>
+          <ul className="flex flex-col gap-1.5">
+            {[...met, ...missed].map((x) => (
+              <li key={x.id} className="flex items-start gap-2 text-body">
+                <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded-full", x.met ? "bg-ok-bg text-ok" : "bg-danger-bg text-danger")}>{x.met ? <Check className="size-3" aria-hidden="true" /> : <X className="size-3" aria-hidden="true" />}</span>
+                <span className="flex flex-col gap-0.5">
+                  <span className={x.met ? "text-ink-2" : "text-ink"}>{x.label}</span>
+                  {x.quote && <span className="text-caption italic text-ink-3">“{x.quote}”</span>}
+                  {!x.met && sc.rubric.find((r) => r.id === x.id)?.good && <span className="text-caption text-brand-deep">Try: {sc.rubric.find((r) => r.id === x.id)!.good.replace(/^"|"$/g, "")}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-      <ol className="flex flex-col gap-2" aria-label="Scenarios">
-        {scs.map((sc, i) => {
-          const r = runs[sc.id];
-          const ch = CHARACTERS[characterOf(sc)];
-          const next = !r && sc.id === todo[0]?.id;
-          return (
-            <li key={sc.id} className={cn("squircle flex flex-col gap-2.5 rounded-panel border p-3", r?.passed ? "border-ok-line bg-ok-bg/50" : r ? "border-danger-line bg-danger-bg/40" : next ? "border-tint-line bg-tint/50" : "border-hair bg-card")}>
-              <div className="flex items-center gap-3">
-              <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body font-extrabold text-white">
-                {personInitials(sc.persona.name)}
-                <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-card bg-ink text-[10px] font-bold text-white">{i + 1}</span>
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body-lg font-semibold text-ink">{sc.title}</span>
-                <span className="truncate text-caption text-ink-3">{sc.persona.name} · {ch.label} · about {sc.durationMin} min</span>
-              </span>
-              {r?.passed && <span className="flex shrink-0 items-center gap-1 rounded-chip bg-ok px-2 py-0.5 text-caption font-bold text-white"><Check className="size-3.5" aria-hidden="true" />{r.score}</span>}
-              {r && !r.passed && (
-                triesLeft(sc) > 0
-                  ? <Button size="sm" variant="secondary" disabled={cooling(sc)} onClick={() => { setSession(null); setRunning([sc]); }} title={cooling(sc) ? `From ${retryAt(sc)!.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}` : undefined}>
-                      <RotateCcw className="size-3.5" aria-hidden="true" />{cooling(sc) ? "Later" : `Retry · ${r.score}`}
-                    </Button>
-                  : <span className="shrink-0 rounded-chip bg-danger-bg px-2 py-0.5 text-caption font-bold text-danger">{r.score} · no tries left</span>
-              )}
-              {!r && <span className={cn("shrink-0 rounded-chip px-2 py-0.5 text-caption font-bold", next ? "bg-brand text-white" : "bg-subtle text-ink-3")}>{next ? "Up next" : "Not yet"}</span>}
-              </div>
-              {/* How the last try went on each criterion this scenario measures. */}
-              {r && <div className="border-t border-black/5 pt-2.5"><CriteriaScores sc={sc} scores={r.scores ?? {}} fallback={r.score} pass={st.passRoleplay} /></div>}
-            </li>
-          );
-        })}
-      </ol>
-      {failed.length > 0 && retryable.length < failed.length && (
-        <Text size="caption" tone="subtle">{failed.some((x) => triesLeft(x) <= 0) ? "Out of tries on a scenario? Your manager can reset it." : `A failed scenario can be retried after ${st.cooldownHours} hours. Go back over the lessons first.`}</Text>
-      )}
-      <div className="mt-auto flex flex-col gap-2 pt-2">
-        {allPassed ? (
-          <>
-            <div className="squircle flex items-center gap-3 rounded-panel bg-ok-bg p-4"><Check className="size-5 shrink-0 text-ok" aria-hidden="true" /><Text size="body-lg" weight="semibold">All {scs.length} scenarios passed.</Text></div>
-            {certified
-              ? <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}>Back to the training</Button>
-              : <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/attest`)}>Sign and get certified<ArrowRight className="size-4" aria-hidden="true" /></Button>}
-          </>
-        ) : todo.length ? (
-          <Button size="lg" fullWidth onClick={() => { setSession(null); setRunning(todo); }}><Mic className="size-5" aria-hidden="true" />{todo.length === scs.length ? "Start the call" : `Continue the call · ${todo.length} left`}</Button>
-        ) : retryable.length ? (
-          <Button size="lg" fullWidth onClick={() => { setSession(null); setRunning(retryable); }}><RotateCcw className="size-4" aria-hidden="true" />Retry the {retryable.length} you missed</Button>
-        ) : null}
-        <Text size="caption" tone="subtle" className="text-center">The call is recorded. An off-label or risk-minimising statement fails that scenario.</Text>
+
+      {run.call?.transcript.length ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <Text as="h2" size="body-lg" weight="bold">The call</Text>
+            <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex items-center gap-1 text-caption font-semibold text-ink-3 hover:text-ink">{open ? "Hide" : "Listen and read"}<ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} aria-hidden="true" /></button>
+          </div>
+          {open ? <CallPlayback result={run.call} who={sc.persona.name} /> : (
+            <button type="button" onClick={() => setOpen(true)} className="squircle flex items-center gap-3 rounded-card bg-ink p-4 text-left text-white">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand"><Play className="ml-0.5 size-5" aria-hidden="true" /></span>
+              <span className="flex min-w-0 flex-col"><Text size="body" weight="bold" tone="inverse" truncate>Your call with {sc.persona.name.replace(/,.*$/, "")}</Text><Text size="caption" tone="inverse" className="opacity-60">{run.call.transcript.filter((x) => x.speaker === "rep").length} turns · tap a line to hear it</Text></span>
+            </button>
+          )}
+        </section>
+      ) : null}
+
+      {/* What's next, always in reach. */}
+      <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex flex-col gap-2 border-t border-hair bg-canvas/95 px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur-xl">
+        {state === "retry" && <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment?sc=${sc.id}`)}><RotateCcw className="size-4" aria-hidden="true" />Retry · {triesLeft} {triesLeft === 1 ? "try" : "tries"} left</Button>}
+        {state === "waiting" && <Text size="body" tone="subtle" className="text-center">You can retry from {when}. Go back over the lessons first.</Text>}
+        {state === "out" && <Text size="body" tone="subtle" className="text-center">No tries left on this one. Your manager can reset it.</Text>}
+        <Button size="lg" fullWidth variant={state === "retry" ? "secondary" : "primary"} onClick={() => router.push(back)}>Back to the training</Button>
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ export function PublishDialog({ course }: { course: Course }) {
   const lines = [
     { label: "Lessons", value: `${course.modules.length} file${course.modules.length === 1 ? "" : "s"} reps see${info ? ` · ${info} information only` : ""}`, href: `${base}/details` },
     { label: "Objectives", value: `${obs.length} objective${obs.length === 1 ? "" : "s"} · ${scs.length} situation${scs.length === 1 ? "" : "s"}`, href: `${base}/roleplay` },
-    { label: "Rules", value: `Pass ${st.passRoleplay}% · ${st.attempts} ${st.attempts === 1 ? "try" : "tries"} · screening ${st.screening ? "on" : "off"} · recertify every ${st.recertMonths} mo`, href: `${base}/settings` },
+    { label: "Rules", value: `Pass ${st.passRoleplay}% · ${st.attempts} ${st.attempts === 1 ? "try" : "tries"} · screening ${st.screening ? "on" : "off"}${st.finalNoHints === false ? " · assisted" : ""} · recertify every ${st.recertMonths} mo`, href: `${base}/settings` },
     { label: "Must pass", value: must.length ? must.map((c) => competency(c)?.name).join(", ") : "None", href: `${base}/settings` },
   ];
 

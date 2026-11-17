@@ -473,6 +473,8 @@ export interface Progress {
   campaignId?: string;
   startedAt?: string;
   screening?: { at: string; overall: number; scores: Record<string, number>; call?: RoleplayResult };
+  /** A screening call stopped partway: the situations already taken, so Resume picks up the rest. */
+  screeningPart?: { scenarioId: string; result: RoleplayResult & { competencyScores: Record<string, number> } }[];
   path?: PathPlan;
   completedBlocks: string[];
   minutesSpent: number;
@@ -495,7 +497,7 @@ export interface Progress {
   coachingNotes: { at: string; by: string; text: string }[];
 }
 
-export interface ScenarioRun { at: string; score: number; passed: boolean; tries: number; call?: RoleplayResult; /** Score on each criterion the scenario measures. */ scores?: Record<string, number> }
+export interface ScenarioRun { at: string; score: number; passed: boolean; tries: number; call?: RoleplayResult; /** Score on each criterion the scenario measures. */ scores?: Record<string, number>; /** Assisted mode: hints the rep asked for on this try. */ hints?: number }
 
 export interface Campaign {
   id: string;

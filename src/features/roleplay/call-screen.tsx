@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Mic, MicOff, PhoneOff, Volume2, VolumeX, X, Lock, ArrowUp } from "lucide-react";
+import { Briefcase, Keyboard, Lightbulb, MapPin, MessageCircleWarning, Mic, MicOff, PhoneOff, Pill, Presentation, Stethoscope, Syringe, Target, UserRound, Volume2, VolumeX, X, Lock, ArrowUp } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
-import type { Scenario } from "@/data/types";
+import type { Character, Scenario } from "@/data/types";
+import { CHARACTERS, characterOf } from "@/lib/scenario-set";
 import { objection, prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import { configOf } from "@/lib/roleplay-draft";
@@ -14,19 +15,24 @@ import { Button } from "@/components/ui/button";
 import { startCall, repSays, sampleAnswers, scoreCall, type CallState } from "./engine";
 import { useVoice } from "./use-voice";
 
+/** Who the rep is talking to, as an icon: the role, not a monogram. */
+export const ROLE_ICON: Record<Character, typeof Mic> = { doctor: Stethoscope, nurse: Syringe, manager: Briefcase, pharmacist: Pill, patient: UserRound };
+
 export type CallMode = "screening" | "assessment" | "practice" | "test";
 export type CallOutcome = ReturnType<typeof scoreCall>;
 
 const MODE: Record<CallMode, { label: string; tone: string }> = {
   screening: { label: "Screening call · not graded", tone: "bg-white/10 text-white" },
-  assessment: { label: "Assessment · recorded for verification", tone: "bg-brand text-white" },
+  assessment: { label: "Scored call · recorded", tone: "bg-brand text-white" },
   practice: { label: "Practice · only you can see this", tone: "bg-white/10 text-white" },
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
 };
 
-export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted, run }: {
+export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted, hints, run }: {
   scenario: Scenario; objectionIds?: string[]; mode: CallMode; voiceAllowed: boolean;
-  onComplete: (r: CallOutcome, meta: { assisted: boolean }) => void;
+  onComplete: (r: CallOutcome, meta: { assisted: boolean; hints: number }) => void;
+  /** Assisted mode on a scored call (a training setting): a Hint button the rep can tap when stuck. */
+  hints?: boolean;
   /** Practice only: start with live prompts on. The rep can switch before the call starts. */
   assisted?: boolean; onExit: () => void; personaOverride?: Partial<Scenario["persona"]>;
   /** The page did its own briefing: go straight into the call. */
@@ -47,11 +53,22 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   const [elapsed, setElapsed] = useState(0);
   const [usedTyping, setUsedTyping] = useState(!voiceAllowed);
   const [assist, setAssist] = useState(!!assisted && mode === "practice");
+  /* Assisted: a hint when the rep asks for one, for the moment the call is at. It goes when they answer, or after a while. */
+  const helped = (assist || !!hints) && mode !== "screening";
+  const [hint, setHint] = useState<string | null>(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const moment = state.idx >= 0 ? state.queue[state.idx]?.id ?? "open" : "open";
+  const [seen, setSeen] = useState<string | null>(null);
+  useEffect(() => { if (!hint) return; const t = window.setTimeout(() => setHint(null), 12000); return () => window.clearTimeout(t); }, [hint]);
+  function askHint() {
+    if (hint) return setHint(null);
+    setHint(moment); setSeen(moment); setHintsUsed((n) => n + 1);
+  }
   const voice = useVoice();
   const endRef = useRef<HTMLDivElement>(null);
   /* The screening call is the short version of the course's call. */
   const minutes = mode === "screening" ? Math.min(3, sc.durationMin) : sc.durationMin;
-  const initials = sc.persona.name.replace("Dr. ", "").split(" ").map((x) => x[0]).join("");
+  const Who = ROLE_ICON[characterOf(sc)];
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [state.turns, voice.interim]);
   useEffect(() => {
@@ -76,6 +93,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
     const next = repSays(state, t);
     setState(next);
     setText("");
+    setHint(null);
     hcpSpeak(next.turns.at(-1)!.text);
   }
 
@@ -84,48 +102,75 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   const samples = presenter || showSamples ? sampleAnswers(state) : [];
 
   if (stage === "prep") {
+    const cfg = configOf(sc);
+    const aid = cfg.showPages ? source(cfg.showPages.sourceId) : undefined;
+    const raise = state.queue.filter((o) => !o.moment);
+    const role = CHARACTERS[characterOf(sc)].label;
     return (
-      <div className="flex min-h-full flex-1 flex-col gap-6 bg-ink px-5 pb-8 pt-5 text-white">
-        <div className="flex items-center justify-between">
-          <span className={cn("rounded-chip px-2.5 py-1 text-caption font-semibold", MODE[mode].tone)}>{MODE[mode].label}</span>
-          <button type="button" aria-label="Exit" onClick={onExit} className="grid size-10 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-5" /></button>
+      <div className="flex min-h-full flex-[1_0_auto] flex-col bg-ink text-white">
+        <div className="flex items-center justify-between gap-3 px-5 pt-5">
+          <span className={cn("rounded-chip px-2.5 py-1 text-caption font-semibold", MODE[mode].tone)}>{run ? `${run.label} · ` : ""}{MODE[mode].label}</span>
+          <button type="button" aria-label="Exit" onClick={onExit} className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-5" /></button>
         </div>
-        <div className="flex flex-col items-center gap-3 pt-4 text-center">
-          <div className="grid size-24 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-hero font-extrabold">{initials}</div>
-          <Text size="display-lg" weight="extrabold" tone="inverse">{sc.persona.name}</Text>
-          <Text size="body-lg" tone="inverse" className="opacity-70">{sc.persona.specialty} · {sc.persona.setting}</Text>
-          <div className="flex flex-wrap justify-center gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-white/10 px-2.5 py-1 text-caption">{t}</span>)}</div>
-        </div>
-        <div className="squircle flex flex-col gap-3 rounded-panel bg-white/[0.06] p-4">
-          {(() => { const cfg = configOf(sc); const va = cfg.showPages ? source(cfg.showPages.sourceId) : undefined; return (
-            <Text size="body" tone="inverse" className="opacity-80">{cfg.callType} · {cfg.place.toLowerCase()}{va && cfg.showPages ? ` · you can show ${va.title}, pages ${cfg.showPages.pages.join(", ")}` : ""}</Text>
-          ); })()}
-          <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR OBJECTIVE</Text>
-          <Text size="body-lg" tone="inverse">{sc.objective}</Text>
-          <Text size="caption" weight="bold" tone="inverse" className="opacity-60">THEY MAY RAISE</Text>
-          <div className="flex flex-wrap gap-1.5">{state.queue.filter((o) => !o.moment).map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption">{o.label}</span>)}</div>
-          <Text size="caption" tone="inverse" className="opacity-60">About {minutes} minutes. Speak naturally; the doctor answers out loud.{mode === "assessment" ? " This call is recorded and scored. Off-label statements fail the assessment." : mode === "screening" ? " Nothing here counts against you." : ""}</Text>
-        </div>
-        {mode === "practice" && (
-          <div className="flex flex-col gap-2">
-            <Text size="caption" weight="bold" tone="inverse" className="opacity-60">HOW MUCH HELP?</Text>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Assisted or unassisted">
-              {[{ on: true, label: "Assisted", hint: "Prompts while you talk" }, { on: false, label: "Unassisted", hint: "A clean call, like the real one" }].map((o) => (
-                <button key={o.label} type="button" role="radio" aria-checked={assist === o.on} onClick={() => setAssist(o.on)}
-                  className={cn("squircle flex flex-col gap-0.5 rounded-panel border p-3 text-left transition-colors", assist === o.on ? "border-brand bg-brand/20" : "border-white/15 bg-white/[0.04] hover:bg-white/[0.08]")}>
-                  <span className="text-body-lg font-bold text-white">{o.label}</span>
-                  <span className="text-caption text-white/60">{o.hint}</span>
-                </button>
-              ))}
+
+        <div className="flex flex-1 flex-col gap-5 px-5 pb-6 pt-5">
+          {/* Who you're meeting. */}
+          <div className="flex items-center gap-4">
+            <div className="grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand shadow-brand-lift"><Who className="size-7" aria-hidden="true" /></div>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <Text size="title" weight="extrabold" tone="inverse" className="leading-tight">{sc.persona.name}</Text>
+              <Text size="body" tone="inverse" className="opacity-70">{sc.persona.specialty === role ? role : `${role} · ${sc.persona.specialty}`}</Text>
+              <Text size="caption" tone="inverse" className="opacity-50">{sc.persona.setting}</Text>
             </div>
           </div>
-        )}
-        <div className="mt-auto flex flex-col gap-2">
+          {sc.persona.traits.length > 0 && <div className="-mt-2 flex flex-wrap gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-white/10 px-2.5 py-1 text-caption text-white/85">{t}</span>)}</div>}
+
+          {/* What's happening, and what you're there to do. */}
+          {sc.description && (
+            <div className="squircle flex flex-col gap-1.5 rounded-panel bg-white/[0.06] p-4">
+              <span className="text-micro font-bold uppercase tracking-wider text-white/50">The situation</span>
+              <Text size="body-lg" weight="bold" tone="inverse" className="leading-snug">{sc.title}</Text>
+              <Text size="body" tone="inverse" className="leading-relaxed opacity-75">{sc.description}</Text>
+            </div>
+          )}
+          <ul className="flex flex-col divide-y divide-white/10 rounded-panel border border-white/10">
+            <PrepRow icon={Target} label="Your goal"><Text size="body" tone="inverse" className="leading-relaxed">{sc.objective}</Text></PrepRow>
+            {raise.length > 0 && <PrepRow icon={MessageCircleWarning} label="They may raise"><div className="flex flex-wrap gap-1.5">{raise.map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption text-white/90">{o.label}</span>)}</div></PrepRow>}
+            <PrepRow icon={MapPin} label="Where"><Text size="body" tone="inverse" className="opacity-85">{cfg.callType} · {cfg.place.toLowerCase()}</Text></PrepRow>
+            {aid && cfg.showPages && <PrepRow icon={Presentation} label="You can show"><Text size="body" tone="inverse" className="opacity-85">{aid.title}, pages {cfg.showPages.pages.join(", ")}</Text></PrepRow>}
+          </ul>
+
+          {hints && mode !== "practice" && mode !== "screening" && (
+            <div className="squircle flex items-start gap-3 rounded-panel border border-warn/40 bg-warn/10 p-3.5">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-warn text-ink"><Lightbulb className="size-4" aria-hidden="true" /></span>
+              <span className="flex flex-col gap-0.5"><Text size="body" weight="bold" tone="inverse">Assisted call</Text><Text size="caption" tone="inverse" className="opacity-70">Stuck? Tap the bulb for a hint on what to say next. Hints you use show on your report.</Text></span>
+            </div>
+          )}
+          {mode === "practice" && (
+            <div className="flex flex-col gap-2">
+              <span className="text-micro font-bold uppercase tracking-wider text-white/50">How much help?</span>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Assisted or unassisted">
+                {[{ on: true, label: "Assisted", hint: "A hint whenever you tap the bulb" }, { on: false, label: "Unassisted", hint: "A clean call, like the real one" }].map((o) => (
+                  <button key={o.label} type="button" role="radio" aria-checked={assist === o.on} onClick={() => setAssist(o.on)}
+                    className={cn("squircle flex flex-col gap-0.5 rounded-panel border p-3 text-left transition-colors", assist === o.on ? "border-brand bg-brand/20" : "border-white/15 bg-white/[0.04] hover:bg-white/[0.08]")}>
+                    <span className="text-body-lg font-bold text-white">{o.label}</span>
+                    <span className="text-caption text-white/60">{o.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Always in reach, however long the brief. */}
+        <div className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-white/10 bg-ink/95 px-5 pb-[max(env(safe-area-inset-bottom),20px)] pt-3 backdrop-blur">
           <Button size="lg" fullWidth onClick={() => { setStage("call"); hcpSpeak(state.turns[0].text); }}>
             <Mic className="size-5" aria-hidden="true" />Start call
           </Button>
-          {!voiceAllowed && <Text size="caption" tone="inverse" className="text-center opacity-60">Voice is off until you agree to the recording notice. You'll type your answers.</Text>}
-          {voiceAllowed && !voice.supported && <Text size="caption" tone="inverse" className="text-center opacity-60">This browser can't use the microphone here. You'll type your answers.</Text>}
+          <Text size="caption" tone="inverse" className="text-center opacity-55">
+            About {minutes} min{mode === "assessment" ? ` · scored · an off-label statement fails ${run ? "this situation" : "the call"}` : mode === "screening" ? " · nothing here counts against you" : mode === "practice" ? " · only you see it" : ""}
+            {!voiceAllowed ? " · you'll type your answers" : voice.supported ? "" : " · this browser can't use the mic, so you'll type"}
+          </Text>
         </div>
       </div>
     );
@@ -136,7 +181,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   return (
     <div className="flex h-dvh flex-col bg-ink text-white sm:h-full">
       <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
-        <div className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body-lg font-extrabold">{initials}</div>
+        <div className="grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand"><Who className="size-5" aria-hidden="true" /></div>
         <div className="flex min-w-0 flex-1 flex-col">
           <Text size="body-lg" weight="bold" tone="inverse" truncate>{sc.persona.name}</Text>
           <span className="flex items-center gap-1.5 text-caption text-white/60">
@@ -162,7 +207,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           <div className="squircle mt-2 flex flex-col items-center gap-3 rounded-panel bg-white/[0.06] p-5 text-center">
             <Text size="title" weight="bold" tone="inverse">{run ? `${sc.persona.name} has left the call` : "Call ended"}</Text>
             <Text size="body" tone="inverse" className="opacity-70">{state.turns.filter((t) => t.speaker === "rep").length} turns · {mmss(elapsed)}</Text>
-            <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping), { assisted: assist }); }}>
+            <Button size="lg" onClick={() => { voice.hush(); onComplete(scoreCall(sc, state.turns, usedTyping), { assisted: assist || !!hints, hints: hintsUsed }); }}>
               <AgentIcon className="size-4" aria-hidden="true" />{run ? run.next : mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
             </Button>
           </div>
@@ -172,7 +217,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 
       {stage === "call" && (
         <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
-          {assist && <AssistPanel state={state} />}
+          {helped && hint && <HintCard state={state} onClose={() => setHint(null)} />}
           {samples.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Text size="micro" weight="bold" tone="inverse" className="opacity-50">{presenter ? "PRESENTER · TAP TO ANSWER" : "TAP A LINE TO ANSWER, OR SAY YOUR OWN"}</Text>
@@ -186,7 +231,10 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           {voice.error && <Text size="caption" className="text-warn-on-dark">{voice.error}</Text>}
           {canVoice ? (
             <div className="flex items-center justify-between gap-3">
-              <button type="button" aria-label="Type instead" onClick={() => setTyping(true)} className="grid size-12 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Keyboard className="size-5" /></button>
+              <span className="flex items-center gap-2">
+                <button type="button" aria-label="Type instead" onClick={() => setTyping(true)} className="grid size-12 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Keyboard className="size-5" /></button>
+                {helped && <HintButton on={!!hint} fresh={seen !== moment} onClick={askHint} />}
+              </span>
               <div className="relative">
                 {voice.listening && <span className="pulse-ring absolute inset-0 rounded-full bg-brand" aria-hidden="true" />}
                 <button type="button" aria-label={voice.listening ? "Done speaking" : "Hold the floor and speak"} disabled={voice.speaking && !voice.listening}
@@ -202,33 +250,60 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
               <label htmlFor="call-input" className="sr-only">Your answer</label>
               <textarea id="call-input" rows={2} value={text} onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(text, true); } }}
-                placeholder="Type what you'd say…" className="min-h-[48px] flex-1 resize-none rounded-control border border-white/15 bg-white/[0.06] px-3 py-2.5 text-body-lg text-white placeholder:text-white/40 outline-none focus:border-brand" />
+                placeholder={helped && seen !== moment ? "Type what you'd say, or tap the bulb" : "Type what you'd say…"} className="min-h-[48px] flex-1 resize-none rounded-control border border-white/15 bg-white/[0.06] px-3 py-2.5 text-body-lg text-white placeholder:text-white/40 outline-none focus:border-brand" />
+              {helped && <HintButton on={!!hint} fresh={seen !== moment} onClick={askHint} />}
               <button type="submit" aria-label="Send" className="grid size-12 place-items-center rounded-full bg-brand"><ArrowUp className="size-5" /></button>
               {voiceAllowed && voice.supported && <button type="button" aria-label="Use voice" onClick={() => setTyping(false)} className="grid size-12 place-items-center rounded-full bg-white/10"><Mic className="size-5" /></button>}
               <button type="button" aria-label="End call" onClick={() => setStage("ended")} className="grid size-12 place-items-center rounded-full bg-danger"><PhoneOff className="size-5" /></button>
             </form>
           )}
-          {canVoice && <Text size="caption" tone="inverse" className="text-center opacity-50">{voice.speaking ? `${sc.persona.name.split(" ")[1]} is talking…` : voice.listening ? "Listening. Tap again when you're done." : "Tap the mic and talk"}</Text>}
+          {canVoice && <Text size="caption" tone="inverse" className="text-center opacity-50">{voice.speaking ? `${sc.persona.name.split(" ")[1] ?? sc.persona.name} is talking…` : voice.listening ? "Listening. Tap again when you're done." : helped && seen !== moment ? "Tap the mic and talk, or the bulb for a hint" : "Tap the mic and talk"}</Text>}
+          {helped && hintsUsed > 0 && <Text size="micro" tone="inverse" className="-mt-1 text-center opacity-40">{hintsUsed} hint{hintsUsed === 1 ? "" : "s"} used{mode === "assessment" ? " · shown on your report" : ""}</Text>}
         </div>
       )}
     </div>
   );
 }
 
-/** Assisted practice: what to do right now, said the approved way, and what to stay away from. */
-function AssistPanel({ state }: { state: CallState }) {
+/** One line of the brief: an icon, what it is, then the detail. */
+function PrepRow({ icon: Icon, label, children }: { icon: typeof Mic; label: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3 p-3.5">
+      <Icon className="mt-0.5 size-4 shrink-0 text-white/50" aria-hidden="true" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-micro font-bold uppercase tracking-wider text-white/50">{label}</span>{children}</div>
+    </li>
+  );
+}
+
+/** The bulb: glows while a hint is open, and pulses when the call has moved on and a fresh hint is there. */
+function HintButton({ on, fresh, onClick }: { on: boolean; fresh: boolean; onClick: () => void }) {
+  return (
+    <span className="relative">
+      {fresh && !on && <span className="pulse-ring absolute inset-0 rounded-full bg-warn/60" aria-hidden="true" />}
+      <button type="button" aria-label={on ? "Hide the hint" : "Show a hint"} aria-pressed={on} onClick={onClick}
+        className={cn("relative grid size-12 place-items-center rounded-full transition-colors", on ? "bg-warn text-ink" : fresh ? "bg-warn/25 text-warn hover:bg-warn/35" : "bg-white/10 text-white/80 hover:bg-white/20")}>
+        <Lightbulb className="size-5" />
+      </button>
+    </span>
+  );
+}
+
+/** One hint for where the call is now: what to do, the approved way to say it, and what to stay away from. It times out on its own. */
+function HintCard({ state, onClose }: { state: CallState; onClose: () => void }) {
   if (state.done) return null;
   const cur = state.idx >= 0 ? state.queue[state.idx] : undefined;
   const say = sampleAnswers(state).find((x) => !x.label.includes("try it"))?.text;
   const avoid = state.scenario.prohibitedIds.map((id) => prohibited(id)).find((r) => r?.critical);
-  const stage = cur ? `Objection · ${cur.label}` : "Opening";
-  const tip = cur ? "Acknowledge it, answer it with the approved facts, then move to a next step." : "Open on a patient type and ask one question before you talk about the product.";
+  const stage = cur ? cur.label : "The opening";
+  const tip = cur ? "Acknowledge it first, answer with the approved facts, then move to a next step." : "Open on a patient type and ask one question before you talk about the product.";
   return (
-    <div className="squircle flex flex-col gap-1.5 rounded-panel border border-ok/40 bg-ok/15 p-3" aria-live="polite">
-      <span className="flex items-center justify-between gap-2 text-micro font-bold uppercase tracking-wider text-[#7ee2b0]"><span>Try this · {stage}</span><span className="text-white/50">Assisted</span></span>
+    <div className="squircle rise-in relative flex flex-col gap-1.5 overflow-hidden rounded-panel border border-warn/40 bg-[#2a2414] p-3 pr-9" role="status" aria-live="polite">
+      <span className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wider text-warn"><Lightbulb className="size-3" aria-hidden="true" />Hint · {stage}</span>
       <Text size="body" tone="inverse" className="opacity-90">{tip}</Text>
-      {say && <Text size="body" tone="inverse" className="opacity-75">Say: “{say.length > 170 ? `${say.slice(0, 168)}…` : say}”</Text>}
+      {say && <Text size="body" tone="inverse" className="italic opacity-75">“{say.length > 170 ? `${say.slice(0, 168)}…` : say}”</Text>}
       {avoid && <span className="self-start rounded-chip bg-danger/25 px-2 py-0.5 text-caption font-semibold text-[#ffb3b0]">Avoid: {avoid.label.toLowerCase()}</span>}
+      <button type="button" aria-label="Hide the hint" onClick={onClose} className="absolute right-2 top-2 grid size-6 place-items-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"><X className="size-3.5" /></button>
+      <span className="hint-timer absolute bottom-0 left-0 h-0.5 bg-warn/70" aria-hidden="true" />
     </div>
   );
 }

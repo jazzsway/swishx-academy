@@ -3,14 +3,16 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { X, Lock, ArrowRight } from "lucide-react";
+import { X, Lock, ArrowRight, Check, ChevronDown, Play } from "lucide-react";
+import { CallPlayback } from "@/features/roleplay/call-playback";
+import { BottomActions } from "@/features/shell/bottom-actions";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { competency, COMPETENCIES } from "@/data/org";
 import { scenario as getScenario } from "@/data/scenarios";
-import type { Item } from "@/data/types";
+import type { Item, Scenario } from "@/data/types";
 import { blendScores, scoreItems, bandOf, BAND_LABEL, pathMinutes, courseMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,7 @@ import { BandChip, Meter, EmptyState } from "@/components/patterns/academy";
 import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
 import { ScenarioRun, combineOutcomes } from "@/features/roleplay/scenario-run";
 import { allScenarios } from "@/data/scenarios";
-import { screeningOf } from "@/lib/scenario-set";
+import { CRITERIA, screeningOf } from "@/lib/scenario-set";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { modulesOf } from "./use-rep";
 
@@ -47,10 +49,15 @@ export function Screening() {
   /* No screening questions (a direct course): the call is the whole screening. */
   const [phase, setPhase] = useState<"quiz" | "bridge" | "call">(pool.length ? "quiz" : "bridge");
   const outcomes = useRef<CallOutcome[]>([]);
+  /* The situations this call runs, fixed when it starts: saving one as it ends mustn't reshuffle the run. */
+  const [running, setRunning] = useState<Scenario[] | null>(null);
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
   /* A training with the trainer's own material screens with a short call built from its scenarios. */
-  const screenRun = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) })) : [];
+  const screenAll = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) })) : [];
+  /* Stopped partway last time: only the situations not taken yet. */
+  const part = p.screeningPart ?? [];
+  const screenRun = screenAll.filter((x) => !part.some((d) => d.scenarioId === x.id));
   const sc = screenRun[0] ?? (c.settings.screeningScenarioId ? getScenario(c.settings.screeningScenarioId) : undefined);
 
   function answer(choice: number | null) {
@@ -79,9 +86,15 @@ export function Screening() {
     router.replace(`/rep/course/${c!.id}/results?fresh=1`);
   }
 
-  if (phase === "call" && screenRun.length)
-    return <ScenarioRun scenarios={screenRun} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)}
-      onScenarioDone={(_sc, r) => outcomes.current.push(r)} onFinish={() => finish(answers, combineOutcomes(outcomes.current))} />;
+  if (phase === "call" && running?.length)
+    return <ScenarioRun scenarios={running} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)}
+      onScenarioDone={(x, r) => { outcomes.current.push(r); s.saveScreeningPart(p.id, x.id, r); }}
+      onFinish={(done) => {
+        /* Every situation taken: that's the baseline. Stopped early: what's done is kept for Resume. */
+        if (done < running.length) return router.push(`/rep/course/${c.id}?paused=screening`);
+        const all = [...part.map((d) => d.result), ...outcomes.current];
+        finish(answers, combineOutcomes(all));
+      }} />;
 
   if (phase === "call" && sc)
     return <CallScreen scenario={sc} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)} onComplete={(r) => finish(answers, r)} />;
@@ -92,12 +105,13 @@ export function Screening() {
         {pool.length > 0
           ? <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
           : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>}
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{pool.length ? "Now, a short call" : "Start with a short call"}</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">{screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back, about 3 minutes in all.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} files you can skip; anything marked for everyone stays.`}</Text>
+        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{part.length ? "Pick up your screening" : pool.length ? "Now, a short call" : "Start with a short call"}</Text>
+        {part.length > 0 && <span className="flex items-center gap-1.5 self-start rounded-chip bg-ok-bg px-2.5 py-1 text-caption font-bold text-ok">{part.length} of {screenAll.length} done · {screenRun.length} left</span>}
+        <Text size="subhead" tone="muted" className="leading-relaxed">{part.length ? `Next up: ${screenRun.map((x) => x.persona.name).join(" and ")}. What you've done is saved.` : screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back, about 3 minutes in all.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} lessons you can skip; anything marked for everyone stays.`}</Text>
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
         <div className="mt-auto flex flex-col gap-2">
-          <Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every file"}</Button>
+          <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume the call" : "Go to the call"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
+          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every lesson"}</Button>
         </div>
       </div>
     );
@@ -130,51 +144,132 @@ export function Screening() {
 
 export function ScreeningResults() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const me = useMe();
   const s = useApp();
+  const [detail, setDetail] = useState(false);
   const p = s.progress.find((x) => x.userId === me.id && x.courseId === id);
   const c = s.courses.find((x) => x.id === id);
   if (!p?.screening || !c || !p.path) return <div className="p-4"><EmptyState title="No screening yet" /></div>;
   const mods = modulesOf(c);
   const scores = p.screening.scores;
+  const call = p.screening.call;
   const comps = COMPETENCIES.filter((x) => scores[x.id] !== undefined).sort((a, b) => scores[b.id] - scores[a.id]);
-  /* With only a few competencies measured, each appears on one side only. */
-  const n = Math.min(2, Math.max(1, Math.floor(comps.length / 2)));
-  const strongest = comps.slice(0, n);
-  const weakest = [...comps].reverse().slice(0, n);
-  const unit = c.origin === "direct" ? "file" : "module";
-  const req = mods.filter((m) => m.required).length;
+  const top = comps.length ? scores[comps[0].id] : 0;
+  const even = comps.every((x) => scores[x.id] === top);
+  const unit = c.origin === "direct" ? "lesson" : "module";
+  const kept = p.path.moduleIds.length;
+  const skipped = mods.filter((m) => !p.path!.moduleIds.includes(m.id));
   const mins = pathMinutes(mods, p.path.moduleIds);
-  const full = courseMinutes({ modules: mods });
+  const required = mods.filter((m) => m.required && p.path!.moduleIds.includes(m.id));
+  const screenNames = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ") || "the AI doctor" : getScenario(c.settings.screeningScenarioId ?? "")?.persona.name ?? "the AI doctor";
+
+  /* Three things to work on, most important first: a compliance flag, then the weakest criteria, each with what to say and where it's covered. */
+  type Tip = { key: string; eyebrow: string; title: string; why: string; say?: string; danger?: boolean; lesson?: { id: string; title: string } };
+  const tips: Tip[] = [];
+  for (const f of call?.flags.filter((x) => x.critical) ?? []) tips.push({ key: f.ruleId, eyebrow: "Compliance", title: "Stay on-label", why: `${f.label}: “${f.quote}”`, say: f.explanation, danger: true });
+  for (const x of [...comps].reverse()) {
+    if (tips.length >= 3 || scores[x.id] >= 80) continue;
+    const crit = CRITERIA[x.id];
+    const m = mods.find((mm) => mm.competency === x.id && p.path!.moduleIds.includes(mm.id)) ?? mods.find((mm) => mm.competency === x.id);
+    const missed = call?.criteria.find((k) => !k.met && k.label === crit?.label);
+    tips.push({ key: x.id, eyebrow: `${x.name} · ${scores[x.id]}`, title: crit?.label ?? x.name, why: missed ? "Didn't come up on your call" : `You scored ${scores[x.id]}; the pass mark on calls is ${c.settings.passRoleplay}.`, say: crit?.good.replace(/^"|"$/g, ""), lesson: m ? { id: m.id, title: m.title } : undefined });
+  }
 
   return (
-    <div className="flex flex-col gap-5 px-4 pt-5">
-      <div className="squircle flex flex-col gap-3 rounded-card bg-ink p-5 text-white">
-        <Text size="caption" weight="bold" tone="inverse" className="opacity-60">YOUR PATH IS READY</Text>
-        <Text as="h1" size="hero" weight="extrabold" tone="inverse" className="leading-tight">{p.path.moduleIds.length} of {mods.length} {unit}s · ~{mins} min</Text>
-        <Text size="body-lg" tone="inverse" className="opacity-80">Full training is {full} min. You tested out of {p.path.testedOut.length} {unit}{p.path.testedOut.length === 1 ? "" : "s"}{req ? `; ${req} safety ${unit}${req === 1 ? " is" : "s are"} required for everyone` : ""}.</Text>
-        <Link href={`/rep/course/${c.id}`} className="mt-1 flex h-12 items-center justify-center gap-2 rounded-control bg-brand text-subhead font-bold text-white"><AgentIcon className="size-4" aria-hidden="true" />Start my path</Link>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="squircle flex flex-col gap-1 rounded-panel bg-ok-bg p-4"><Text size="caption" weight="bold" tone="ok">STRONGEST</Text>{strongest.map((x) => <Text key={x.id} size="body" weight="semibold">{x.name}</Text>)}</div>
-        <div className="squircle flex flex-col gap-1 rounded-panel bg-warn-bg p-4"><Text size="caption" weight="bold" tone="warn">TO WORK ON</Text>{weakest.map((x) => <Text key={x.id} size="body" weight="semibold">{x.name}</Text>)}</div>
-      </div>
-      <section className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
-        <div className="flex items-baseline justify-between"><Text size="subhead" weight="bold">By criterion</Text><Text size="caption" tone="subtle">{p.screening.overall}% overall</Text></div>
-        {comps.map((x) => (
-          <div key={x.id} className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2"><Text size="body" weight="semibold">{x.name}</Text><span className="flex items-center gap-2"><Text size="body" tabular>{scores[x.id]}</Text><BandChip score={scores[x.id]} size="xs" /></span></div>
-            <Meter value={scores[x.id]} tone={bandOf(scores[x.id]) === "not_yet" ? "danger" : bandOf(scores[x.id]) === "developing" ? "brand-2" : "ok"} height={6} label={`${x.name} ${BAND_LABEL[bandOf(scores[x.id])]}`} />
+    <div className="flex flex-1 flex-col gap-6 px-4 pt-5">
+      {/* Where the rep starts, and the path that follows from it. */}
+      <div className="squircle flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
+        <div className="flex items-center gap-4">
+          <span className="grid size-[68px] shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(var(--color-brand) ${p.screening.overall * 3.6}deg, rgba(255,255,255,.12) 0)` }}>
+            <span className="grid size-14 place-items-center rounded-full bg-ink"><span className="text-title font-extrabold tabular-nums">{p.screening.overall}</span></span>
+          </span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex items-center gap-1.5 text-caption font-bold text-[#7ee2b0]"><Check className="size-3.5" aria-hidden="true" />Screening done</span>
+            <Text size="title" weight="extrabold" tone="inverse" className="leading-tight">Your baseline</Text>
+            <Text size="caption" tone="inverse" className="opacity-60">Where you start. Your scored calls show how far you&apos;ve come.</Text>
           </div>
-        ))}
+        </div>
+        <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <Text size="body-lg" weight="bold" tone="inverse">Your path</Text>
+            <Text size="caption" tone="inverse" className="opacity-60">{kept} of {mods.length} {unit}{mods.length === 1 ? "" : "s"} · ~{mins} min</Text>
+          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {mods.map((m) => {
+              const skip = skipped.includes(m);
+              return (
+                <li key={m.id} className={cn("flex items-center gap-1 rounded-chip px-2.5 py-1 text-caption font-semibold", skip ? "bg-ok/20 text-[#9be7c0]" : "bg-white/10 text-white")}>
+                  {skip ? <Check className="size-3" aria-hidden="true" /> : m.required ? <Lock className="size-3 opacity-60" aria-hidden="true" /> : null}{m.title}
+                </li>
+              );
+            })}
+          </ul>
+          <Text size="caption" tone="inverse" className="leading-relaxed opacity-60">
+            {skipped.length ? `Ticked ones you already know, so they're skipped.` : "Every lesson stays in: the call didn't show enough yet to skip one."}
+            {required.length ? ` ${required.length === 1 ? "The locked one stays" : "Locked ones stay"} for everyone.` : ""}
+          </Text>
+        </div>
+      </div>
+
+      <section className="flex flex-col gap-2.5" aria-labelledby="tips-h">
+        <div className="flex flex-col gap-0.5">
+          <Text as="h2" id="tips-h" size="subhead" weight="bold">{tips.length ? `${tips.length === 1 ? "One thing" : `${tips.length} things`} to work on` : "You're in good shape"}</Text>
+          <Text size="caption" tone="subtle">{tips.length ? "From your screening call, most important first." : "Every criterion is at 80 or more. The lessons will keep it sharp."}</Text>
+        </div>
+        {tips.length > 0 && (
+          <ol className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card">
+            {tips.map((t, i) => (
+              <li key={t.key} className="flex gap-3 p-4">
+                <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-caption font-extrabold", t.danger ? "bg-danger text-white" : "bg-brand text-white")}>{i + 1}</span>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Text size="body-lg" weight="bold" className="leading-snug">{t.title}</Text>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className={cn("rounded-chip px-1.5 py-0.5 text-micro font-bold", t.danger ? "bg-danger-bg text-danger" : "bg-subtle text-ink-2")}>{t.eyebrow}</span>
+                    <Text size="caption" tone="subtle">{t.why}</Text>
+                  </span>
+                  {t.say && <p className="rounded-control bg-tint/60 px-3 py-2 text-body leading-relaxed text-ink-2">{t.danger ? t.say : <><span className="font-bold not-italic text-brand-deep">Try </span><span className="italic">“{t.say}”</span></>}</p>}
+                  {t.lesson && <Link href={`/rep/course/${c.id}/learn?module=${t.lesson.id}${p.path!.moduleIds.includes(t.lesson.id) ? "" : "&optional=1"}`} className="flex items-center gap-1 self-start text-caption font-bold text-brand-deep hover:underline">Covered in {t.lesson.title}<ArrowRight className="size-3.5" aria-hidden="true" /></Link>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
-      {p.screening.call && (
-        <section className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5">
-          <Text size="subhead" weight="bold">Your call with the AI doctor</Text>
-          <Scorecard result={p.screening.call} mode="screening" approvedHref={(m) => `/rep/course/${c.id}/learn?module=${m}&optional=1`} />
+
+      <section className="flex flex-col gap-3" aria-labelledby="crit-h">
+        <div className="flex items-baseline justify-between"><Text as="h2" id="crit-h" size="subhead" weight="bold">By criterion</Text><Text size="caption" tone="subtle">{even ? "Even across the board" : "Highest first"}</Text></div>
+        <ul className="squircle flex flex-col gap-3.5 rounded-card border border-hair bg-card p-4">
+          {comps.map((x, i) => (
+            <li key={x.id} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5"><Text size="body" weight="semibold" truncate>{x.name}</Text>{!even && i === 0 && <Chip size="xs" tone="ok">Strongest</Chip>}</span>
+                <span className="flex shrink-0 items-center gap-2"><Text size="body" weight="bold" tabular>{scores[x.id]}</Text><BandChip score={scores[x.id]} size="xs" /></span>
+              </div>
+              <Meter value={scores[x.id]} tone={bandOf(scores[x.id]) === "not_yet" ? "danger" : bandOf(scores[x.id]) === "developing" ? "brand-2" : "ok"} height={6} label={`${x.name} ${BAND_LABEL[bandOf(scores[x.id])]}`} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {call && call.transcript.length > 0 && (
+        <section className="flex flex-col gap-2.5" aria-labelledby="call-h">
+          <div className="flex items-baseline justify-between gap-3">
+            <Text as="h2" id="call-h" size="subhead" weight="bold">Your call</Text>
+            <button type="button" aria-expanded={detail} onClick={() => setDetail(!detail)} className="flex items-center gap-1 text-caption font-semibold text-ink-3 hover:text-ink">
+              {detail ? "Hide" : "Listen and read"}<ChevronDown className={cn("size-3.5 transition-transform", detail && "rotate-180")} aria-hidden="true" />
+            </button>
+          </div>
+          {detail ? <CallPlayback result={call} who={screenNames} /> : (
+            <button type="button" onClick={() => setDetail(true)} className="squircle flex items-center gap-3 rounded-card bg-ink p-4 text-left text-white">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand"><Play className="ml-0.5 size-5" aria-hidden="true" /></span>
+              <span className="flex min-w-0 flex-col"><Text size="body" weight="bold" tone="inverse" truncate>Your call with {screenNames}</Text><Text size="caption" tone="inverse" className="opacity-60">{call.transcript.filter((x) => x.speaker === "rep").length} turns · {call.criteria.filter((x) => x.met).length} of {call.criteria.length} criteria met</Text></span>
+            </button>
+          )}
         </section>
       )}
-      <Text size="caption" tone="subtle" className={cn("pb-2 text-center")}>Your trainer sees these scores, not your call recording.</Text>
+      <Text size="caption" tone="subtle" className="text-center">Your trainer sees these scores, not your call recording.</Text>
+      <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />Start my path</Button></BottomActions>
     </div>
   );
 }

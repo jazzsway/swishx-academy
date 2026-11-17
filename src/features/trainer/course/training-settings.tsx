@@ -160,6 +160,9 @@ function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
           <Stepper label="Tries" value={st.attempts} min={1} max={10} suffix={st.attempts === 1 ? "try" : "tries"} onChange={(n) => set({ attempts: n })} />
           {st.attempts > 1 && <><Text size="caption" tone="subtle">every</Text><Stepper label="Hours between tries" value={st.cooldownHours} step={12} min={0} max={168} suffix="h" onChange={(n) => set({ cooldownHours: n })} /></>}
         </Line>
+        <Line label="Assisted mode" hint={st.finalNoHints === false ? "Reps can tap a bulb for a hint during the scored call. It doesn't change the score; you see how many they used. Screening never has hints." : "Off: the scored call has no hints, like the real thing. Reps can still practise with hints."}>
+          <Toggle label="Assisted mode" on={st.finalNoHints === false} onChange={(v) => set({ finalNoHints: !v })} />
+        </Line>
         <Line label="Screening call" hint={st.screening ? `3 minutes, not graded, from ${screen.length} situation${screen.length === 1 ? "" : "s"} (pick them on Objectives). It sets each rep's baseline, and lessons they already know become optional.` : "Off: every rep takes every lesson, in order, with no baseline."}>
           <Toggle label="Screening" on={st.screening} onChange={(v) => { set(v ? { screening: true, screeningCall: true, baseline: true } : { screening: false, screeningCall: false, baseline: false }); updateCourse(course.id, { type: v ? "personalised" : "linear" }); }} />
         </Line>

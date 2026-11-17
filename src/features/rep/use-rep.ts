@@ -7,6 +7,9 @@ import { competency } from "@/data/org";
 import { pathMinutes } from "@/lib/learning";
 import { unmetPrereqs } from "@/features/library/library-data";
 import { blockCards } from "@/lib/short-form";
+import { allScenarios } from "@/data/scenarios";
+import { screeningOf } from "@/lib/scenario-set";
+import { objectiveGroups, scenarioStatus } from "./situations";
 
 /** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
 const blockMinutes = (c: Course, b: Module["blocks"][number]) => (c.format === "short" ? blockCards(b).length / 3 : b.minutes);
@@ -55,10 +58,47 @@ export interface NextStep {
   minutes?: number;
 }
 
+/**
+ * What's next on a training built from the trainer's own material, in its order: the screening call
+ * (or resuming it), the lessons screening left in, the objectives' situations one objective at a time,
+ * retries, then signing. Null when there's nothing to do right now (certified, or waiting to retry).
+ */
+export function directNext(p: Progress, c: Course): NextStep | null {
+  const base = `/rep/course/${c.id}`;
+  if (p.state === "certified" || p.state === "awaiting_verify") return null;
+  const step = (title: string, why: string, cta: string, href: string, minutes?: number): NextStep => ({ progress: p, course: c, eyebrow: c.title, title, why, cta, href, minutes });
+  const screens = c.settings.screening && p.mode !== "practice";
+  if (screens && !p.screening) {
+    const all = screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id)));
+    const done = p.screeningPart?.length ?? 0;
+    if (all.length) return done
+      ? step("Resume your screening", `${done} of ${all.length} done. What you've done is saved.`, `Resume screening · ${all.length - done} left`, `${base}/screening`, 3)
+      : step("Start with a screening call", "About 3 minutes, not graded. It decides which lessons you can skip.", "Start with screening", `${base}/screening`, 3);
+  }
+  const nb = nextBlock(p, c);
+  if (nb) {
+    const pr = pathProgress(p, c);
+    return step(nb.module.title, `Lesson ${pr.modulesDone + 1} of ${pr.modules}`, `${pr.modulesDone ? "Continue" : "Start"}: ${nb.module.title}`, `${base}/learn?module=${nb.module.id}`, pr.minutesLeft);
+  }
+  const groups = objectiveGroups(c, p);
+  const k = groups.findIndex((g) => g.todo > 0);
+  if (k >= 0) {
+    const open = groups[k];
+    const name = open.ob?.title ?? "The call";
+    const what = open.ob ? `objective ${k + 1}` : "the call";
+    return step(name, `${open.todo} situation${open.todo === 1 ? "" : "s"} to take · scored`, `${open.state === "started" ? `Continue ${what} · ${open.todo} left` : `Start ${what} · ${open.todo} situation${open.todo === 1 ? "" : "s"}`}`, `${base}/assessment${open.ob ? `?obj=${open.ob.id}` : ""}`, open.scs.reduce((a, x) => a + x.durationMin, 0));
+  }
+  const retry = groups.flatMap((g) => g.each).find((x) => x.state === "retry");
+  if (retry) return step(retry.sc.title, `${retry.run!.score} last time · ${retry.triesLeft} ${retry.triesLeft === 1 ? "try" : "tries"} left`, `Retry: ${retry.sc.persona.name.replace(/,.*$/, "")} · ${retry.triesLeft} ${retry.triesLeft === 1 ? "try" : "tries"} left`, `${base}/assessment?sc=${retry.sc.id}`, retry.sc.durationMin);
+  if (scenarioStatus(c, p).allPassed) return step("Sign and get certified", "Every situation passed. One last step.", "Sign and get certified", `${base}/attest`);
+  return null;
+}
+
 /** The single "Up next" for the rep (PRD RH-1). */
 export function nextStepFor(p: Progress, c: Course): NextStep | null {
   const base = `/rep/course/${c.id}`;
   if (p.state === "certified" || p.state === "awaiting_verify") return null;
+  if (c.origin === "direct" && c.scenarioIds.length) return directNext(p, c);
   /* A training with the trainer's own material ends in the scenario call: every scenario, back to back. */
   const scenarioCall = c.origin === "direct" && c.scenarioIds.length > 0;
   if (scenarioCall && !p.attempts.at(-1)?.passed && (p.mode === "practice" || p.state === "assessment"))

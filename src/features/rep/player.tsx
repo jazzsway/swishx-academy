@@ -337,7 +337,10 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
       <Text size="subhead" tone="muted">{mod.title}{explore ? " · not for credit. It's ticked off if you get certified later." : optional ? " · optional review" : ""}</Text>
       {earned > 0 && <Link href="/rep/leaderboard" className="rounded-chip bg-tint px-3 py-1 text-body font-bold text-brand-deep hover:underline">+{earned} points this month</Link>}
       <div className="mt-auto flex w-full flex-col gap-2">
-        {allDone ? (
+        {allDone && c.origin === "direct" && c.scenarioIds.length ? (
+          /* A training built from the team's material ends in its calls, objective by objective, on the training page. */
+          <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />On to the calls</Button>
+        ) : allDone ? (
           linear
             ? <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/attest`)}>Sign attestation<ArrowRight className="size-4" aria-hidden="true" /></Button>
             : <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment`)}><AgentIcon className="size-4" aria-hidden="true" />{p?.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment"}</Button>

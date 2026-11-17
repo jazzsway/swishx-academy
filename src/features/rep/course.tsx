@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon, Layers } from "lucide-react";
+import { Check, FileText, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, BookOpen, CalendarClock, Library as LibraryIcon, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
@@ -39,7 +39,9 @@ export function RepLearn() {
   const mine = s.progress.filter((p) => p.userId === me.id);
   const courseOf = (p: Progress) => s.courses.find((x) => x.id === p.courseId)!;
   const due = (p: Progress) => (isOverdue(p) ? "0" : p.dueAt ?? "9999");
-  const assigned = mine.filter((p) => p.assignType !== "self" && p.state !== "certified").sort((a, b) => due(a).localeCompare(due(b)));
+  /* Trainings built from the team's own material lead the list, then by due date. */
+  const assigned = mine.filter((p) => p.assignType !== "self" && p.state !== "certified")
+    .sort((a, b) => Number(courseOf(b).origin === "direct") - Number(courseOf(a).origin === "direct") || due(a).localeCompare(due(b)));
   const certified = mine.filter((p) => p.state === "certified");
   const overdue = assigned.filter(isOverdue).length;
   const nextDue = assigned.find((p) => p.dueAt && !isOverdue(p));
@@ -132,6 +134,7 @@ function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: strin
         <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
         <span className="flex flex-wrap items-center gap-1.5">
           {tag && <Chip size="xs" tone={tag.tone}>{tag.label}</Chip>}
+          {c.origin === "direct" && <span className="inline-flex items-center gap-1 rounded-chip bg-info-bg px-1.5 py-0.5 text-micro font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Team material</span>}
           {opensLater(p) && <Chip size="xs" iconLeft={<CalendarClock className="size-3" aria-hidden="true" />}>Opens {fmtDate(p.startsAt)}</Chip>}
           <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"} weight={isOverdue(p) ? "semibold" : undefined}>
             {cert ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : p.dueAt ? (isOverdue(p) ? `Overdue since ${fmtDate(p.dueAt)}` : `Due ${fmtDate(p.dueAt)}`) : "No due date"}
@@ -140,6 +143,20 @@ function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: strin
       </div>
       <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
     </Link>
+  );
+}
+
+/** Back from a call or a paused screening: what was saved, in one line. */
+function JustDone({ search }: { search: URLSearchParams }) {
+  const done = Number(search.get("done") ?? 0);
+  const of = Number(search.get("of") ?? 0);
+  const paused = search.get("paused") === "screening";
+  if (!paused && !of) return null;
+  return (
+    <div className="squircle rise-in flex items-start gap-3 rounded-panel border border-ok-line bg-ok-bg/60 p-3.5" role="status">
+      <CircleCheck className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />
+      <Text size="body">{paused ? "Screening paused. What you did is saved; resume it any time." : done >= of ? `Saved. You took ${of === 1 ? "the situation" : `all ${of} situations`}; your scores are below.` : `Saved. You took ${done} of ${of}; the rest are waiting for you below.`}</Text>
+    </div>
   );
 }
 
@@ -244,7 +261,9 @@ export function RepCourse() {
         </div>
       )}
 
-      {step && p.state !== "not_started" && (
+      {c.origin === "direct" && <JustDone search={search} />}
+
+      {step && p.state !== "not_started" && c.origin !== "direct" && (
         <Link href={step.href} className="squircle flex items-center gap-3 rounded-card bg-brand-deep p-5 text-white">
           <PlayCircle className="size-8 shrink-0" aria-hidden="true" />
           <div className="flex min-w-0 flex-1 flex-col"><Text size="caption" tone="inverse" className="opacity-75">Up next</Text><Text size="title" weight="bold" tone="inverse">{step.title}</Text><Text size="caption" tone="inverse" className="opacity-80">{step.why}</Text></div>
@@ -322,7 +341,7 @@ export function RepCourse() {
         </section>
       )}
 
-      {p.screening && (
+      {p.screening && c.origin !== "direct" && (
         <Link href={`/rep/course/${c.id}/results`} className="squircle flex items-center justify-between rounded-panel border border-hair bg-card px-4 py-3">
           <div className="flex flex-col"><Text size="body-lg" weight="semibold">My screening results</Text><Text size="caption" tone="subtle">{fmtDate(p.screening.at)} · {p.screening.overall}% overall</Text></div>
           <Text size="body" weight="semibold" tone="brand-deep">View</Text>
