@@ -18,7 +18,7 @@ import { useUpload } from "../direct-course";
 import { applyChanges, directRespond } from "./chat";
 import { draftObjectivesFor, removeSituation, saveObjectiveWeights, useAddScenario } from "./scenarios";
 import { useCourse } from "./use-course";
-import { STAGES, stepOf, turnId, useTrainingChat, type TrainingTurn } from "./training-chat-store";
+import { STAGES, runSetupDrafting, stepOf, turnId, useSetupDrafting, useTrainingChat, type TrainingTurn } from "./training-chat-store";
 
 const EMPTY: TrainingTurn[] = [];
 const SUGGEST = {
@@ -56,7 +56,11 @@ export function TrainingChat({ course }: { course: Course }) {
   const chat = useTrainingChat();
   const thread = chat.threads[course.id] ?? EMPTY;
   const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+  /* Straight from setup, the agent is still drafting: the chat waits until it's done. */
+  const drafting = useSetupDrafting(course.id);
+  const busy = sending || drafting;
+  useEffect(() => { runSetupDrafting(course.id); }, [course.id]);
   const endRef = useRef<HTMLDivElement>(null);
 
   const base = `/trainer/courses/${course.id}`;
@@ -278,11 +282,11 @@ export function TrainingChat({ course }: { course: Course }) {
     chat.push(course.id, { id: turnId("u"), from: "you", text: prompt.trim() });
     setText("");
     if (!editable) { say(`This version is live and locked. Use “Edit as v${(data!.cur.version) + 1}” in the top bar first, and I'll make the change there.`); return; }
-    setBusy(true);
+    setSending(true);
     const pending = chat.asked?.kind;
     chat.clearAsk();
     asked.current = 0;
-    window.setTimeout(() => { handle(prompt.trim(), pending); setBusy(false); }, 600);
+    window.setTimeout(() => { handle(prompt.trim(), pending); setSending(false); }, 600);
   }
 
   /* On the objectives and situations, a file is information for the training (reps don't see it); later, a new lesson. */
@@ -348,15 +352,15 @@ export function TrainingChat({ course }: { course: Course }) {
               : <button type="button" onClick={() => { t.undo!(); chat.patch(course.id, t.id, { undone: true }); }} className="flex items-center gap-1 text-caption font-semibold text-ink-3 hover:text-ink"><Undo2 className="size-3.5" aria-hidden="true" />Undo</button>)}
           </div>
         ))}
-        {!started && editable && <Suggestions items={suggestions} onPick={send} variant="list" />}
-        {busy && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
+        {!started && editable && !drafting && <Suggestions items={suggestions} onPick={send} variant="list" />}
+        {sending && <div className="flex gap-1 self-start rounded-panel bg-subtle px-3.5 py-3 text-ink-3"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></div>}
         <div ref={endRef} />
       </div>
       <div className="flex flex-col gap-2 border-t border-hair p-3">
-        {started && editable && <Suggestions items={suggestions} onPick={send} variant="row" />}
-        <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} onAttach={attach}
-          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : "Set the pass mark, tries or wait between tries"}
-          hint={`On ${where}. Every change can be undone.`} />
+        {started && editable && !drafting && <Suggestions items={suggestions} onPick={send} variant="row" />}
+        <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} locked={drafting} onAttach={attach}
+          placeholder={drafting ? "Drafting your objectives…" : chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : "Set the pass mark, tries or wait between tries"}
+          hint={drafting ? "You can talk to the agent as soon as it's done." : `On ${where}. Every change can be undone.`} />
       </div>
     </div>
   );

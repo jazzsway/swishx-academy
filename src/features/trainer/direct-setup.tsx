@@ -74,11 +74,14 @@ export function DirectSetup() {
       visibility: "assigned", screening: true,
     });
     const obs = draftObjectives({ brief: brief.trim(), productId, materials: items.map((f) => f.src) });
-    s.updateCourse(id, { brief: brief.trim(), objectives: obs });
+    s.updateCourse(id, { brief: brief.trim(), objectives: [] });
     s.setModules(id, mods);
     useTrainingChat.getState().push(id,
       { id: "s-brief", from: "you", text: brief.trim() + (items.length ? `\n📎 ${items.length} file${items.length === 1 ? "" : "s"}` : "") },
-      { id: "s-set", from: "ai", text: `I named it “${title}” and drafted ${obs.length} objectives from your brief${items.length ? " and files" : ""}, ${me.first}: ${obs.map((o, i) => `${i + 1}. ${o.title}`).join("; ")}. Each shows where it comes from. Tell me what to add, change or remove, or open one to sharpen it. Say “next” and I'll write the situations that test them.${shown.length || info.length ? ` Reps see ${shown.length} file${shown.length === 1 ? "" : "s"}; ${info.length} ${info.length === 1 ? "is" : "are"} information only. Change that under Files.` : ""}` });
+      /* The agent drafts in front of the trainer, in the editor's chat; the objectives land when it's done. */
+      { id: "s-set", from: "ai", text: "", at: 0,
+        steps: [`Reading your brief`, ...(items.length ? [`Reading ${items.length} file${items.length === 1 ? "" : "s"}${items.length > 1 ? `: ${items.slice(0, 2).map((f) => f.src.title).join(", ")}${items.length > 2 ? "…" : ""}` : ""}`] : []), `Drafting objectives, each tied to where it comes from`],
+        pending: { objectives: obs, text: `I named it “${title}” and drafted ${obs.length} objectives from your brief${items.length ? " and files" : ""}, ${me.first}: ${obs.map((o, i) => `${i + 1}. ${o.title}`).join("; ")}. Each shows where it comes from. Tell me what to add, change or remove, or open one to sharpen it. Say “next” and I'll write the situations that test them.${shown.length || info.length ? ` Reps see ${shown.length} file${shown.length === 1 ? "" : "s"}; ${info.length} ${info.length === 1 ? "is" : "are"} information only. Change that under Files.` : ""}` } });
     router.push(`/trainer/courses/${id}/roleplay`);
   }
 

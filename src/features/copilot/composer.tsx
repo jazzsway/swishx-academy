@@ -68,9 +68,11 @@ export function Suggestions({ items, onPick, variant }: { items: string[]; onPic
  * The message box: one rounded card with the text on top and, underneath, the model picker,
  * a one-line hint, the attach button and send. Enter sends; Shift+Enter adds a line.
  */
-export function Composer({ id, value, onChange, onSend, placeholder, hint, onAttach, busy }: {
+export function Composer({ id, value, onChange, onSend, placeholder, hint, onAttach, busy, locked }: {
   id: string; value: string; onChange: (v: string) => void; onSend: () => void; placeholder: string; hint?: string;
   onAttach?: (files: File[]) => void; busy?: boolean;
+  /** Not open for messages yet, like while the agent finishes what it's doing. */
+  locked?: boolean;
 }) {
   const [model, setModel] = useState(AGENT_MODELS[0]);
   const [picking, setPicking] = useState(false);
@@ -87,9 +89,9 @@ export function Composer({ id, value, onChange, onSend, placeholder, hint, onAtt
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (ready) onSend(); }}
-      className="squircle flex flex-col gap-1.5 rounded-[20px] border border-hair-2 bg-card px-3.5 pb-2.5 pt-3 shadow-hair transition-colors focus-within:border-brand/60">
+      aria-busy={locked || undefined} className={cn("squircle flex flex-col gap-1.5 rounded-[20px] border border-hair-2 bg-card px-3.5 pb-2.5 pt-3 shadow-hair transition-[border-color,opacity] focus-within:border-brand/60", locked && "pointer-events-none opacity-55")}>
       <label className="sr-only" htmlFor={id}>Message the SwishX AI Agent</label>
-      <textarea ref={ref} id={id} rows={2} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <textarea ref={ref} id={id} rows={2} value={value} disabled={locked} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (ready) onSend(); } }}
         className="min-h-[52px] w-full resize-none bg-transparent text-body-lg leading-relaxed text-ink outline-none placeholder:text-ink-4" />
       <div className="flex items-center gap-2">

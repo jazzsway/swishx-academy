@@ -4,6 +4,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import type { CallFocus } from "@/lib/roleplay-draft";
+import type { Objective } from "@/data/types";
+import { useApp } from "@/store/app-store";
 import type { Change } from "./chat";
 
 /** One message in a training's chat. A divider marks where the trainer moved to another step. */
@@ -22,6 +24,8 @@ export interface TrainingTurn {
   /** Drafting, in steps the trainer can watch. */
   steps?: string[];
   at?: number;
+  /** Setup's drafting, handed to the editor: what lands, and what's said, once the steps run out. */
+  pending?: { objectives: Objective[]; text: string };
   /** A place to go next: the scenario just drafted, or the publish page. */
   link?: { href: string; label: string };
 }
@@ -89,6 +93,33 @@ export function stepOf(pathname: string, base: string): 1 | 2 | 3 | 4 {
   if (pathname.startsWith(`${base}/settings`)) return 3;
   if (pathname.startsWith(`${base}/assign`) || pathname.startsWith(`${base}/people`) || pathname.startsWith(`${base}/review`)) return 4;
   return 1;
+}
+
+/** The agent is still drafting what setup handed over: the chat waits, and the objectives show placeholders. */
+export const useSetupDrafting = (courseId: string) => useTrainingChat((s) => !!s.threads[courseId]?.some((t) => t.id === "s-set" && t.pending));
+
+/* Trainings whose setup drafting is ticking right now, so a remount doesn't run it twice. */
+const running = new Set<string>();
+
+/**
+ * Plays out setup's drafting in the editor's chat, a step at a time, then puts the objectives on the
+ * page and says what it did. Picks up where it was if the page reloads mid-way.
+ */
+export function runSetupDrafting(courseId: string) {
+  if (running.has(courseId)) return;
+  const turn = useTrainingChat.getState().threads[courseId]?.find((t) => t.id === "s-set" && t.pending);
+  if (!turn?.steps) return;
+  running.add(courseId);
+  const tick = () => {
+    const t = useTrainingChat.getState().threads[courseId]?.find((x) => x.id === "s-set");
+    if (!t?.pending || !t.steps) return void running.delete(courseId);
+    const at = (t.at ?? 0) + 1;
+    if (at < t.steps.length) { useTrainingChat.getState().patch(courseId, "s-set", { at }); window.setTimeout(tick, 1100); return; }
+    useApp.getState().updateCourse(courseId, { objectives: t.pending.objectives });
+    useTrainingChat.getState().patch(courseId, "s-set", { steps: undefined, at: undefined, pending: undefined, text: t.pending.text });
+    running.delete(courseId);
+  };
+  window.setTimeout(tick, 1100);
 }
 
 /** Opens the agent and asks for a new objective or situation: what the page's "Add" buttons do. */

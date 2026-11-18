@@ -17,7 +17,7 @@ import { describe, draftObjectives, lookForsOf, objectiveFromPrompt } from "@/li
 import { StageHeader } from "./stage-ui";
 import { CitationPill } from "@/features/shared/citation-pill";
 import { AgentIcon } from "@/components/ui/logo-mark";
-import { askFor, turnId, useTrainingChat } from "./training-chat-store";
+import { askFor, turnId, useSetupDrafting, useTrainingChat } from "./training-chat-store";
 
 /** One colour per criterion, the same wherever it's shown. */
 const chip = (on: boolean) => cn("inline-flex h-9 items-center gap-1.5 rounded-control border px-2.5 text-caption font-semibold transition-colors", on ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:border-hair-3");
@@ -82,6 +82,7 @@ export function ObjectiveList({ course, editable }: { course: Course; editable: 
   const openId = useSearchParams().get("obj");
   const [preview, setPreview] = useState<string | null>(null);
   const [editingGoal, setEditingGoal] = useState(false);
+  const drafting = useSetupDrafting(course.id);
   useEffect(() => { const id = fresh ?? openId; if (id) window.setTimeout(() => document.getElementById(`ob-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }, [fresh, openId]);
   const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   useHomeStrays(course, scs);
@@ -123,8 +124,24 @@ export function ObjectiveList({ course, editable }: { course: Course; editable: 
         {editable && !editingGoal && <button type="button" onClick={() => setEditingGoal(true)} className="shrink-0 rounded-control px-2 py-1 text-caption font-semibold text-brand-deep hover:bg-tint">Edit</button>}
       </section>
 
+      {/* Straight from setup: placeholders where the objectives land, while the agent drafts them in the chat. */}
+      {drafting && obs.length === 0 && (
+        <div className="flex flex-col gap-2" role="status" aria-label="Drafting objectives" aria-busy="true">
+          {[0, 1, 2, 3].map((k) => (
+            <div key={k} className="squircle flex items-center gap-3.5 rounded-card border border-hair bg-card px-4 py-3 shadow-hair" style={{ animationDelay: `${k * 120}ms` }}>
+              <span className="shimmer size-8 shrink-0 rounded-control bg-tint" />
+              <span className="flex min-w-0 flex-1 flex-col gap-2">
+                <span className="shimmer h-3.5 rounded-full bg-subtle" style={{ width: `${62 - k * 7}%` }} />
+                <span className="shimmer h-2.5 rounded-full bg-subtle" style={{ width: `${84 - k * 5}%` }} />
+              </span>
+            </div>
+          ))}
+          <Text size="caption" tone="subtle" className="flex items-center justify-center gap-1.5 pt-1"><AgentIcon className="size-3.5 animate-pulse text-brand" aria-hidden="true" />Drafting objectives from your brief and files…</Text>
+        </div>
+      )}
+
       {/* None left: write one, or draw them from the material again. */}
-      {obs.length === 0 && (
+      {obs.length === 0 && !drafting && (
         <section className="squircle flex flex-col items-center gap-3 rounded-card border border-dashed border-hair-3 bg-card px-6 py-10 text-center">
           <span className="grid size-12 place-items-center rounded-full bg-tint text-brand"><Target className="size-6" aria-hidden="true" /></span>
           <Text size="title" weight="bold">No objectives</Text>
