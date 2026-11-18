@@ -51,9 +51,6 @@ interface TrainingChat {
   generate: () => void;
   ask: (kind: "objective" | "situation") => void;
   clearAsk: () => void;
-  /** The publish overlay: what "Next: assign" opens while the version is still a draft. */
-  publishOpen: boolean;
-  setPublishOpen: (v: boolean) => void;
 }
 
 export const useTrainingChat = create<TrainingChat>()(persist((set) => ({
@@ -71,8 +68,6 @@ export const useTrainingChat = create<TrainingChat>()(persist((set) => ({
   generate: () => set((s) => ({ generating: s.generating + 1 })),
   ask: (kind) => set((s) => ({ asked: { kind, n: (s.asked?.n ?? 0) + 1 } })),
   clearAsk: () => set({ asked: null }),
-  publishOpen: false,
-  setPublishOpen: (publishOpen) => set({ publishOpen }),
 }), {
   name: "academy-training-chat",
   storage: createJSONStorage(() => sessionStorage),
@@ -85,7 +80,7 @@ export const STAGES = [
   { n: 1, label: "Objectives", short: "Objectives", path: "/roleplay" },
   { n: 2, label: "Situations", short: "Situations", path: "/situations" },
   { n: 3, label: "Settings", short: "Settings", path: "/settings" },
-  { n: 4, label: "Assign", short: "Assign", path: "/assign" },
+  { n: 4, label: "Publish & assign", short: "Publish", path: "/assign" },
 ] as const;
 
 /** Which stage a page belongs to. */

@@ -317,7 +317,7 @@ export interface CourseVersion {
   vaultId?: string;
   publishedAt?: string;
   packageAt?: string;
-  transition?: "minor" | "recertify" | "restart";
+  transition?: Transition;
   comments: MlrComment[];
   acknowledged: string[];
   history: HistoryEntry[];
@@ -423,6 +423,9 @@ export interface Material {
   createdAt: string;
   ownerId: string;
 }
+
+/** What a new version does to the people on the old one: keep their progress, restart those who haven't finished, restart everyone, or recertify. */
+export type Transition = "minor" | "restart_open" | "restart" | "recertify";
 
 export type ProgressState =
   | "not_started" | "screening" | "learning" | "assessment" | "remediation"

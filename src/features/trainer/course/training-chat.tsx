@@ -33,7 +33,7 @@ const HELP = {
   objective: "Tell me what good looks like (“good looks like: …”), who it involves, a new name, or how much a criterion counts, like “put 40% on objection handling”.",
   situations: "Describe a situation and I'll add it under the highlighted objective: who the rep meets (one person) and what happens. Use “Add a situation” in a column to pick the objective. Say “next” for the settings.",
   settings: "Here I can set the pass mark, the tries on each situation, the wait between tries, hints on the scored call, and which situations screening uses. Say “next” to publish and assign.",
-  assign: "Once it's published, choose who takes it on this page: the teams or people, required or optional, and by when.",
+  assign: "Here you publish and assign in one go: check what goes live, choose what happens to anyone on the old version (keep their progress, restart who hasn't finished, or restart everyone), and who else gets it.",
 };
 
 /**
@@ -107,7 +107,7 @@ export function TrainingChat({ course }: { course: Course }) {
     if (n === 2) return situations ? `Stage 2 of 4 · Situations. ${situations} situation${situations === 1 ? "" : "s"} across ${obs} objective${obs === 1 ? "" : "s"}, one column each. Describe another to add it, or say “next”.`
       : `Stage 2 of 4 · Situations. I'm writing a few for each of the ${obs} objectives now, one column each: the moments on a call where each is tested. Add your own any time.`;
     if (n === 3) return `Stage 3 of 4 · Settings. Pass mark ${c.settings.passRoleplay}% on each situation, ${c.settings.attempts} tries, screening ${c.settings.screening ? "on" : "off"}. Change anything, or say “next”.`;
-    return data?.lv ? "Stage 4 of 4 · Assign. It's published: choose who takes it, and by when." : "Stage 4 of 4 · Assign. Publish it first; reps only ever see a published version. Then choose who takes it.";
+    return data?.cur.state === "published" ? "Stage 4 of 4 · Publish & assign. It's live: choose who else takes it, and by when." : data?.lv ? `Stage 4 of 4 · Publish & assign. v${data.cur.version} replaces v${data.lv.version}: check it, choose what happens to the people on v${data.lv.version}, and publish.` : "Stage 4 of 4 · Publish & assign. Check what goes live, choose who takes it, and publish both in one go.";
   }
 
   /** A situation under an objective (the open one, or the first), drafted in steps the trainer watches. */
@@ -151,7 +151,7 @@ export function TrainingChat({ course }: { course: Course }) {
     const open = ob ? c.objectives?.find((x) => x.id === ob.id) : undefined;
 
     /* Moving between the stages. */
-    if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (step === 4) return say(HELP.assign); if (step === 3 && data!.cur.state !== "published") { say("Here's what goes live. Publish it, and you'll choose who takes it next."); return useTrainingChat.getState().setPublishOpen(true); } say(`On to ${STAGES[step].label.toLowerCase()}.`); return go(step + 1); }
+    if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (step === 4) return say(HELP.assign); say(`On to ${STAGES[step].label.toLowerCase()}.`); return go(step + 1); }
     if (/^(back|previous|go back)\b/.test(l)) { if (step === 1) return say("This is the first stage."); say(`Back to ${STAGES[step - 2].label.toLowerCase()}.`); return go(step - 1); }
     if (/draft (the )?objectives|suggest objectives/.test(l)) { if (step !== 1) go(1); draftObjectivesFor(c); return; }
     if (/^generate|example situations|write (the )?(examples|situations)|situations for the rest/.test(l)) {
@@ -162,9 +162,9 @@ export function TrainingChat({ course }: { course: Course }) {
       return useTrainingChat.getState().generate();
     }
     if (/^(save and publish|publish( it)?)$/.test(l)) {
-      if (data!.cur.state === "published") return say("It's already published. Choose who takes it on this page.", { link: { href: `${base}/assign`, label: "Assign" } });
-      say("Here's what goes live. Check it, then publish.");
-      return useTrainingChat.getState().setPublishOpen(true);
+      if (data!.cur.state === "published") return say("It's already published. Choose who else takes it on this page.", { link: { href: `${base}/assign`, label: "Assign" } });
+      if (step !== 4) go(4);
+      return say("Here's what goes live, and who gets it. Check both, then publish from the bar at the bottom.");
     }
     if (pending === "objective" || /\b(add|create|new|another)\b.{0,12}\bobjective\b/.test(l)) return addObjective(prompt);
     if (pending === "situation" || (/\b(add|create|new|another|draft)\b.{0,12}\b(situation|scenario|case)s?\b/.test(l) && !/screening/.test(l))) return draftSituation(prompt, open);
@@ -214,9 +214,7 @@ export function TrainingChat({ course }: { course: Course }) {
       updateSettings(c.id, { screeningIds: pick.map((x) => x.id) });
       return say(`Screening now uses ${pick.map((x) => `“${x.title}”`).join(" and ")}.`, { undo: () => updateSettings(c.id, { screeningIds: prev }) });
     }
-    if (/publish/.test(l)) return say("Publishing makes this version live for reps; the next edits become a new draft.", { link: { href: `${base}/review`, label: "Go to publish" } });
-    if (/\bassign\b|who takes/.test(l))
-      return data!.lv ? say("Pick who takes it on the Assign step.", { link: { href: `${base}/assign`, label: "Assign to people" } }) : say("Publish it first; then you can pick who takes it. Reps never see a draft.", { link: { href: `${base}/review`, label: "Go to publish" } });
+    if (/publish|\bassign\b|who takes/.test(l)) return say("Publishing and assigning happen together on the last stage: what goes live, what happens to anyone on the old version, and who else gets it.", { link: { href: `${base}/assign`, label: "Publish & assign" } });
 
     /* The open objective: its name and what it's scored on. */
     if (open) {
@@ -357,7 +355,7 @@ export function TrainingChat({ course }: { course: Course }) {
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         {started && editable && <Suggestions items={suggestions} onPick={send} variant="row" />}
         <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} onAttach={attach}
-          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : "Set the pass mark, tries or wait between tries"}
+          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : "Set the pass mark, tries or wait between tries"}
           hint={`On ${where}. Every change can be undone.`} />
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Paperclip, PanelRight, PencilLine, Rocket, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Paperclip, PanelRight, PencilLine, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -19,7 +19,6 @@ import { useCourse } from "./use-course";
 import { LeaveDialog } from "./course-frame";
 import { VersionHistoryButton } from "./version-history";
 import { STAGES, stepOf, useTrainingChat } from "./training-chat-store";
-import { PublishDialog } from "./publish-dialog";
 import { MaterialsDialog } from "./details";
 
 /**
@@ -76,7 +75,6 @@ export function DirectTopBar() {
         <button type="button" onClick={() => (cur.state === "published" ? router.push("/trainer/courses") : setLeaving(true))} aria-label="Close training" title="Close training"
           className="grid size-9 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><X className="size-4.5" /></button>
       </div>
-      {course.origin === "direct" && <PublishDialog course={course} />}
       {files && <MaterialsDialog course={course} editable={editable} onClose={() => setFiles(false)} />}
       {leaving && <LeaveDialog course={course} hasLive={!!lv} draftVersion={cur.version} onCancel={() => setLeaving(false)} />}
     </header>
@@ -84,68 +82,49 @@ export function DirectTopBar() {
 }
 
 /**
- * The top bar's main action: the next stage, so the trainer always knows what's next. Assigning needs a
- * published version, so while it's a draft the last step is publishing, in an overlay, not a page.
+ * The top bar's main action: the next stage, so the trainer always knows what's next. The last stage,
+ * publish and assign, has its own action at the bottom of its page.
  */
 function NextStage() {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
   const router = useRouter();
-  const data = useCourse(id)!;
-  const setPublishOpen = useTrainingChat((s) => s.setPublishOpen);
-  const { cur } = data;
   const base = `/trainer/courses/${id}`;
   const step = stepOf(pathname, base);
-  const draft = cur.state !== "published";
-  const next = nextOf(step, draft, cur.version);
-  if (!next) return null;
-  return (
-    <Button size="sm" onClick={() => (next.publish ? setPublishOpen(true) : router.push(`${base}${STAGES[Math.min(step, 3) as 1 | 2 | 3].path}`))}>
-      {next.publish && <Rocket className="size-4" aria-hidden="true" />}{next.label}{!next.publish && <ArrowRight className="size-4" aria-hidden="true" />}
-    </Button>
-  );
-}
-
-/** Where the stage's "next" goes: the next stage, or the publish overlay while it's a draft. */
-function nextOf(step: number, draft: boolean, version: number): { label: string; publish?: boolean } | null {
-  if (step < 3) return { label: `Next: ${STAGES[step as 1 | 2].label.toLowerCase()}` };
-  if (step === 3) return draft ? { label: "Next: publish & assign", publish: true } : { label: "Next: assign" };
-  return draft ? { label: `Publish v${version}`, publish: true } : null;
+  if (step === 4) return null;
+  const next = STAGES[step as 1 | 2 | 3];
+  return <Button size="sm" onClick={() => router.push(`${base}${next.path}`)}>Next: {next.label.toLowerCase()}<ArrowRight className="size-4" aria-hidden="true" /></Button>;
 }
 
 /**
  * Back and next, floating at the bottom middle of the page, the way the SwishX for Biz studios do it:
- * the same next step as the top bar, where the eye ends up after working down the page.
+ * the same next step as the top bar, where the eye ends up after working down the page. Publish and
+ * assign has its own bar, with back in it.
  */
 export function StageFooter() {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
   const router = useRouter();
-  const data = useCourse(id);
-  const setPublishOpen = useTrainingChat((s) => s.setPublishOpen);
-  if (!data) return null;
   const base = `/trainer/courses/${id}`;
   const step = stepOf(pathname, base);
-  /* The test call has its own way back; a published training's Assign page has its own bar. */
-  if (pathname.startsWith(`${base}/roleplay/test`) || (step === 4 && data.cur.state === "published")) return null;
-  const next = nextOf(step, data.cur.state !== "published", data.cur.version);
+  if (step === 4 || pathname.startsWith(`${base}/roleplay/test`)) return null;
+  const next = STAGES[step as 1 | 2 | 3];
   const prev = step > 1 ? STAGES[step - 2] : null;
-  if (!next && !prev) return null;
   return (
     <div className="pointer-events-none sticky bottom-0 z-20 flex justify-center px-4 pb-5 pt-8">
       <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-hair bg-card/95 p-1.5 shadow-float backdrop-blur">
         {prev && (
-          <button type="button" onClick={() => router.push(`${base}${prev.path}`)} className="flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle hover:text-ink">
-            <ArrowLeft className="size-4" aria-hidden="true" />Back<span className="hidden text-ink-4 sm:inline">· {prev.label}</span>
-          </button>
+          <>
+            <button type="button" onClick={() => router.push(`${base}${prev.path}`)} className="flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle hover:text-ink">
+              <ArrowLeft className="size-4" aria-hidden="true" />Back<span className="hidden text-ink-4 sm:inline">· {prev.label}</span>
+            </button>
+            <span className="h-5 w-px bg-hair-2" aria-hidden="true" />
+          </>
         )}
-        {prev && next && <span className="h-5 w-px bg-hair-2" aria-hidden="true" />}
-        {next && (
-          <button type="button" onClick={() => (next.publish ? setPublishOpen(true) : router.push(`${base}${STAGES[Math.min(step, 3) as 1 | 2 | 3].path}`))}
-            className="flex h-10 items-center gap-1.5 rounded-full bg-brand px-5 text-body font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
-            {next.publish && <Rocket className="size-4" aria-hidden="true" />}{next.label}{!next.publish && <ArrowRight className="size-4" aria-hidden="true" />}
-          </button>
-        )}
+        <button type="button" onClick={() => router.push(`${base}${next.path}`)}
+          className="flex h-10 items-center gap-1.5 rounded-full bg-brand px-5 text-body font-semibold text-white shadow-brand-lift transition-colors hover:bg-brand-deep">
+          Next: {next.label.toLowerCase()}<ArrowRight className="size-4" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

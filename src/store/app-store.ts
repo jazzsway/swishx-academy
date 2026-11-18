@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   Attempt, AudienceRules, Campaign, Course, CourseSettings, CourseVersion, District, LibraryVisibility, Material, MlrComment,
-  Module, Notification, PointEvent, PointKind, PracticeSession, Progress, RoleplayResult, Scenario, Source, User,
+  Module, Notification, PointEvent, PointKind, PracticeSession, Progress, RoleplayResult, Scenario, Source, Transition, User,
 } from "@/data/types";
 import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/library";
 import { seed } from "@/data/seed";
@@ -100,7 +100,7 @@ export interface AppState extends Seeded {
   recordChanges: (courseId: string, comments: string[]) => void;
   resolveComment: (courseId: string, commentId: string, resolved: boolean) => void;
   recordApproval: (courseId: string, d: { docNumber: string; approvedAt: string; expiresAt: string }) => void;
-  publish: (courseId: string, transition: "minor" | "recertify" | "restart") => void;
+  publish: (courseId: string, transition: Transition) => void;
   withdraw: (courseId: string, reason: string) => void;
   assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string, startsAt?: string, mode?: Progress["mode"]) => number;
   /** Creates the campaign as scheduled; startCampaign assigns it. */
@@ -152,6 +152,11 @@ export const nowIso = () => {
   d.setHours(real.getHours(), real.getMinutes(), real.getSeconds());
   return d.toISOString();
 };
+/** How each kind of new version reads in the history. */
+export const TRANSITION_LABEL: Record<Transition, string> = {
+  minor: "Progress carries over", restart_open: "Anyone not finished restarts", restart: "Everyone restarts", recertify: "Everyone recertifies",
+};
+
 const dayStr = (iso: string) => iso.slice(0, 10);
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso);
@@ -404,7 +409,7 @@ export const useApp = create<AppState>()(
             ...c,
             versions: c.versions.map((v) =>
               v.version === cur.version
-                ? hist({ ...v, state: "published", modules: v.state === "published" ? v.modules : c.modules, publishedAt: dayStr(nowIso()), transition }, "Published", transition === "recertify" ? "Everyone recertifies" : transition === "minor" ? "Minor update · progress carries over" : "Restart")
+                ? hist({ ...v, state: "published", modules: v.state === "published" ? v.modules : c.modules, publishedAt: dayStr(nowIso()), transition }, "Published", TRANSITION_LABEL[transition])
                 : v.state === "published" ? hist({ ...v, state: "superseded" }, `Superseded by v${cur.version}`) : v,
             ),
           })),
@@ -414,7 +419,9 @@ export const useApp = create<AppState>()(
           progress: st.progress.map((p) => {
             if (p.courseId !== courseId || p.version !== prevLive.version) return p;
             if (transition === "minor") return { ...p, version: cur.version };
-            if (transition === "restart") return { ...p, version: cur.version, state: "not_started", completedBlocks: [], path: undefined, screening: undefined, attempts: [], verify: undefined, certifiedAt: undefined };
+            const fresh = { ...p, version: cur.version, state: "not_started" as const, completedBlocks: [], path: undefined, screening: undefined, screeningPart: undefined, attempts: [], scenarioRuns: undefined, draws: undefined, startedAt: undefined, verify: undefined, certifiedAt: undefined };
+            if (transition === "restart") return fresh;
+            if (transition === "restart_open") return p.state === "certified" ? { ...p, version: cur.version } : fresh;
             return { ...p, version: cur.version, state: p.state === "certified" ? "learning" : p.state, completedBlocks: [], certifiedAt: undefined, verify: undefined, attempts: [], dueAt: addDays(TODAY.toISOString(), 14), assignType: "required" };
           }),
         }));

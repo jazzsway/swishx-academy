@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, FileText, History, Mic, RotateCcw, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useApp } from "@/store/app-store";
+import { TRANSITION_LABEL, useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import type { Course, Module } from "@/data/types";
 import { CHARACTERS, characterOf } from "@/lib/scenario-set";
@@ -49,7 +49,7 @@ function pointsOf(course: Course): Point[] {
     out.push({ id: `s${v.version}`, label, kind: live ? "session" : "current", day: dayOf(work[0]?.at ?? v.publishedAt), author: work[0]?.by ?? "Maya Chen", summary, modules: live ? v.modules : course.modules });
     if (live)
       out.push({ id: `V${v.version}`, label: `Version ${v.version}`, kind: "published", day: dayOf(v.publishedAt), author: v.history.find((h) => h.action === "Published")?.by ?? "Maya Chen",
-        summary: [{ text: `Published as Version ${v.version}` }, ...(v.transition ? [{ text: v.transition === "recertify" ? "Everyone recertifies" : v.transition === "minor" ? "Minor update · progress carries over" : "Everyone restarts" }] : [])], modules: v.modules });
+        summary: [{ text: `Published as Version ${v.version}` }, ...(v.transition ? [{ text: TRANSITION_LABEL[v.transition] }] : [])], modules: v.modules });
   }
   return out.reverse();
 }
