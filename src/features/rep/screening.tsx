@@ -13,7 +13,7 @@ import { useMe } from "@/store/selectors";
 import { competency, COMPETENCIES } from "@/data/org";
 import { scenario as getScenario } from "@/data/scenarios";
 import type { Item, Scenario } from "@/data/types";
-import { blendScores, scoreItems, bandOf, BAND_LABEL, pathMinutes, courseMinutes } from "@/lib/learning";
+import { blendScores, scoreItems, bandOf, BAND_LABEL, pathMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -22,7 +22,6 @@ import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
 import { ScenarioRun, combineOutcomes } from "@/features/roleplay/scenario-run";
 import { allScenarios } from "@/data/scenarios";
 import { CRITERIA, screeningOf } from "@/lib/scenario-set";
-import { Scorecard } from "@/features/roleplay/scorecard";
 import { modulesOf } from "./use-rep";
 
 /** SC-1: adaptive pick. Fewest-asked competency first, closest to the target difficulty. */

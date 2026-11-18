@@ -3,13 +3,11 @@
 import type { Course, Progress, User } from "@/data/types";
 import { COMPETENCIES, DOMAINS, REGIONS, TODAY } from "@/data/org";
 import { average, courseMinutes, pathMinutes } from "@/lib/learning";
-import { current, live, useApp, type AppState } from "./app-store";
+import { useApp, type AppState } from "./app-store";
 
 export function useMe(): User {
   return useApp((s) => s.users.find((u) => u.id === s.viewAsId) ?? s.users[0]);
 }
-
-export const liveModules = (c: Course) => (live(c) ?? current(c)).modules;
 
 export const isOverdue = (p: Progress) => p.state !== "certified" && !!p.dueAt && new Date(p.dueAt) < TODAY;
 
@@ -18,19 +16,6 @@ export const bucketOf = (p: Progress): Bucket =>
   p.state === "certified" ? "certified" : isOverdue(p) ? "overdue" : p.state === "not_started" ? "not_started" : "in_progress";
 
 export interface Scope { divisionId?: string; regionId?: string; districtId?: string; courseId?: string }
-
-export function scopedProgress(s: AppState, scope: Scope, courseId?: string) {
-  const byUser = new Map(s.users.map((u) => [u.id, u]));
-  return s.progress.filter((p) => {
-    const u = byUser.get(p.userId);
-    if (!u || !u.active || !u.roles.includes("rep")) return false;
-    if (courseId && p.courseId !== courseId) return false;
-    if (scope.divisionId && u.divisionId !== scope.divisionId) return false;
-    if (scope.regionId && u.regionId !== scope.regionId) return false;
-    if (scope.districtId && u.districtId !== scope.districtId) return false;
-    return true;
-  });
-}
 
 export function counts(ps: Progress[]) {
   const c = { certified: 0, in_progress: 0, not_started: 0, overdue: 0, total: ps.length };

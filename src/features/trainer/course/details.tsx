@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { source } from "@/data/org";
 import type { Block, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
-import { Button, IconButton } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/button";
 import { directModules } from "../materials";
 import { FORMAT_ICON, FORMAT_LABEL, SourcePreview } from "../source-preview";
 import { THUMB, kindOf, lengthOf, useUpload } from "../direct-course";

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, Undo2, X } from "lucide-react";
+import { ArrowRight, Check, Undo2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";

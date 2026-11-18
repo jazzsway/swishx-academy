@@ -10,7 +10,6 @@ import { allScenarios, objection, prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import type { Course, Objection, ProhibitedRule, Scenario } from "@/data/types";
 import { configOf, draftScenario, editCall, withLists, type CallFocus } from "@/lib/roleplay-draft";
-import { objectionsFor } from "@/features/roleplay/engine";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -316,7 +315,6 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
   const place = (b: Box, child: ReactNode) => (
     <div key={b.id} data-node={b.id.replace(/:(hd|ms|rt|mv)$/, "")} className={cn("absolute transition-opacity", dimOf(b.id) && "opacity-25")} style={{ left: b.x, top: b.y, width: b.w, minHeight: b.h }}>{child}</div>
   );
-  const focusOf = (id: string): CallFocus => (id.startsWith("objection:") ? { kind: "objection", id: id.split(":")[1] } : id === "guard" ? { kind: "rule", id: rules[0]?.id ?? "" } : id === "score" ? { kind: "rubric" } : (id as "opening") === "opening" ? { kind: "opening" } : { kind: "close" });
 
   return (
     <div className="relative">
@@ -698,7 +696,6 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
   const [part, setPart] = useState<keyof typeof PART_LABEL>("knows");
   const cfg = configOf(sc);
   const she = cfg.voice.gender === "male" ? "he" : "she";
-  const She = she === "he" ? "He" : "She";
   const her = she === "he" ? "his" : "her";
   const obs = sc.custom ? sc.custom.objections : sc.objectionIds.map(objection);
   const regular = obs.filter((o) => !o.moment);

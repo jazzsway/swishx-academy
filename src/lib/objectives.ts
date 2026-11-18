@@ -1,6 +1,6 @@
 import type { Character, Course, Objective, Scenario, Source } from "@/data/types";
 import { product } from "@/data/org";
-import { CHARACTERS, CRITERIA, build, evenTo100, proposeWeights, withWeights } from "./scenario-set";
+import { CHARACTERS, CRITERIA, build, proposeWeights, withWeights } from "./scenario-set";
 
 /*
  * A training's objectives: what reps should be able to do, drawn from the trainer's brief and material.
@@ -139,11 +139,6 @@ export function exampleSituations(course: Course, ob: Objective, used: string[])
     const sc = build({ course, character: p.c, name, title: p.title, description: p.description, weights: ob.weights, objective: `${ob.title}. With ${name.replace(/,.*$/, "")}, stay on-label with ${brand}.` });
     return { ...withWeights(sc, ob.weights), objectiveId: ob.id };
   });
-}
-
-/** An objective with new weights, and its situations scored on them too. */
-export function reweigh(ob: Objective, weights: Objective["weights"]): Objective {
-  return { ...ob, weights: evenTo100(weights) };
 }
 
 const who = (people: Character[]) => {

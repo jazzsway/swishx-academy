@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Briefcase, Check, ChevronDown, Maximize2, Target, Mic, Pill, Plus, Search, ShieldCheck, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
+import { Briefcase, Check, ChevronDown, Maximize2, Target, Mic, Pill, Plus, Search, ShieldCheck, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios, objection } from "@/data/scenarios";

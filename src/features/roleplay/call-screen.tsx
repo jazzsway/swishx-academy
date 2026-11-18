@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import type { Character, Scenario } from "@/data/types";
 import { CHARACTERS, characterOf } from "@/lib/scenario-set";
-import { objection, prohibited } from "@/data/scenarios";
+import { prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import { configOf } from "@/lib/roleplay-draft";
 import { Text } from "@/components/ui/text";

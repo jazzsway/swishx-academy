@@ -237,7 +237,6 @@ export function seed(): SeedState {
 
   /* ── Lumora field kit (direct from sources): Northeast reps, at every stage of the direct journey ── */
   const kit = courses.find((c) => c.id === "c-fieldkit")!;
-  const kitBlocks = kit.modules.map((m) => m.blocks[0].id);
   /* A screening call: its scores decide which files the rep skips. */
   const kitScreen = (at: string, opening: number, objections: number) => {
     const scores = { "c-opening": opening, "c-objections": objections };

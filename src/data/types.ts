@@ -538,20 +538,6 @@ export interface PracticeSession {
   deletesAt: string;
 }
 
-export interface TrainingEvent {
-  id: string;
-  at: string;
-  userId: string;
-  courseId: string;
-  version: number;
-  type:
-    | "assigned" | "started" | "screening_completed" | "path_generated" | "block_completed"
-    | "assessment_attempt" | "verify_requested" | "verify_decision" | "attested" | "certified"
-    | "version_expired" | "nudged" | "coaching_note";
-  detail: string;
-  by?: string;
-}
-
 export interface Notification {
   id: string;
   userId: string;

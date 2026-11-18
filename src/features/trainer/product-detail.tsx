@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { BookOpen, ChevronLeft, ChevronRight, Eye, FileText, Film, LayoutGrid, Library, ListChecks, Plus, Search } from "lucide-react";
 import { useApp, current, live } from "@/store/app-store";
 import { counts, daysFromToday, pct } from "@/store/selectors";
@@ -50,7 +50,6 @@ const MEDIA_TYPES = ["video", "document", "visualaid", "audio", "graphic"] as co
 export function ProductDetail() {
   const [creating, setCreating] = useState(false);
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const s = useApp();
   const p = productOf(id);
   const [tab, setTab] = useState<Tab>("overview");

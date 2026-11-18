@@ -10,8 +10,6 @@ export const POINTS: Record<PointKind, { points: number; label: string }> = {
   certified: { points: 100, label: "Get certified" },
   streak: { points: 5, label: "Learn on another day in a row" },
 };
-export const FIRST_TRY_BONUS = 5;
-
 /** The leaderboard is monthly so continuous learning wins, not one big week. */
 export const MONTH = TODAY_ISO.slice(0, 7);
 export const monthName = (m = MONTH) => new Date(`${m}-01T12:00:00`).toLocaleString("en-US", { month: "long" });

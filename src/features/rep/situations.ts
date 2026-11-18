@@ -28,28 +28,6 @@ export function situationState(c: Course, p: Progress, sc: Scenario, presenter =
 
 export type ObjectiveState = "todo" | "started" | "passed" | "retry" | "waiting" | "out";
 
-/**
- * The call, grouped the way the trainer built it: each objective with its situations, and any situation
- * without one at the end. Each group says where the rep stands on it as a whole.
- */
-export function objectiveGroups(c: Course, p: Progress, presenter = false) {
-  const { scs } = scenarioStatus(c, p);
-  const obs = c.objectives ?? [];
-  const groups: { ob?: Objective; scs: Scenario[] }[] = obs.map((ob) => ({ ob, scs: scs.filter((x) => x.objectiveId === ob.id) })).filter((g) => g.scs.length);
-  const loose = scs.filter((x) => !obs.some((o) => o.id === x.objectiveId));
-  if (loose.length) groups.push({ scs: loose });
-  return groups.map((g) => {
-    const each = g.scs.map((sc) => ({ sc, ...situationState(c, p, sc, presenter) }));
-    const n = (k: SituationState) => each.filter((x) => x.state === k).length;
-    const state: ObjectiveState = n("passed") === each.length ? "passed"
-      : n("todo") === each.length ? "todo"
-      : n("todo") > 0 ? "started"
-      : n("retry") > 0 ? "retry"
-      : n("waiting") > 0 ? "waiting" : "out";
-    return { ...g, each, state, passed: n("passed"), todo: n("todo") };
-  });
-}
-
 /* ── The call plan: one situation drawn per objective, the draws grouped into one call per person ── */
 
 export type ObjectivePlanState = "todo" | "started" | "passed" | "retry" | "waiting" | "out";

@@ -53,8 +53,6 @@ export function Assessment() {
   const sc = st.assessmentScenarioId ? getScenario(st.assessmentScenarioId) : undefined;
   const attemptNo = p.attempts.length + 1;
   const nWritten = items.filter((i) => i.format === "open").length;
-  const failsSoFar = p.attempts.filter((a) => !a.passed).length;
-  const attemptsLeft = st.attempts - failsSoFar;
   const lastFail = p.attempts.filter((a) => !a.passed).at(-1);
   const retakeAt = lastFail ? new Date(new Date(lastFail.at).getTime() + st.cooldownHours * 3600_000) : undefined;
   const coolingDown = !resubmit && !s.presenter && !!retakeAt && retakeAt > new Date(nowIso());

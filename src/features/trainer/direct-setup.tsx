@@ -115,50 +115,56 @@ export function DirectSetup() {
       <div className="flex h-dvh flex-col bg-canvas">
         {header}
         <main className="min-h-0 flex-1 overflow-y-auto bg-subtle/60">
-          <div className="mx-auto flex w-full max-w-[880px] flex-col gap-5 px-5 pb-16 pt-[7vh]">
+          <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-5 pb-16 pt-[10vh]">
             <div className="flex flex-col items-center gap-1.5 text-center">
-              <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">Describe the training you want to build</Text>
-              <Text size="body-lg" tone="subtle">Tell SwishX what reps should learn, and add the material it should use.</Text>
+              <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">Describe the training you want to build</Text>
+              <Text size="body" tone="subtle">Tell SwishX what reps should learn, and add the material it should use.</Text>
             </div>
 
-            <section className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5 shadow-hair">
-              <label htmlFor="brief" className="flex items-center gap-2 text-body font-bold text-ink"><AgentIcon className="size-4 text-brand" aria-hidden="true" />What should reps learn and be able to do?</label>
-              <textarea id="brief" rows={4} value={brief} onChange={(e) => setBrief(e.target.value)} autoFocus
-                placeholder="e.g. Reps can present the new trial results exactly as approved, keep fair balance, and handle doctors who are happy with what they prescribe."
-                className="w-full resize-none rounded-control border border-hair-2 bg-card px-3.5 py-3 text-body-lg leading-relaxed text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-brand/60" />
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Text size="caption" tone="subtle" className="mr-1">Try:</Text>
-                {SAMPLES.map(([label, t]) => (
-                  <button key={label} type="button" onClick={() => setBrief(t)} className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold transition-colors", brief === t ? "border-brand bg-tint text-brand-deep" : "border-hair-2 text-ink-2 hover:border-brand hover:text-brand-deep")}>{label}</button>
-                ))}
-              </div>
-            </section>
-
-            <section className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-5 shadow-hair"
+            {/* One composer: the brief, the material, and the way on. Drop files anywhere on it. */}
+            <section className={cn("squircle flex flex-col overflow-hidden rounded-card border bg-card shadow-soft transition-colors", over ? "border-brand ring-2 ring-brand/20" : "border-hair")}
               onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)}
               onDrop={(e) => { if (!e.dataTransfer.files.length) return; e.preventDefault(); setOver(false); add(upload(Array.from(e.dataTransfer.files), "f")); }}>
-              <div className="flex items-baseline gap-2">
-                <Text size="body" weight="bold" className="flex-1">Your material</Text>
-                {items.length > 0 && picker("Add more")}
+              <div className="flex flex-col gap-2 px-5 pt-5">
+                <label htmlFor="brief" className="flex items-center gap-2 text-body font-bold text-ink"><AgentIcon className="size-4 text-brand" aria-hidden="true" />What should reps learn and be able to do?</label>
+                <textarea id="brief" rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} autoFocus
+                  placeholder="e.g. Reps can present the new trial results exactly as approved, keep fair balance, and handle doctors who are happy with what they prescribe."
+                  className="w-full resize-none bg-transparent py-1 text-body-lg leading-relaxed text-ink outline-none placeholder:text-ink-4" />
               </div>
-              {items.length === 0 ? (
-                <label className={cn("squircle flex min-h-[150px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed p-6 text-center transition-colors hover:border-brand hover:bg-tint", over ? "border-brand bg-tint" : "border-hair-3")}>
-                  <span className="grid size-11 place-items-center rounded-full bg-tint text-brand-deep"><Upload className="size-5" aria-hidden="true" /></span>
-                  <span className="text-body font-semibold text-ink-2">Upload or drop your files</span>
-                  <span className="text-caption text-ink-3">Decks, PDFs, videos and reference documents. You choose what reps see next.</span>
-                  <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
-                </label>
-              ) : (
-                <ul className={cn("grid grid-cols-2 gap-3 rounded-panel sm:grid-cols-3 md:grid-cols-4", over && "ring-2 ring-brand/30")}>
-                  {items.map((f) => <FileCard key={f.id} s={f.src} onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
-                </ul>
-              )}
-            </section>
 
-            <div className="flex items-center justify-end gap-3">
-              <Text size="caption" tone="subtle">{!brief.trim() ? "Describe the training to continue" : `${items.length} file${items.length === 1 ? "" : "s"} added`}</Text>
-              <Button disabled={!brief.trim()} onClick={start}>Continue<ArrowRight className="size-4" aria-hidden="true" /></Button>
-            </div>
+              <div className="flex flex-col gap-2.5 px-5 pb-4 pt-1">
+                <div className="flex items-center gap-2">
+                  <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider" className="flex-1">Your material{items.length ? ` · ${items.length}` : ""}</Text>
+                  {items.length > 0 && picker("Add more")}
+                </div>
+                {items.length === 0 ? (
+                  <label className={cn("squircle flex cursor-pointer items-center gap-3 rounded-panel border border-dashed px-3.5 py-2.5 transition-colors hover:border-brand hover:bg-tint/60", over ? "border-brand bg-tint" : "border-hair-3")}>
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><Upload className="size-4" aria-hidden="true" /></span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-body font-semibold text-ink-2">Add your files, or drop them here</span>
+                      <span className="truncate text-caption text-ink-3">Decks, PDFs, videos, reference documents. You choose what reps see next.</span>
+                    </span>
+                    <span className="hidden shrink-0 rounded-control border border-hair-2 bg-card px-3 py-1.5 text-caption font-bold text-ink-2 sm:block">Browse</span>
+                    <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
+                  </label>
+                ) : (
+                  <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {items.map((f) => <FileCard key={f.id} s={f.src} onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-hair bg-subtle/50 px-5 py-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                  <Text size="caption" tone="subtle" className="mr-0.5">Try</Text>
+                  {SAMPLES.map(([label, t]) => (
+                    <button key={label} type="button" onClick={() => setBrief(t)} className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold transition-colors", brief === t ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:border-brand hover:text-brand-deep")}>{label}</button>
+                  ))}
+                </div>
+                <Button disabled={!brief.trim()} onClick={start} title={brief.trim() ? undefined : "Describe the training to continue"}>Continue<ArrowRight className="size-4" aria-hidden="true" /></Button>
+              </div>
+            </section>
+            {!brief.trim() && <Text size="caption" tone="subtle" className="-mt-3 text-center">Describe the training to continue. Files are optional; you can add them later.</Text>}
           </div>
         </main>
         {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}

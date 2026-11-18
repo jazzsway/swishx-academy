@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Award, BarChart3, Briefcase, Check, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, RotateCcw, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
+import { Award, Briefcase, Check, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { fileLength } from "@/features/media/file-view";
-import { modulesOf, pathModules } from "./use-rep";
+import { modulesOf } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
 import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";

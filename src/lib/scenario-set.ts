@@ -23,9 +23,6 @@ const rid = () => Math.random().toString(36).slice(2, 7);
 
 export const characterOf = (sc: Scenario): Character => sc.character ?? "doctor";
 
-/** "Dr. Lena Kim" → "LK", "Mei Lin, PharmD" → "ML". */
-export const personInitials = (name: string) => name.replace(/^(Dr|NP|Nurse)\.?\s+/, "").replace(/,.*$/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
-
 /** What each competency looks like on a call: the rubric line it becomes, and what the scorer listens for. */
 export const CRITERIA: Record<string, { label: string; keywords: string[]; good: string }> = {
   "c-disease": { label: "Explains the unmet need", keywords: ["uncontrolled", "burden", "still", "flare", "itch", "unmet"], good: "\"Many of your patients are still flaring on what they take now...\"" },
@@ -188,30 +185,6 @@ export function build(o: { course: Course; character: Character; title: string; 
       createdAt: new Date().toISOString(),
     },
   };
-}
-
-/** The first scenarios of a new training, from its brief and demo-call documents: three, or four with documents. */
-export function draftScenarioSet(course: Course): Scenario[] {
-  const p = product(course.productId);
-  const brand = p?.brand ?? "the product";
-  const spec = (p && SPECIALIST[p.therapyArea]?.toLowerCase()) ?? "physician";
-  const set: Scenario[] = [
-    build({ course, character: "doctor", name: "Dr. Lena Kim", title: `First call with a busy ${spec}`, weights: evenTo100([{ competency: "c-opening", pct: 30 }, { competency: "c-objections", pct: 30 }, { competency: "c-efficacy", pct: 25 }, { competency: "c-safety", pct: 15 }]),
-      description: `Dr. Kim has five minutes between patients and is happy with what she prescribes. Open on the right patient, handle the pushback, and ask for a next step.`,
-      objective: `Get Dr. Kim to consider ${brand} for one patient who fits, handling each objection and staying on-label.` }),
-    build({ course, character: "nurse", name: "Nurse Ana Ruiz", title: "Dosing and side-effect questions from the nurse", weights: evenTo100([{ competency: "c-dosing", pct: 40 }, { competency: "c-safety", pct: 40 }, { competency: "c-compliance", pct: 20 }]),
-      description: "The nurse will be the one teaching patients. She wants clear answers on injections, missed doses and what to warn about, and she reports a patient's reaction.",
-      objective: `Give Nurse Ruiz clear, on-label answers on dosing and side effects, and report the adverse event she mentions.` }),
-    build({ course, character: "manager", name: "Dana Whitfield", title: "Coverage worries with the practice manager", weights: evenTo100([{ competency: "c-access", pct: 50 }, { competency: "c-objections", pct: 30 }, { competency: "c-opening", pct: 20 }]),
-      description: "The practice manager worries about prior auths, copays and staff time. Show how the support program takes the work off her team, without promising coverage.",
-      objective: `Show Dana how the support program handles prior auths and copays, without promising coverage.` }),
-  ];
-  if (course.roleplaySourceIds?.length)
-    set.push(build({ course, character: "doctor", name: "Dr. Marcus Hale", title: `Off-label pressure from a sceptical ${spec}`, difficulty: "hard", traits: ["Blunt", "Tests the rep", "Asks about off-label use"],
-      weights: evenTo100([{ competency: "c-compliance", pct: 40 }, { competency: "c-safety", pct: 30 }, { competency: "c-objections", pct: 30 }]),
-      description: "A tougher doctor who interrupts and asks about patients outside the label. Refer off-label questions to Medical Information and keep fair balance.",
-      objective: `Stay on-label with Dr. Hale: refer the off-label question to Medical Information and keep fair balance.` }));
-  return set;
 }
 
 /** A scenario the trainer described in the chat: the character, title and weights come from what they wrote. */

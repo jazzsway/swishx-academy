@@ -6,7 +6,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import { ChevronRight, ListChecks, Lock, PencilLine, MessageSquareText, FileText, Smartphone } from "lucide-react"; // v1-hidden: Trash2, Scissors
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
-import { revealTop } from "@/lib/scroll";
 import { useApp } from "@/store/app-store";
 import { competency, source } from "@/data/org";
 import type { Block, Module, Source } from "@/data/types";
@@ -16,7 +15,7 @@ import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 // v1-hidden: import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
-import { BlockView, BLOCK_META, SourceList } from "@/features/shared/block-view";
+import { BlockView, BLOCK_META } from "@/features/shared/block-view";
 import { blockCards, moduleCards, TEMPLATES } from "@/lib/short-form";
 import { MiniCard, PreviewDeck } from "@/features/shortform/card-deck";
 import { useCourse } from "./use-course";
