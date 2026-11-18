@@ -28,7 +28,7 @@ export interface TrainingTurn {
 
 /**
  * The agent's chat for a training built with the trainer's own material: one thread per training,
- * kept as the trainer moves between details, scenarios and assigning, and carried over from setup.
+ * kept as the trainer moves between objectives, situations, settings and assigning, and carried over from setup.
  * Kept for the browser session, so a reload doesn't lose it; undo only lasts until then.
  */
 interface TrainingChat {
@@ -82,15 +82,15 @@ export const useTrainingChat = create<TrainingChat>()(persist((set) => ({
 
 /** The four stages of building a training with the trainer's own material, and where each lives. */
 export const STAGES = [
-  { n: 1, label: "Basic details", short: "Details", path: "/details" },
-  { n: 2, label: "Objectives & situations", short: "Objectives", path: "/roleplay" },
+  { n: 1, label: "Objectives", short: "Objectives", path: "/roleplay" },
+  { n: 2, label: "Situations", short: "Situations", path: "/situations" },
   { n: 3, label: "Settings", short: "Settings", path: "/settings" },
   { n: 4, label: "Assign", short: "Assign", path: "/assign" },
 ] as const;
 
 /** Which stage a page belongs to. */
 export function stepOf(pathname: string, base: string): 1 | 2 | 3 | 4 {
-  if (pathname.startsWith(`${base}/roleplay`)) return 2;
+  if (pathname.startsWith(`${base}/situations`) || pathname.startsWith(`${base}/roleplay/test`)) return 2;
   if (pathname.startsWith(`${base}/settings`)) return 3;
   if (pathname.startsWith(`${base}/assign`) || pathname.startsWith(`${base}/people`) || pathname.startsWith(`${base}/review`)) return 4;
   return 1;

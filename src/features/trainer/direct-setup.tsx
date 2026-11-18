@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus, Upload, X } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Plus, Upload, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -15,6 +15,7 @@ import { FORMAT_ICON, FORMAT_LABEL, SourcePreview, fileUrl } from "./source-prev
 import { directModules } from "./materials";
 import { FOR_ROLEPLAY, THUMB, kindOf, useUpload } from "./direct-course";
 import { useTrainingChat } from "./course/training-chat-store";
+import { draftObjectives } from "@/lib/objectives";
 
 /* Sample briefs; picking one fills in the box. */
 const SAMPLES: [string, string][] = [
@@ -37,8 +38,8 @@ function nameFrom(brief: string, brand?: string) {
 
 /**
  * A new training with the trainer's own material starts like a studio project: the brief and the
- * material, as two parts. Continue creates it as a draft and opens the editor, where the agent walks
- * through its four stages: basic details, objectives and situations, settings, then save and assign.
+ * material, with which files reps see chosen as they're added. Continue creates it as a draft with its
+ * objectives already drawn up, and opens them: objectives, situations, settings, then publish and assign.
  */
 export function DirectSetup() {
   const router = useRouter();
@@ -58,7 +59,7 @@ export function DirectSetup() {
   const add = (list: Source[]) => setFiles((fs) => [...fs, ...list.filter((x) => !fs.some((f) => f.id === x.id)).map((x) => ({ id: x.id, visible: visibleByDefault(x) }))]);
   const touched = !!(brief || files.length);
 
-  /** The brief and the files become a draft training; the chat then walks through its four stages, starting with the basics. */
+  /** The brief and the files become a draft training with its objectives drafted; the chat picks up from there. */
   function start() {
     if (!brief.trim()) return;
     const title = nameFrom(brief, prod?.brand);
@@ -72,13 +73,13 @@ export function DirectSetup() {
       competencyIds: [...new Set(mods.map((m) => m.competency))], scope: { variants: [], indications: [], therapyAreas: [] },
       visibility: "assigned", screening: true,
     });
-    s.updateCourse(id, { brief: brief.trim(), objectives: [] });
+    const obs = draftObjectives({ brief: brief.trim(), productId, materials: items.map((f) => f.src) });
+    s.updateCourse(id, { brief: brief.trim(), objectives: obs });
     s.setModules(id, mods);
-    const list = (xs: typeof items) => xs.map((x) => `“${x.src.title}”`).join(", ");
     useTrainingChat.getState().push(id,
       { id: "s-brief", from: "you", text: brief.trim() + (items.length ? `\n📎 ${items.length} file${items.length === 1 ? "" : "s"}` : "") },
-      { id: "s-set", from: "ai", text: `Let's build it in four stages, ${me.first}: basic details, objectives and situations, settings, then save and assign. First the basics: I named it “${title}”.${shown.length ? ` Reps will see ${list(shown)}.` : " Add the files reps should see."}${info.length ? ` ${list(info)} ${info.length === 1 ? "is" : "are"} information only: I use ${info.length === 1 ? "it" : "them"}, reps don't.` : ""} Check them on the left, then say “next”.` });
-    router.push(`/trainer/courses/${id}/details`);
+      { id: "s-set", from: "ai", text: `I named it “${title}” and drafted ${obs.length} objectives from your brief${items.length ? " and files" : ""}, ${me.first}: ${obs.map((o, i) => `${i + 1}. ${o.title}`).join("; ")}. Each shows where it comes from. Tell me what to add, change or remove, or open one to sharpen it. Say “next” and I'll write the situations that test them.${shown.length || info.length ? ` Reps see ${shown.length} file${shown.length === 1 ? "" : "s"}; ${info.length} ${info.length === 1 ? "is" : "are"} information only. Change that under Files.` : ""}` });
+    router.push(`/trainer/courses/${id}/roleplay`);
   }
 
   const header = (
@@ -142,15 +143,19 @@ export function DirectSetup() {
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><Upload className="size-4" aria-hidden="true" /></span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-body font-semibold text-ink-2">Add your files, or drop them here</span>
-                      <span className="truncate text-caption text-ink-3">Decks, PDFs, videos, reference documents. You choose what reps see next.</span>
+                      <span className="truncate text-caption text-ink-3">Decks, PDFs, videos, reference documents. You choose which ones reps see.</span>
                     </span>
                     <span className="hidden shrink-0 rounded-control border border-hair-2 bg-card px-3 py-1.5 text-caption font-bold text-ink-2 sm:block">Browse</span>
                     <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
                   </label>
                 ) : (
-                  <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                    {items.map((f) => <FileCard key={f.id} s={f.src} onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
-                  </ul>
+                  <>
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                      {items.map((f) => <FileCard key={f.id} s={f.src} visible={f.visible} onToggle={() => setFiles(files.map((x) => (x.id === f.id ? { ...x, visible: !x.visible } : x)))}
+                        onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
+                    </ul>
+                    <Text size="caption" tone="subtle">Reps see {items.filter((f) => f.visible).length} as lessons, in this order. The rest are information only: SwishX uses them for the objectives and situations, reps don&apos;t see them.</Text>
+                  </>
                 )}
               </div>
 
@@ -173,14 +178,14 @@ export function DirectSetup() {
 }
 
 /** An uploaded file, as a preview: the picture or video itself, or its type. */
-function FileCard({ s, onPreview, onRemove }: { s: Source; onPreview: () => void; onRemove: () => void }) {
+function FileCard({ s, visible, onToggle, onPreview, onRemove }: { s: Source; visible: boolean; onToggle: () => void; onPreview: () => void; onRemove: () => void }) {
   const k = kindOf(s);
   const Icon = FORMAT_ICON[k];
   const url = s.uploaded ? fileUrl(s.id) : undefined;
   return (
     <li className="squircle group relative flex flex-col overflow-hidden rounded-panel border border-hair bg-card transition-shadow hover:shadow-hair">
       <button type="button" onClick={onPreview} className="flex flex-col text-left">
-        <span className={cn("grid aspect-[4/3] place-items-center overflow-hidden", THUMB[k])}>
+        <span className={cn("grid aspect-[4/3] place-items-center overflow-hidden transition-opacity", THUMB[k], !visible && "opacity-45 grayscale")}>
           {url && k === "image" ? <img src={url} alt="" className="size-full object-cover" />
             : url && k === "video" ? <video src={url} muted preload="metadata" className="size-full object-cover" />
             : <Icon className="size-8 opacity-80" aria-hidden="true" />}
@@ -189,6 +194,12 @@ function FileCard({ s, onPreview, onRemove }: { s: Source; onPreview: () => void
           <span className="line-clamp-2 text-caption font-semibold leading-snug text-ink">{s.title}</span>
           <span className="text-micro text-ink-3">{FORMAT_LABEL[k]}{s.pages ? ` · ${s.pages} pages` : ""}</span>
         </span>
+      </button>
+      {/* Whether reps see it, chosen right here: a lesson, or information only. */}
+      <button type="button" role="switch" aria-checked={visible} onClick={onToggle} title={visible ? "Reps see it as a lesson. Click to make it information only." : "Information only. Click to show it to reps."}
+        className={cn("mx-2.5 mb-2.5 mt-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-micro font-bold transition-colors", visible ? "bg-ok-bg text-ok hover:bg-ok-bg/70" : "bg-subtle text-ink-3 hover:bg-hair")}>
+        {visible ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}{visible ? "Reps see it" : "Info only"}
+        <span className={cn("relative ml-auto h-3.5 w-6 rounded-full transition-colors", visible ? "bg-ok" : "bg-hair-3")}><span className={cn("absolute top-0.5 size-2.5 rounded-full bg-white transition-all", visible ? "left-[12px]" : "left-0.5")} /></span>
       </button>
       <button type="button" aria-label={`Remove ${s.title}`} onClick={onRemove} className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-card/90 text-ink-3 opacity-0 shadow-hair transition-opacity hover:text-ink group-hover:opacity-100 focus:opacity-100"><X className="size-3.5" /></button>
     </li>

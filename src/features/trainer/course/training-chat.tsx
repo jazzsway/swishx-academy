@@ -9,7 +9,7 @@ import { allScenarios } from "@/data/scenarios";
 import { COMPETENCIES, competency, source } from "@/data/org";
 import type { Course, CourseSettings, Objective } from "@/data/types";
 import { CHARACTERS, evenTo100 } from "@/lib/scenario-set";
-import { objectiveFromPrompt } from "@/lib/objectives";
+import { lookForsOf, objectiveFromPrompt } from "@/lib/objectives";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Composer, Suggestions } from "@/features/copilot/composer";
@@ -22,25 +22,25 @@ import { STAGES, stepOf, turnId, useTrainingChat, type TrainingTurn } from "./tr
 
 const EMPTY: TrainingTurn[] = [];
 const SUGGEST = {
-  details: ["Next", "Rename the training to “Lumora first calls”", "Brief: reps can handle a first call with a dermatologist", "Move lesson 2 to the start"],
-  objectives: ["Draft objectives", "Generate example situations", "Add an objective: reps explain the missed-dose guidance to nurses", "Next"],
-  objective: ["Add a situation: a patient asks if it's safe long term", "Put 40% on objection handling", "Rename this objective to “Quote the label exactly”"],
+  objectives: ["Add an objective: reps explain the missed-dose guidance to nurses", "Remove objective 3", "Next"],
+  objective: ["Good looks like: quotes the label word for word", "Put 40% on objection handling", "Rename this objective to “Quote the label exactly”"],
+  situations: ["Add a situation: a patient asks if it's safe long term", "Write situations for the rest", "Next"],
   settings: ["Set the pass mark to 80%", "Allow 2 tries on each situation", "Wait 24 hours between tries", "Next"],
   assign: ["Publish", "Who should take it?"],
 };
 const HELP = {
-  details: "Here I can rename the training, change the objective, and move, rename or remove lessons. Attach a file with the paperclip to add it as a lesson. Say “next” for the objectives.",
-  objectives: "Describe an objective and I'll add it, drawn from your material: what reps should be able to do, and who it involves. Open one to add situations or change its criteria. Attach a file to use it as information for the training.",
-  objective: "Add a situation to this objective (who the rep meets and what happens), rename it, or tell me how much a criterion counts, like “put 40% on objection handling”.",
+  objectives: "Describe an objective and I'll add it, drawn from your material: what reps should be able to do, and who it involves. Say “remove objective 2” to drop one, or open one to sharpen it. Attach a file to use it as information for the training.",
+  objective: "Tell me what good looks like (“good looks like: …”), who it involves, a new name, or how much a criterion counts, like “put 40% on objection handling”.",
+  situations: "Describe a situation and I'll add it under the highlighted objective: who the rep meets (one person) and what happens. Use “Add a situation” in a column to pick the objective. Say “next” for the settings.",
   settings: "Here I can set the pass mark, the tries on each situation, the wait between tries, hints on the scored call, and which situations screening uses. Say “next” to publish and assign.",
   assign: "Once it's published, choose who takes it on this page: the teams or people, required or optional, and by when.",
 };
 
 /**
- * The agent for a training built with the trainer's own material: one conversation for all three
- * steps, on the right of the editor. It knows the step (and the objective) on screen and changes
- * whatever the trainer asks there: details and lessons, objectives and their situations, the pass rules. Edits can be undone;
- * lesson changes wait for an OK.
+ * The agent for a training built with the trainer's own material: one conversation for all four
+ * stages, on the right of the editor. It knows the stage (and the objective) on screen and changes
+ * whatever the trainer asks there: objectives, their situations, the pass rules, the name and files.
+ * Edits can be undone; lesson changes wait for an OK.
  */
 export function TrainingChat({ course }: { course: Course }) {
   const pathname = usePathname();
@@ -61,9 +61,9 @@ export function TrainingChat({ course }: { course: Course }) {
 
   const base = `/trainer/courses/${course.id}`;
   const step = stepOf(pathname, base);
-  const ob = step === 2 && search.get("obj") ? course.objectives?.find((x) => x.id === search.get("obj")) : undefined;
-  const ctx = step === 1 ? "details" : step === 3 ? "settings" : step === 4 ? "assign" : ob ? "objective" : "objectives";
-  const where = step === 2 && ob ? `Objective · ${ob.title}` : STAGES[step - 1].label;
+  const ob = step <= 2 && search.get("obj") ? course.objectives?.find((x) => x.id === search.get("obj")) : undefined;
+  const ctx = step === 1 ? (ob ? "objective" : "objectives") : step === 2 ? "situations" : step === 3 ? "settings" : "assign";
+  const where = step === 1 && ob ? `Objective · ${ob.title}` : STAGES[step - 1].label;
   const editable = !!data?.editable;
   const say = (t: string, extra?: Partial<TrainingTurn>) => chat.push(course.id, { id: turnId("a"), from: "ai", text: t, ...extra });
 
@@ -72,7 +72,7 @@ export function TrainingChat({ course }: { course: Course }) {
     const s = useTrainingChat.getState();
     if (!s.threads[course.id]?.length)
       s.push(course.id, { id: turnId("a"), from: "ai", text: data?.editable
-        ? `I'm with you on all three steps of ${course.title}: details and lessons, objectives and their situations, and assigning. Tell me what to change, or pick a suggestion.`
+        ? `I'm with you on all four stages of ${course.title}: objectives, situations, settings, and assigning. Tell me what to change, or pick a suggestion.`
         : `${course.title} v${data?.cur.version} is live and locked. Use “Edit as v${(data?.cur.version ?? 0) + 1}” in the top bar and I'll make changes there.` });
   }, [course.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -103,9 +103,9 @@ export function TrainingChat({ course }: { course: Course }) {
   function intro(n: number) {
     const c = cur();
     const situations = c.scenarioIds.length, obs = c.objectives?.length ?? 0;
-    if (n === 1) return "Stage 1 of 4 · Basic details. Check the name, the objective, and which files reps see. Say “next” when it's right.";
-    if (n === 2) return !obs && !situations ? "Stage 2 of 4 · Objectives & situations. Say “draft objectives” and I'll draw them from your brief and files, each tied to where it comes from. Or describe your own."
-      : `Stage 2 of 4 · Objectives & situations. ${obs} objective${obs === 1 ? "" : "s"}, ${situations} situation${situations === 1 ? "" : "s"}. ${situations ? "Open one to add situations or change its criteria, or say “next”." : "Say “generate” and I'll write example situations for each."}`;
+    if (n === 1) return obs ? `Stage 1 of 4 · Objectives. ${obs} objective${obs === 1 ? "" : "s"}. Tell me what to add, change or remove, or open one to sharpen it. Say “next” for the situations.` : "Stage 1 of 4 · Objectives. Describe what reps should be able to do and I'll add it, tied to your files.";
+    if (n === 2) return situations ? `Stage 2 of 4 · Situations. ${situations} situation${situations === 1 ? "" : "s"} across ${obs} objective${obs === 1 ? "" : "s"}, one column each. Describe another to add it, or say “next”.`
+      : `Stage 2 of 4 · Situations. I'm writing a few for each of the ${obs} objectives now, one column each: the moments on a call where each is tested. Add your own any time.`;
     if (n === 3) return `Stage 3 of 4 · Settings. Pass mark ${c.settings.passRoleplay}% on each situation, ${c.settings.attempts} tries, screening ${c.settings.screening ? "on" : "off"}. Change anything, or say “next”.`;
     return data?.lv ? "Stage 4 of 4 · Assign. It's published: choose who takes it, and by when." : "Stage 4 of 4 · Assign. Publish it first; reps only ever see a published version. Then choose who takes it.";
   }
@@ -123,9 +123,9 @@ export function TrainingChat({ course }: { course: Course }) {
     const id = turnId("a");
     chat.push(course.id, { id, from: "ai", text: "", steps: [], at: 0 });
     addScenario(prompt.replace(/^(add|new|create)\s+(a\s+)?(situation|scenario|case)\s*(:|-)?\s*/i, ""), (steps, at) => useTrainingChat.getState().patch(course.id, id, { steps, at }), (d) => {
-      useTrainingChat.getState().patch(course.id, id, { steps: undefined, text: `Added “${d.title}” with ${d.persona.name} under “${under!.title}”, scored on its criteria.`, link: { href: `${base}/roleplay?obj=${under!.id}`, label: "Show it" } });
+      useTrainingChat.getState().patch(course.id, id, { steps: undefined, text: `Added “${d.title}” with ${d.persona.name} under “${under!.title}”, scored on its criteria.`, link: { href: `${base}/situations?obj=${under!.id}`, label: "Show it" } });
       useTrainingChat.getState().setAdded(d.id);
-      router.replace(`${base}/roleplay?obj=${under!.id}`, { scroll: false });
+      router.replace(`${base}/situations?obj=${under!.id}`, { scroll: false });
     }, under);
   }
 
@@ -138,7 +138,7 @@ export function TrainingChat({ course }: { course: Course }) {
     updateCourse(c.id, { objectives: [...prev, next] });
     useTrainingChat.getState().setAdded(next.id);
     router.replace(`${base}/roleplay?obj=${next.id}`, { scroll: false });
-    say(`Added objective ${prev.length + 1}: “${next.title}”, with ${next.people.map((p) => CHARACTERS[p].label.toLowerCase()).join(", ")}${next.cites.length ? `, from ${next.cites.map((x) => `${source(x.sourceId)?.title ?? "your file"} p. ${x.page}`).join(" and ")}` : ""}. It's scored on ${next.weights.map((w) => `${competency(w.competency)?.name.toLowerCase()} (${w.pct}%)`).join(", ")}. Want a couple of example situations for it? Say “add a situation: …”.`,
+    say(`Added objective ${prev.length + 1}: “${next.title}”, with ${next.people.map((p) => CHARACTERS[p].label.toLowerCase()).join(", ")}${next.cites.length ? `, from ${next.cites.map((x) => `${source(x.sourceId)?.title ?? "your file"} p. ${x.page}`).join(" and ")}` : ""}. It's scored on ${next.weights.map((w) => `${competency(w.competency)?.name.toLowerCase()} (${w.pct}%)`).join(", ")}. I'll write situations for it on the next stage.`,
       { undo: () => updateCourse(c.id, { objectives: prev }) });
   }
 
@@ -153,11 +153,12 @@ export function TrainingChat({ course }: { course: Course }) {
     /* Moving between the stages. */
     if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (step === 4) return say(HELP.assign); if (step === 3 && data!.cur.state !== "published") { say("Here's what goes live. Publish it, and you'll choose who takes it next."); return useTrainingChat.getState().setPublishOpen(true); } say(`On to ${STAGES[step].label.toLowerCase()}.`); return go(step + 1); }
     if (/^(back|previous|go back)\b/.test(l)) { if (step === 1) return say("This is the first stage."); say(`Back to ${STAGES[step - 2].label.toLowerCase()}.`); return go(step - 1); }
-    if (/draft (the )?objectives|suggest objectives/.test(l)) { if (step !== 2) go(2); draftObjectivesFor(c); return; }
-    if (/^generate|example situations|write (the )?examples/.test(l)) {
-      if (!(c.objectives ?? []).length) return say("There are no objectives yet. Say “draft objectives” first.");
+    if (/draft (the )?objectives|suggest objectives/.test(l)) { if (step !== 1) go(1); draftObjectivesFor(c); return; }
+    if (/^generate|example situations|write (the )?(examples|situations)|situations for the rest/.test(l)) {
+      if (!(c.objectives ?? []).length) return say("There are no objectives yet. Describe one first.");
+      if (!(c.objectives ?? []).some((o) => !scs.some((x) => x.objectiveId === o.id))) return say("Every objective has situations already. Describe another and I'll add it.");
       if (step !== 2) go(2);
-      say("Writing example situations for each objective. It takes about two minutes; you can skip ahead on the page.");
+      say("Writing situations for the objectives that have none. You can skip ahead on the page.");
       return useTrainingChat.getState().generate();
     }
     if (/^(save and publish|publish( it)?)$/.test(l)) {
@@ -235,7 +236,22 @@ export function TrainingChat({ course }: { course: Course }) {
         saveObjectiveWeights(c, open, next);
         return say(`${comp.name} counts for ${next[0].pct}% now; the others are scaled to fit: ${next.slice(1).map((w) => `${competency(w.competency)?.name} ${w.pct}%`).join(", ")}. Its situations are scored the same way.`, { undo: () => saveObjectiveWeights(cur(), open, before) });
       }
-      if (prompt.trim().split(/\s+/).length >= 4) return draftSituation(prompt, open);
+      /* Sharpening it: what good looks like, and who it involves. */
+      const good = prompt.match(/^(?:good looks like|look for|they should|a good rep)\s*[:\-]?\s*(.+)$/i)?.[1];
+      const people = (Object.keys(CHARACTERS) as (keyof typeof CHARACTERS)[]).filter((k) => new RegExp(`\\b${CHARACTERS[k].label.toLowerCase()}s?\\b`).test(l) && !open.people.includes(k));
+      if (step === 1 && (good || (people.length && /\b(add|with|involve|include)\b/.test(l)))) {
+        const prev = c.objectives ?? [];
+        const point = good ? good.charAt(0).toUpperCase() + good.slice(1).replace(/\.$/, "") : undefined;
+        updateCourse(c.id, { objectives: prev.map((x) => (x.id === open.id ? { ...x, lookFors: point ? [...lookForsOf(x), point] : x.lookFors, people: [...x.people, ...people] } : x)) });
+        return say([point && `Added to what good looks like: “${point}”.`, people.length && `It involves ${people.map((p) => CHARACTERS[p].label.toLowerCase()).join(" and ")} now too.`].filter(Boolean).join(" "), { undo: () => updateCourse(c.id, { objectives: prev }) });
+      }
+      if (step === 2 && prompt.trim().split(/\s+/).length >= 4) return draftSituation(prompt, open);
+      if (step === 1 && prompt.trim().split(/\s+/).length >= 4) {
+        const prev = c.objectives ?? [];
+        const point = prompt.trim().charAt(0).toUpperCase() + prompt.trim().slice(1).replace(/\.$/, "");
+        updateCourse(c.id, { objectives: prev.map((x) => (x.id === open.id ? { ...x, lookFors: [...lookForsOf(x), point] } : x)) });
+        return say(`Added to what good looks like for “${open.title}”: “${point}”. To add a new objective instead, close this one first.`, { undo: () => updateCourse(c.id, { objectives: prev }) });
+      }
     }
     const n = Number(l.match(/objective\s*(\d+)/)?.[1]);
     if (n && /remove|delete|drop/.test(l)) {
@@ -249,12 +265,13 @@ export function TrainingChat({ course }: { course: Course }) {
     }
 
     /* Lessons. */
-    if (step === 1 || /\b(lesson|file|module)s?\b/.test(l)) {
+    if (/\b(lesson|file|module)s?\b/.test(l)) {
       const r = directRespond(prompt, c, search.get("module") ?? undefined);
       return chat.push(course.id, { id: r.id, from: "ai", text: r.text, changes: r.changes, status: r.status });
     }
-    /* On the objectives, a description is a new objective. */
-    if (step === 2 && prompt.trim().split(/\s+/).length >= 4) return addObjective(prompt);
+    /* On the objectives, a description is a new objective; on the situations, a new situation. */
+    if (step === 1 && prompt.trim().split(/\s+/).length >= 4) return addObjective(prompt);
+    if (step === 2 && prompt.trim().split(/\s+/).length >= 4) return draftSituation(prompt, open);
     return say(HELP[ctx]);
   }
 
@@ -270,16 +287,16 @@ export function TrainingChat({ course }: { course: Course }) {
     window.setTimeout(() => { handle(prompt.trim(), pending); setBusy(false); }, 600);
   }
 
-  /* On the objectives, a file is information for the training (reps don't see it); anywhere else, a new lesson. */
+  /* On the objectives and situations, a file is information for the training (reps don't see it); later, a new lesson. */
   function attach(files: File[]) {
     if (!files.length || !editable) return;
-    const added = upload(files, step === 2 ? "rp" : "rep");
+    const added = upload(files, step <= 2 ? "rp" : "rep");
     const c = cur();
     chat.push(course.id, { id: turnId("u"), from: "you", text: `Attached ${files.map((f) => f.name).join(", ")}` });
-    if (step === 2) {
+    if (step <= 2) {
       const prev = c.roleplaySourceIds ?? [];
       updateCourse(c.id, { roleplaySourceIds: [...prev, ...added.map((a) => a.id)], sourceIds: [...new Set([...c.sourceIds, ...added.map((a) => a.id)])] });
-      return say(`Added ${added.length === 1 ? "it" : "them"} as information for the training: new objectives and situations draw on ${added.length === 1 ? "it" : "them"}, and reps don't see ${added.length === 1 ? "it" : "them"}.`, { undo: () => updateCourse(c.id, { roleplaySourceIds: prev }) });
+      return say(`Added ${added.length === 1 ? "it" : "them"} as information for the training: new objectives and situations draw on ${added.length === 1 ? "it" : "them"}, and reps don't see ${added.length === 1 ? "it" : "them"}. To show ${added.length === 1 ? "it" : "them"} to reps, switch ${added.length === 1 ? "it" : "them"} on under Files.`, { undo: () => updateCourse(c.id, { roleplaySourceIds: prev }) });
     }
     const mods = directModules(added, `d${Date.now().toString(36).slice(-4)}`);
     chat.push(course.id, { id: turnId("a"), from: "ai", text: `I'll add ${added.length === 1 ? "it as a new lesson" : `them as ${added.length} new lessons`} at the end, exactly as uploaded.`, changes: mods.map((m) => ({ kind: "addModule" as const, module: m })), status: "pending" });
@@ -340,7 +357,7 @@ export function TrainingChat({ course }: { course: Course }) {
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         {started && editable && <Suggestions items={suggestions} onPick={send} variant="row" />}
         <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} onAttach={attach}
-          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "details" ? "Rename, change the brief, or move a lesson" : ctx === "objectives" ? "Describe an objective to add" : ctx === "objective" ? "Add a situation, or change this objective" : "Set the pass mark, tries or wait between tries"}
+          placeholder={chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : "Set the pass mark, tries or wait between tries"}
           hint={`On ${where}. Every change can be undone.`} />
       </div>
     </div>

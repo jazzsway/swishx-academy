@@ -1,27 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Briefcase, Check, ChevronDown, Maximize2, Target, Mic, Pill, Plus, Search, ShieldCheck, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
+import { Briefcase, Check, ChevronDown, Target, Pill, Plus, Search, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios, objection } from "@/data/scenarios";
-import { Modal } from "@/components/ui/modal";
 import { competency, source } from "@/data/org";
 import type { Character, Course, Objective, Scenario } from "@/data/types";
-import { CHARACTERS, characterOf, draftFromPrompt, screeningOf, weightsOf, withWeights } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf, draftFromPrompt, weightsOf, withWeights } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { SourcePreview } from "../source-preview";
-import { describe, draftObjectives, exampleSituations, lookForsOf, objectiveFromPrompt } from "@/lib/objectives";
+import { describe, draftObjectives, lookForsOf, objectiveFromPrompt } from "@/lib/objectives";
 import { StageHeader } from "./stage-ui";
 import { CitationPill } from "@/features/shared/citation-pill";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { askFor, turnId, useTrainingChat } from "./training-chat-store";
-
-const GENERATE_SECONDS = 120;
 
 /** One colour per criterion, the same wherever it's shown. */
 const chip = (on: boolean) => cn("inline-flex h-9 items-center gap-1.5 rounded-control border px-2.5 text-caption font-semibold transition-colors", on ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:border-hair-3");
@@ -54,48 +50,11 @@ export function draftObjectivesFor(course: Course) {
   return obs;
 }
 
-/**
- * Step 2: the training's objectives, what reps should be able to do. Each is scored on its own
- * criteria, comes from the trainer's material, and has example situations: one person each, the
- * moments a rep meets it on the call. Reps take every situation back to back. A row opens in place.
- */
-export function ScenarioList({ course, editable }: { course: Course; editable: boolean }) {
-  const custom = useApp((s) => s.scenarios);
-  const updateSettings = useApp((s) => s.updateSettings);
-  const updateCourse = useApp((s) => s.updateCourse);
-  const drafting = useCopilot((s) => s.drafting);
-  const fresh = useTrainingChat((s) => s.added);
-  const router = useRouter();
-  const openId = useSearchParams().get("obj");
-  const [preview, setPreview] = useState<string | null>(null);
-  const [openSc, setOpenSc] = useState<string | null>(null);
-  useEffect(() => { const id = fresh ?? openId; if (id) window.setTimeout(() => document.getElementById(`ob-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }, [fresh, openId]);
-  const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
-  const base = `/trainer/courses/${course.id}`;
-  const obs = course.objectives ?? [];
-  const loose = scs.filter((x) => !obs.some((o) => o.id === x.objectiveId));
-  const screen = screeningOf(course, scs);
-  const inScreen = new Set(screen.map((x) => x.id));
-  const screening = course.settings.screening && scs.length > 0;
-  const toggle = (id: string) => router.replace(openId === id ? `${base}/roleplay` : `${base}/roleplay?obj=${id}`, { scroll: false });
-  const bare = obs.filter((o) => !scs.some((x) => x.objectiveId === o.id));
-  const [q, setQ] = useState("");
-  const [who, setWho] = useState<Character[]>([]);
-  const [needs, setNeeds] = useState(false);
-  const everyone = [...new Set(obs.flatMap((o) => o.people))];
-  const filtered = q.trim() !== "" || who.length > 0 || needs;
-  const shown = obs.map((ob, i) => ({ ob, i })).filter(({ ob }) => {
-    const mine = scs.filter((x) => x.objectiveId === ob.id);
-    if (needs && mine.length) return false;
-    if (who.length && !ob.people.some((p) => who.includes(p))) return false;
-    const hay = [ob.title, describe(ob), ...lookForsOf(ob), ...mine.map((x) => `${x.title} ${x.persona.name}`)].join(" ").toLowerCase();
-    return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
-  });
-  const clear = () => { setQ(""); setWho([]); setNeeds(false); };
-
-  /* Every situation sits under an objective. Ones made before objectives existed go under one drawn from the brief, scored as they were. */
+/** Situations made before objectives existed go under one drawn from the brief, scored as they were. Once per training. */
+export function useHomeStrays(course: Course | undefined, scs: Scenario[]) {
+  const loose = course ? scs.filter((x) => !(course.objectives ?? []).some((o) => o.id === x.objectiveId)).length : 0;
   useEffect(() => {
-    if (!loose.length || homing.has(course.id)) return;
+    if (!course || !loose || homing.has(course.id)) return;
     homing.add(course.id);
     const st = useApp.getState();
     const c = st.courses.find((x) => x.id === course.id) ?? course;
@@ -107,49 +66,39 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
     st.updateCourse(c.id, { objectives: [...(c.objectives ?? []), { ...ob, people }] });
     for (const sc of strays) st.saveScenario({ ...sc, objectiveId: ob.id }, useOf(c, sc));
     homing.delete(course.id);
-  }, [loose.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loose]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
-  /* Example situations for the objectives that have none: about two minutes, one objective at a time, or skip ahead. */
-  const [gen, setGen] = useState<{ left: number; plan: { ob: Objective; scs: Scenario[] }[]; placed: string[] } | null>(null);
-  const asked = useTrainingChat((s) => s.generating);
-  const seen = useRef(asked);
-  useEffect(() => { if (asked !== seen.current) { seen.current = asked; startGen(); } }); // eslint-disable-line react-hooks/exhaustive-deps
-  function startGen() {
-    const c = useApp.getState().courses.find((x) => x.id === course.id) ?? course;
-    const todo = (c.objectives ?? []).filter((o) => !scs.some((x) => x.objectiveId === o.id));
-    if (!todo.length || gen) return;
-    const used = scs.map((x) => x.persona.name);
-    setGen({ left: GENERATE_SECONDS, plan: todo.map((ob) => ({ ob, scs: exampleSituations(c, ob, used) })), placed: [] });
-  }
-  useEffect(() => {
-    if (!gen) return;
-    const t = window.setTimeout(() => {
-      const left = gen.left - 1;
-      const due = Math.min(gen.plan.length, Math.floor(((GENERATE_SECONDS - left) / GENERATE_SECONDS) * gen.plan.length + 0.0001));
-      const placed = [...gen.placed];
-      gen.plan.slice(0, due).forEach((p) => { if (!placed.includes(p.ob.id)) { place(p.scs); placed.push(p.ob.id); } });
-      if (left <= 0) finishGen(placed); else setGen({ ...gen, left, placed });
-    }, 1000);
-    return () => window.clearTimeout(t);
-  }, [gen]); // eslint-disable-line react-hooks/exhaustive-deps
-  function place(list: Scenario[]) {
-    const st = useApp.getState();
-    list.forEach((sc, k) => st.saveScenario(sc, { practice: true, final: k === 0 && !st.courses.find((x) => x.id === course.id)?.settings.assessmentScenarioId }));
-  }
-  function finishGen(placed = gen?.placed ?? []) {
-    if (!gen) return;
-    gen.plan.forEach((p) => { if (!placed.includes(p.ob.id)) place(p.scs); });
-    const all = gen.plan.flatMap((p) => p.scs);
-    const c = useApp.getState().courses.find((x) => x.id === course.id) ?? course;
-    if (!c.settings.screeningIds?.length) updateSettings(course.id, { screening: true, screeningCall: true, screeningIds: all.slice(0, 2).map((x) => x.id), baseline: true });
-    useTrainingChat.getState().push(course.id, { id: turnId("a"), from: "ai", text: `Added ${all.length} example situations across ${gen.plan.length} objective${gen.plan.length === 1 ? "" : "s"}. They show how each objective gets tested on a call; open one to see them, add your own, or say “next” for the settings.` });
-    setGen(null);
-  }
+/**
+ * Stage 1: the training's objectives, what reps should be able to do, drafted from the brief and the
+ * files as the training is created. Each comes from the material, involves certain people, and is
+ * scored on its own criteria. The trainer sharpens, adds and removes them in the chat. A row opens in place.
+ */
+export function ObjectiveList({ course, editable }: { course: Course; editable: boolean }) {
+  const custom = useApp((s) => s.scenarios);
+  const updateCourse = useApp((s) => s.updateCourse);
+  const fresh = useTrainingChat((s) => s.added);
+  const router = useRouter();
+  const openId = useSearchParams().get("obj");
+  const [preview, setPreview] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState(false);
+  useEffect(() => { const id = fresh ?? openId; if (id) window.setTimeout(() => document.getElementById(`ob-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }, [fresh, openId]);
+  const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
+  useHomeStrays(course, scs);
+  const base = `/trainer/courses/${course.id}`;
+  const obs = course.objectives ?? [];
+  const toggle = (id: string) => router.replace(openId === id ? `${base}/roleplay` : `${base}/roleplay?obj=${id}`, { scroll: false });
+  const [q, setQ] = useState("");
+  const [who, setWho] = useState<Character[]>([]);
+  const everyone = [...new Set(obs.flatMap((o) => o.people))];
+  const filtered = q.trim() !== "" || who.length > 0;
+  const shown = obs.map((ob, i) => ({ ob, i })).filter(({ ob }) => {
+    if (who.length && !ob.people.some((p) => who.includes(p))) return false;
+    const hay = [ob.title, describe(ob), ...lookForsOf(ob)].join(" ").toLowerCase();
+    return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
+  });
+  const clear = () => { setQ(""); setWho([]); };
 
-  function toggleScreen(id: string) {
-    const ids = inScreen.has(id) ? screen.map((x) => x.id).filter((x) => x !== id) : [...screen.map((x) => x.id), id];
-    if (ids.length) updateSettings(course.id, { screeningIds: ids });
-  }
   function removeObjective(ob: Objective) {
     for (const sc of scs.filter((x) => x.objectiveId === ob.id)) removeSituation(sc);
     const c = useApp.getState().courses.find((x) => x.id === course.id) ?? course;
@@ -157,101 +106,38 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
     router.replace(`${base}/roleplay`, { scroll: false });
   }
 
-  /** A situation, as a tile in its objective's row: who, what happens, and the controls. */
-  const situation = (sc: Scenario) => {
-    const Icon = ROLE_ICON[characterOf(sc)];
-    const on = inScreen.has(sc.id);
-    return (
-      <li key={sc.id} id={`ob-${sc.id}`} className={cn("squircle group flex min-h-[176px] w-[256px] shrink-0 snap-start flex-col gap-2 rounded-panel border border-hair bg-card p-4 shadow-hair transition-shadow hover:shadow-soft", fresh === sc.id && "node-flash border-brand")}>
-        <button type="button" onClick={() => setOpenSc(sc.id)} title="Open the full situation" className="-m-1 flex flex-col gap-2 rounded-control p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
-          <span className="flex w-full items-center gap-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><Icon className="size-4" aria-hidden="true" /></span>
-            <span className="flex min-w-0 flex-1 flex-col leading-tight"><span className="truncate text-caption font-bold text-ink-2">{CHARACTERS[characterOf(sc)].label}</span><span className="truncate text-micro text-ink-3">{sc.persona.name.replace(/,.*$/, "")} · {sc.durationMin} min</span></span>
-            <Maximize2 className="size-3.5 shrink-0 text-ink-4 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
-          </span>
-          <span className="line-clamp-2 text-body font-semibold leading-snug text-ink group-hover:text-brand-deep">{sc.title}</span>
-          {sc.description && <span className="line-clamp-3 text-caption leading-relaxed text-ink-3">{sc.description}</span>}
-        </button>
-        <span className="mt-auto flex items-center gap-1 border-t border-hair pt-2.5">
-          {screening && (
-            <button type="button" aria-pressed={on} disabled={!editable || (on && screen.length === 1)} onClick={() => toggleScreen(sc.id)} title={on ? "In the screening call. Click to take it out." : "Add it to the screening call"}
-              className={cn("flex items-center gap-1 rounded-chip px-2 py-0.5 text-micro font-bold transition-colors disabled:cursor-default", on ? "bg-info-bg text-info" : "text-ink-4 hover:bg-subtle hover:text-ink")}>
-              <ShieldCheck className="size-3" aria-hidden="true" />{on ? "In screening" : "Screening"}
-            </button>
-          )}
-          {editable && sc.custom && <button type="button" aria-label={`Delete ${sc.title}`} title="Delete" onClick={() => removeSituation(sc)} className="ml-auto grid size-7 place-items-center rounded-control text-ink-4 hover:bg-subtle hover:text-danger"><Trash2 className="size-3.5" /></button>}
-        </span>
-      </li>
-    );
-  };
-
-  /** What a situation looks like, for an objective that has none yet. Shown only until one is added. */
-  const example = (ob: Objective) => {
-    const who = ob.people[0] ?? "doctor";
-    const Icon = ROLE_ICON[who];
-    return (
-      <li className="squircle relative flex min-h-[176px] w-[288px] shrink-0 snap-start flex-col gap-2 overflow-hidden rounded-panel border border-dashed border-brand/40 p-4" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent 0 10px, var(--color-tint) 10px 11px)" }}>
-        <span className="absolute right-2.5 top-2.5 rounded-chip bg-brand px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">Example</span>
-        <span className="flex items-center gap-2">
-          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-card text-brand-deep shadow-hair"><Icon className="size-4" aria-hidden="true" /></span>
-          <span className="text-caption font-bold text-ink-2">{CHARACTERS[who].label} · one person, one moment</span>
-        </span>
-        <span className="text-body font-semibold leading-snug text-ink">A {CHARACTERS[who].label.toLowerCase()} brings it up mid-call</span>
-        <span className="text-caption leading-relaxed text-ink-3">“{ob.cites[0]?.quote ? `So is it really ${ob.cites[0].quote.split(" ").slice(0, 6).join(" ")}…?` : "Can you be specific about that?"}” The rep has to {ob.title.charAt(0).toLowerCase() + ob.title.slice(1)}, there and then.</span>
-        <span className="mt-auto flex flex-col gap-1.5 border-t border-dashed border-brand/30 pt-2.5">
-          <Text size="micro" tone="subtle">A situation is one moment where this objective is tested. Add your own, or let SwishX write a couple.</Text>
-          {editable && <span className="flex gap-1.5"><Button size="sm" onClick={startGen}><AgentIcon className="size-3.5" aria-hidden="true" />Write examples</Button><Button size="sm" variant="secondary" onClick={() => { router.replace(`${base}/roleplay?obj=${ob.id}`, { scroll: false }); askFor("situation"); }}>Describe one</Button></span>}
-        </span>
-      </li>
-    );
-  };
-
   return (
-    <div className="flex flex-col gap-4">
-      <StageHeader n={2} sub="What reps should be able to do, and where each is tested on a call." />
+    <div className="flex flex-col gap-4 pb-4">
+      <StageHeader n={1} sub="What reps should be able to do, drawn from your brief and files. Sharpen, add or remove any in the chat." />
 
-      {/* Nothing yet: draft the objectives from the material. */}
-      {obs.length === 0 && scs.length === 0 && (
+      {/* The training's goal: the brief it was made from, which every objective serves. */}
+      <section className="squircle flex items-start gap-3 rounded-panel border border-hair bg-card px-4 py-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-control bg-tint text-brand-deep"><Target className="size-4" aria-hidden="true" /></span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">Goal</Text>
+          {editingGoal
+            ? <textarea autoFocus aria-label="Goal" rows={2} value={course.brief ?? ""} onChange={(e) => updateCourse(course.id, { brief: e.target.value, objective: e.target.value })} onBlur={() => setEditingGoal(false)}
+                className="w-full resize-none rounded-control border border-brand/50 bg-card px-2 py-1 text-body leading-relaxed text-ink outline-none" />
+            : <Text size="body" className="leading-relaxed text-ink-2">{course.brief || course.objective || "Say what reps should be able to do overall."}</Text>}
+        </div>
+        {editable && !editingGoal && <button type="button" onClick={() => setEditingGoal(true)} className="shrink-0 rounded-control px-2 py-1 text-caption font-semibold text-brand-deep hover:bg-tint">Edit</button>}
+      </section>
+
+      {/* None left: write one, or draw them from the material again. */}
+      {obs.length === 0 && (
         <section className="squircle flex flex-col items-center gap-3 rounded-card border border-dashed border-hair-3 bg-card px-6 py-10 text-center">
           <span className="grid size-12 place-items-center rounded-full bg-tint text-brand"><Target className="size-6" aria-hidden="true" /></span>
-          <Text size="title" weight="bold">No objectives yet</Text>
-          <Text size="body" tone="muted" className="max-w-[460px]">SwishX drafts them from your objective and every file, and shows where each comes from. You can add your own in the chat.</Text>
-          {editable && <div className="flex gap-2"><Button onClick={() => draftObjectivesFor(course)}><AgentIcon className="size-4" aria-hidden="true" />Draft objectives</Button><Button variant="secondary" onClick={() => askFor("objective")}>Write my own</Button></div>}
+          <Text size="title" weight="bold">No objectives</Text>
+          <Text size="body" tone="muted" className="max-w-[460px]">Describe one in the chat, or let SwishX draw them from your goal and files again.</Text>
+          {editable && <div className="flex gap-2"><Button onClick={() => askFor("objective")}>Write one</Button><Button variant="secondary" onClick={() => draftObjectivesFor(course)}><AgentIcon className="size-4" aria-hidden="true" />Draft from my files</Button></div>}
         </section>
       )}
 
-      {/* Objectives without examples yet: generate them, with the timer. */}
-      {editable && (bare.length > 0 || gen) && (
-        <section className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-tint-line bg-tint/60 px-4 py-3">
-          {gen ? (
-            <>
-              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <Text size="body" weight="semibold">Generating example situations · <span className="tabular-nums">{Math.floor(gen.left / 60)}:{String(gen.left % 60).padStart(2, "0")}</span> left</Text>
-                <span className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]"><span className="block h-full rounded-full bg-brand transition-all" style={{ width: `${((GENERATE_SECONDS - gen.left) / GENERATE_SECONDS) * 100}%` }} /></span>
-              </span>
-              <Button size="sm" variant="secondary" onClick={() => finishGen()}>Skip ahead</Button>
-            </>
-          ) : (
-            <>
-              <Text size="body" className="min-w-0 flex-1"><b>{bare.length} objective{bare.length === 1 ? " has" : "s have"} no situations yet.</b> SwishX writes a couple of examples for each, so you can see how it&apos;s tested on a call.</Text>
-              <Button size="sm" onClick={startGen}><AgentIcon className="size-4" aria-hidden="true" />Generate example situations</Button>
-            </>
-          )}
-        </section>
-      )}
-
-      {screening && (
-        <section id="screening" className="squircle flex scroll-mt-4 flex-wrap items-center gap-3 rounded-panel border border-info/20 bg-info-bg/40 px-4 py-2.5">
-          <ShieldCheck className="size-4 shrink-0 text-info" aria-hidden="true" />
-          <Text size="body" tone="muted" className="min-w-0 flex-1"><b className="text-ink">Screening</b> · a 3-minute call from {screen.length} situation{screen.length === 1 ? "" : "s"} before the lessons. Not graded.</Text>
-        </section>
-      )}
-
-      {obs.length > 1 && (
+      {obs.length > 3 && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-control border border-hair-2 bg-card px-3 transition-colors focus-within:border-brand/60">
             <Search className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search objectives and situations" aria-label="Search objectives and situations" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-4" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search objectives" aria-label="Search objectives" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-4" />
             {q && <button type="button" aria-label="Clear search" onClick={() => setQ("")} className="grid size-5 place-items-center rounded-full text-ink-4 hover:bg-subtle hover:text-ink"><X className="size-3.5" /></button>}
           </label>
           {everyone.map((p) => {
@@ -263,7 +149,6 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
               </button>
             );
           })}
-          {bare.length > 0 && <button type="button" aria-pressed={needs} onClick={() => setNeeds(!needs)} className={chip(needs)}>No situations<span className="tabular-nums text-ink-4">{bare.length}</span></button>}
           {filtered && <button type="button" onClick={clear} className="px-1.5 text-caption font-semibold text-brand-deep hover:underline">Clear</button>}
         </div>
       )}
@@ -277,7 +162,6 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
         )}
         {shown.map(({ ob, i }) => {
           const open = openId === ob.id;
-          const mine = scs.filter((x) => x.objectiveId === ob.id);
           return (
             <li key={ob.id} id={`ob-${ob.id}`} className={cn("squircle relative scroll-mt-4 overflow-hidden rounded-card border bg-card transition-all", open ? "border-brand/30 shadow-soft" : "border-hair shadow-hair hover:border-hair-3 hover:shadow-soft", fresh === ob.id && !open && "node-flash")}>
               <div role="button" tabIndex={0} aria-expanded={open} onClick={() => toggle(ob.id)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(ob.id); } }} className={cn("flex w-full cursor-pointer gap-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/40", open ? "items-start p-5" : "items-center px-4 py-3")}>
@@ -287,65 +171,30 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
                   {open ? (
                     <>
                       <span className="mt-0.5 text-body leading-relaxed text-ink-3">{describe(ob)}<CitationPill cites={ob.cites} onView={setPreview} /></span>
-                      <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-ink-3">
-                        <People people={ob.people} />
-                        <span className="size-1 rounded-full bg-hair-3" aria-hidden="true" />
-                        <span className={cn("font-semibold", mine.length ? "text-ink-2" : "text-warn")}>{mine.length ? `${mine.length} situation${mine.length === 1 ? "" : "s"}` : "No situations yet"}</span>
-                      </span>
+                      <span className="mt-2 text-caption text-ink-3"><People people={ob.people} /></span>
                     </>
                   ) : <span className="truncate text-caption text-ink-3">{describe(ob)}</span>}
                 </span>
-                {!open && (
-                  <span className="hidden shrink-0 items-center gap-3 text-caption md:flex">
-                    <People people={ob.people} icons />
-                    <span className={cn("w-[84px] font-semibold", mine.length ? "text-ink-2" : "text-warn")}>{mine.length ? `${mine.length} situation${mine.length === 1 ? "" : "s"}` : "No situations"}</span>
-                  </span>
-                )}
-                <span className="w-20 shrink-0" aria-hidden="true" />
+                {!open && <span className="hidden shrink-0 md:flex"><People people={ob.people} icons /></span>}
                 <ChevronDown className={cn("size-4 shrink-0 text-ink-4 transition-transform", open && "mt-2 rotate-180 text-ink-2")} aria-hidden="true" />
               </div>
-              {mine.length > 0 && (
-                <Link href={`${base}/roleplay/test?run=objective&obj=${ob.id}`} title={`Test the ${mine.length} situation${mine.length === 1 ? "" : "s"} of this objective`}
-                  className={cn("absolute right-12 inline-flex h-8", open ? "top-5" : "top-1/2 -translate-y-1/2", " items-center gap-1.5 rounded-control border border-hair-2 bg-card px-2.5 text-caption font-semibold text-ink-2 transition-colors hover:border-brand hover:text-brand-deep")}>
-                  <Mic className="size-3.5" aria-hidden="true" />Test
-                </Link>
-              )}
               {open && (
                 <div className="flex flex-col gap-6 border-t border-hair bg-canvas/60 p-5">
-                  <Block label={`Situations${mine.length ? ` · ${mine.length}` : ""}`} action={editable && mine.length > 0 && !drafting ? <button type="button" onClick={() => askFor("situation")} className="flex items-center gap-1 text-caption font-semibold text-brand-deep hover:underline"><Plus className="size-3.5" aria-hidden="true" />Add a situation</button> : undefined}>
-                    <ul className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:thin]">
-                      {mine.map(situation)}
-                      {!mine.length && !gen && example(ob)}
-                      {gen && !mine.length && <li className="squircle shimmer grid min-h-[176px] w-[256px] shrink-0 place-items-center rounded-panel bg-tint p-4 text-caption font-semibold text-brand-deep">Writing example situations…</li>}
-                      {drafting && <li className="squircle shimmer grid min-h-[176px] w-[256px] shrink-0 place-items-center rounded-panel bg-tint p-4 text-center text-caption font-semibold text-brand-deep">Drafting “{drafting}”…</li>}
-                      {editable && mine.length > 0 && !drafting && (
-                        <li className="w-[168px] shrink-0">
-                          <button type="button" onClick={() => askFor("situation")} className="squircle flex h-full min-h-[176px] w-full flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed border-hair-3 p-3 text-caption font-semibold text-brand-deep transition-colors hover:border-brand hover:bg-tint">
-                            <span className="grid size-8 place-items-center rounded-full bg-tint"><Plus className="size-4" aria-hidden="true" /></span>Add a situation<span className="font-normal text-ink-3">Describe it in the chat</span>
-                          </button>
-                        </li>
-                      )}
-                    </ul>
-                    {mine.length > 1 && <Text size="caption" tone="subtle">{(course.settings.situationsPerObjective ?? "one") === "one" ? `Each rep is scored on one of these ${mine.length}, drawn for them; a retry draws another. All of them are open for practice.` : `Each rep is scored on all ${mine.length}.`} <Link href={`${base}/settings`} className="font-semibold text-brand-deep hover:underline">Change</Link></Text>}
-                  </Block>
-
-                  <Block label="What good looks like">
+                  <Block label="What good looks like" action={editable ? <Text size="caption" tone="subtle">Add to it in the chat</Text> : undefined}>
                     <ul className="grid gap-2 sm:grid-cols-2">
                       {lookForsOf(ob).map((x) => <li key={x} className="flex items-start gap-2 text-body text-ink-2"><span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-ok-bg text-ok"><Check className="size-3" aria-hidden="true" /></span>{x}</li>)}
                     </ul>
                   </Block>
-
                   <Block label="Scored on" action={editable ? <Text size="caption" tone="subtle">Change it in the chat</Text> : undefined}>
                     <Criteria weights={ob.weights} />
                   </Block>
-
                   {editable && <button type="button" onClick={() => removeObjective(ob)} className="flex items-center gap-1.5 self-end text-caption font-semibold text-ink-4 transition-colors hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Delete objective</button>}
                 </div>
               )}
             </li>
           );
         })}
-        {editable && (obs.length > 0 || scs.length > 0) && (
+        {editable && obs.length > 0 && (
           <li>
             <button type="button" onClick={() => askFor("objective")} className="squircle flex w-full items-center gap-3.5 rounded-card border border-dashed border-hair-3 px-4 py-3 text-left transition-colors hover:border-brand hover:bg-tint">
               <span className="grid size-8 place-items-center rounded-control border border-dashed border-brand/40 text-brand-deep"><Plus className="size-4" aria-hidden="true" /></span>
@@ -355,27 +204,12 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
         )}
       </ol>
       {preview && source(preview) && <SourcePreview s={source(preview)!} onClose={() => setPreview(null)} />}
-      {(() => {
-        const sc = scs.find((x) => x.id === openSc);
-        if (!sc) return null;
-        const on = inScreen.has(sc.id);
-        return (
-          <Modal open onClose={() => setOpenSc(null)} size="md"
-            footer={<>
-              {editable && sc.custom && <Button variant="secondary" className="mr-auto" onClick={() => { removeSituation(sc); setOpenSc(null); }}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>}
-              {screening && editable && <Button variant="secondary" disabled={on && screen.length === 1} onClick={() => toggleScreen(sc.id)}><ShieldCheck className="size-4" aria-hidden="true" />{on ? "Take out of screening" : "Add to screening"}</Button>}
-              <Button onClick={() => setOpenSc(null)}>Done</Button>
-            </>}>
-            <SituationDetail sc={sc} objective={obs.find((o) => o.id === sc.objectiveId)} inScreening={screening && on} />
-          </Modal>
-        );
-      })()}
     </div>
   );
 }
 
 /** A situation in full: who the rep meets, what happens, how it opens, what they'll push on, and how it's scored. */
-function SituationDetail({ sc, objective: ob, inScreening }: { sc: Scenario; objective?: Objective; inScreening: boolean }) {
+export function SituationDetail({ sc, objective: ob, inScreening }: { sc: Scenario; objective?: Objective; inScreening: boolean }) {
   const who = characterOf(sc);
   const Icon = ROLE_ICON[who];
   const pushes = sc.custom?.objections ?? sc.objectionIds.map((x) => objection(x)).filter(Boolean);
@@ -416,7 +250,7 @@ function SituationDetail({ sc, objective: ob, inScreening }: { sc: Scenario; obj
 }
 
 /** A labelled part of an opened objective, the same everywhere. */
-function Block({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
+export function Block({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
       <span className="flex items-center gap-2"><Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="flex-1">{label}</Text>{action}</span>
@@ -426,7 +260,7 @@ function Block({ label, action, children }: { label: string; action?: ReactNode;
 }
 
 /** The kinds of people an objective involves: their icons, overlapping, then their names. */
-function People({ people, icons }: { people: Character[]; icons?: boolean }) {
+export function People({ people, icons }: { people: Character[]; icons?: boolean }) {
   return (
     <span className="flex items-center gap-2">
       <span className="flex -space-x-1.5">

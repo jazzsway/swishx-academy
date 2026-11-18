@@ -38,7 +38,7 @@ function SingleTest({ embedded }: { embedded?: boolean }) {
   const search = useSearchParams();
   const sc = getScenario(search.get("sc") ?? search.get("scenario") ?? "sc-kim");
   /* Inside the course workspace the call runs on the canvas, and "back" is the call tree. */
-  const back = embedded ? `/trainer/courses/${sc.courseId}/roleplay?${sc.objectiveId ? `obj=${sc.objectiveId}` : `sc=${sc.id}`}` : search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
+  const back = embedded ? (sc.objectiveId ? `/trainer/courses/${sc.courseId}/situations?obj=${sc.objectiveId}` : `/trainer/courses/${sc.courseId}/roleplay?sc=${sc.id}`) : search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
   const otherHref = (id: string) => (embedded ? `/trainer/courses/${sc.courseId}/roleplay/test?sc=${id}` : `/trainer/test-call?scenario=${id}&back=${encodeURIComponent(back)}`);
   const course = useApp((s) => s.courses.find((c) => c.id === sc.courseId));
   const others = allScenarios().filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
@@ -59,7 +59,7 @@ function SingleTest({ embedded }: { embedded?: boolean }) {
 
   const top = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? (course?.origin === "direct" ? "Objectives" : "Call tree") : "AI roleplay"}</Link>
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? (course?.origin === "direct" ? "Situations" : "Call tree") : "AI roleplay"}</Link>
       <span className="text-ink-4">/</span>
       <Text size="body" weight="semibold" className="text-ink-2">{embedded ? (course?.origin === "direct" ? sc.title : sc.persona.name) : course?.title}</Text>
       {embedded && stage !== "brief" && (
@@ -208,7 +208,7 @@ function SingleTest({ embedded }: { embedded?: boolean }) {
             <Button size="lg" onClick={start}><RotateCcw className="size-4" aria-hidden="true" />Call again</Button>
             {!embedded && <Button size="lg" variant="secondary" onClick={() => setStage("brief")}>Change how you test</Button>}
             {others.map((o) => <Link key={o.id} href={otherHref(o.id)} className="py-1 text-center text-body font-semibold text-brand-deep hover:underline">Test {o.persona.name} next</Link>)}
-            <Link href={back} className="py-1 text-center text-body font-semibold text-ink-3 hover:text-ink">{embedded ? "Back to the call tree" : "Back to AI roleplay"}</Link>
+            <Link href={back} className="py-1 text-center text-body font-semibold text-ink-3 hover:text-ink">{embedded ? (course?.origin === "direct" ? "Back to the situations" : "Back to the call tree") : "Back to AI roleplay"}</Link>
           </div>
         </div>
       </div>

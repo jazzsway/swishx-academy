@@ -1,39 +1,33 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { source } from "@/data/org";
-import type { Block, Source } from "@/data/types";
+import type { Block, Course, Source } from "@/data/types";
 import { Text } from "@/components/ui/text";
-import { IconButton } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { directModules } from "../materials";
 import { FORMAT_ICON, FORMAT_LABEL, SourcePreview } from "../source-preview";
 import { THUMB, kindOf, lengthOf, useUpload } from "../direct-course";
-import { useCourse } from "./use-course";
-import { Card } from "@/components/patterns/academy";
-import { StageHeader } from "./stage-ui";
 
 const sourceOf = (b?: Block) => b?.file?.sourceId ?? b?.visualaid?.sourceId ?? b?.document?.sourceId;
 
 /**
- * Stage 1, basic details: the name, the objective, and the material. Every file is either visible to
- * reps (a lesson, exactly as uploaded, in this order) or information only, which the training uses
- * for its objectives and situations but reps never see.
+ * The training's files, from the top bar: every file is either visible to reps (a lesson, exactly as
+ * uploaded, in this order) or information only, which the training uses for its objectives and
+ * situations but reps never see. Chosen first when the files are added; changed here later.
  */
-export function TrainingDetails() {
-  const { id } = useParams<{ id: string }>();
+export function MaterialsDialog({ course, editable, onClose }: { course: Course; editable: boolean; onClose: () => void }) {
   const router = useRouter();
-  const data = useCourse(id);
   const updateCourse = useApp((s) => s.updateCourse);
   const setModules = useApp((s) => s.setModules);
   useApp((s) => s.uploads);
-  const upload = useUpload(data?.course.productId);
+  const upload = useUpload(course.productId);
   const [preview, setPreview] = useState<Source | null>(null);
-  if (!data) return null;
-  const { course, editable } = data;
   const base = `/trainer/courses/${course.id}`;
   const lessons = course.modules.map((m) => ({ m, src: source(sourceOf(m.blocks[0]) ?? "") }));
   const info = (course.roleplaySourceIds ?? []).map((x) => source(x)).filter((x): x is Source => !!x);
@@ -61,51 +55,37 @@ export function TrainingDetails() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <StageHeader n={1} sub="Name it, set the objective, and choose which files reps see." />
-
-      <Section label="Name">
-        <input aria-label="Training name" value={course.title} disabled={!editable} onChange={(e) => updateCourse(course.id, { title: e.target.value })}
-          className="w-full bg-transparent text-title font-bold text-ink outline-none placeholder:text-ink-4" placeholder="Name the training" />
-      </Section>
-
-      <Section label="Objective" hint="What reps should be able to do overall">
-        <textarea aria-label="Objective" value={course.brief ?? ""} disabled={!editable} rows={3} onChange={(e) => updateCourse(course.id, { brief: e.target.value, objective: e.target.value })}
-          className="w-full resize-none rounded-control border border-hair-2 bg-card px-3 py-2 text-body-lg leading-relaxed text-ink outline-none focus:border-brand/60" placeholder="e.g. Reps can present the new trial results exactly as approved." />
-      </Section>
-
-      <Section label="Materials" hint={`${lessons.length} visible to reps · ${info.length} information only`}>
-        <ul className="flex flex-col gap-1.5">
-          {lessons.map(({ m, src }, i) => (
-            <Row key={m.id} title={m.title} src={src} visible sub={`Lesson ${i + 1} · ${src ? `${FORMAT_LABEL[kindOf(src)]} · ${lengthOf(src)}` : `${m.minutes} min`}`}
-              onToggle={editable ? () => hide(m.id, src) : undefined} onPreview={() => (src ? setPreview(src) : router.push(`${base}?module=${m.id}`))}
-              onRemove={editable ? () => setModules(course.id, course.modules.filter((x) => x.id !== m.id)) : undefined}
-              order={editable ? <><IconButton aria-label={`Move ${m.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp className="size-4" /></IconButton><IconButton aria-label={`Move ${m.title} down`} disabled={i === lessons.length - 1} onClick={() => move(i, i + 1)}><ChevronDown className="size-4" /></IconButton></> : undefined} />
-          ))}
-          {info.map((src) => (
-            <Row key={src.id} title={src.title} src={src} visible={false} sub="Information only. Used for the training, not visible to reps."
-              onToggle={editable ? () => show(src) : undefined} onPreview={() => setPreview(src)}
-              onRemove={editable ? () => updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) }) : undefined} />
-          ))}
-        </ul>
-        {editable && (
-          <label className="flex cursor-pointer items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline">
-            <Plus className="size-4" aria-hidden="true" />Add files
-            <input type="file" multiple className="sr-only" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-          </label>
-        )}
-        <Text size="caption" tone="subtle">Files reps don&apos;t see are still used for the training: the agent, the objectives and the situations draw on them.</Text>
-      </Section>
+    <>
+      <Modal open onClose={onClose} size="lg" title="Files" description={`${lessons.length} visible to reps as lessons · ${info.length} information only`}
+        footer={<>
+          {editable && (
+            <label className="mr-auto flex cursor-pointer items-center gap-1.5 text-body font-semibold text-brand-deep hover:underline">
+              <Plus className="size-4" aria-hidden="true" />Add files
+              <input type="file" multiple className="sr-only" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+            </label>
+          )}
+          <Button onClick={onClose}>Done</Button>
+        </>}>
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1.5">
+            {lessons.map(({ m, src }, i) => (
+              <Row key={m.id} title={m.title} src={src} visible sub={`Lesson ${i + 1} · ${src ? `${FORMAT_LABEL[kindOf(src)]} · ${lengthOf(src)}` : `${m.minutes} min`}`}
+                onToggle={editable ? () => hide(m.id, src) : undefined} onPreview={() => (src ? setPreview(src) : router.push(`${base}?module=${m.id}`))}
+                onRemove={editable ? () => setModules(course.id, course.modules.filter((x) => x.id !== m.id)) : undefined}
+                order={editable ? <><IconButton aria-label={`Move ${m.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp className="size-4" /></IconButton><IconButton aria-label={`Move ${m.title} down`} disabled={i === lessons.length - 1} onClick={() => move(i, i + 1)}><ChevronDown className="size-4" /></IconButton></> : undefined} />
+            ))}
+            {info.map((src) => (
+              <Row key={src.id} title={src.title} src={src} visible={false} sub="Information only. Used for the training, not visible to reps."
+                onToggle={editable ? () => show(src) : undefined} onPreview={() => setPreview(src)}
+                onRemove={editable ? () => updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) }) : undefined} />
+            ))}
+            {!lessons.length && !info.length && <li className="rounded-panel border border-dashed border-hair-3 px-4 py-6 text-center text-body text-ink-3">No files yet.</li>}
+          </ul>
+          <Text size="caption" tone="subtle">Files reps don&apos;t see are still used for the training: the agent, the objectives and the situations draw on them.</Text>
+        </div>
+      </Modal>
       {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
-    </div>
-  );
-}
-
-function Section({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <Card title={label} actions={hint ? <Text size="caption" tone="subtle">{hint}</Text> : undefined}>
-      <div className="-mt-1 flex flex-col gap-3">{children}</div>
-    </Card>
+    </>
   );
 }
 

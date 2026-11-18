@@ -36,14 +36,14 @@ export function PublishDialog({ course }: { course: Course }) {
   const info = (course.roleplaySourceIds ?? []).length;
   const must = st.criticalCompetencies.filter((c) => obs.some((o) => o.weights.some((w) => w.competency === c)));
   const blockers = [
-    !course.modules.length && { text: "No lessons yet. Reps need at least one file to learn from.", href: `${base}/details`, fix: "Add a file" },
-    !scs.length && { text: "No situations yet, so there's nothing to call on.", href: `${base}/roleplay`, fix: "Add situations" },
+    !course.modules.length && { text: "No lessons yet. Reps need at least one file to learn from.", href: `${base}/roleplay?files=1`, fix: "Add a file" },
+    !scs.length && { text: "No situations yet, so there's nothing to call on.", href: `${base}/situations`, fix: "Add situations" },
   ].filter((x): x is { text: string; href: string; fix: string } => !!x);
-  const warnings = bare.length ? [{ text: `${bare.length} objective${bare.length === 1 ? " has" : "s have"} no situations, so ${bare.length === 1 ? "it isn't" : "they aren't"} tested yet.`, href: `${base}/roleplay`, fix: "Add situations" }] : [];
+  const warnings = bare.length ? [{ text: `${bare.length} objective${bare.length === 1 ? " has" : "s have"} no situations, so ${bare.length === 1 ? "it isn't" : "they aren't"} tested yet.`, href: `${base}/situations`, fix: "Add situations" }] : [];
   const close = () => setOpen(false);
   const go = (href: string) => { close(); router.push(href); };
   const lines = [
-    { label: "Lessons", value: `${course.modules.length} file${course.modules.length === 1 ? "" : "s"} reps see${info ? ` · ${info} information only` : ""}`, href: `${base}/details` },
+    { label: "Lessons", value: `${course.modules.length} file${course.modules.length === 1 ? "" : "s"} reps see${info ? ` · ${info} information only` : ""}`, href: `${base}/roleplay?files=1` },
     { label: "Objectives", value: `${obs.length} objective${obs.length === 1 ? "" : "s"} · ${scs.length} situation${scs.length === 1 ? "" : "s"}`, href: `${base}/roleplay` },
     { label: "Rules", value: `Pass ${st.passRoleplay}% · ${st.attempts} ${st.attempts === 1 ? "try" : "tries"} · screening ${st.screening ? "on" : "off"}${st.finalNoHints === false ? " · assisted" : ""} · recertify every ${st.recertMonths} mo`, href: `${base}/settings` },
     { label: "Must pass", value: must.length ? must.map((c) => competency(c)?.name).join(", ") : "None", href: `${base}/settings` },

@@ -18,7 +18,7 @@ import { Composer, Suggestions } from "@/features/copilot/composer";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 import { SourcePreview } from "../source-preview";
-import { ScenarioList, useAddScenario } from "./scenarios";
+import { ObjectiveList, useAddScenario } from "./scenarios";
 import { useTrainingChat } from "./training-chat-store";
 
 type Role = "screening" | "final";
@@ -109,7 +109,7 @@ export function RoleplaySetup() {
   const editable = data.editable;
   /* A training with the trainer's own material shows its scenarios as a list; ?sc= opens one in place. */
   const direct = course.origin === "direct";
-  if (direct) return <ScenarioList course={course} editable={editable} />;
+  if (direct) return <ObjectiveList course={course} editable={editable} />;
 
   const chat = editable && !direct && (
     <CopilotOverride>

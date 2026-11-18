@@ -23,7 +23,7 @@ import { BLOCK_META } from "@/features/shared/block-view";
 import { useCourse } from "./use-course";
 import { questionCount } from "./question-index";
 import { runChecks } from "./checks";
-import { DirectTopBar, StepperRail } from "./step-rail";
+import { DirectTopBar, StageFooter, StepperRail } from "./step-rail";
 import { TrainingChat } from "./training-chat";
 
 const PANEL_MIN = 320;
@@ -91,8 +91,9 @@ function Workspace({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1">
         {direct ? <StepperRail course={data.course} /> : sectionOf(pathname, `/trainer/courses/${id}`) === "build" && <Rail course={data.course} editable={data.editable} />}
         <main className="min-w-0 flex-1 overflow-y-auto bg-subtle/60 [scrollbar-width:thin]" id="workspace-canvas">
-          <div className="page-enter mx-auto flex w-full max-w-[980px] flex-col gap-4 px-5 py-6 lg:px-8">
-            {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay") || pathname.endsWith("/details")) && (
+          {/* The situations board runs its objectives side by side, so it takes the whole width. */}
+          <div className={cn("page-enter mx-auto flex w-full flex-col gap-4 px-5 py-6 lg:px-8", direct && pathname.endsWith("/situations") ? "max-w-none" : "max-w-[980px]")}>
+            {!data.editable && (pathname === `/trainer/courses/${id}` || pathname.endsWith("/roleplay") || pathname.endsWith("/situations")) && (
               <div className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3">
                 <Lock className="size-4 text-ink-3" aria-hidden="true" />
                 <Text size="body" tone="muted" className="flex-1">v{data.cur.version} is live and locked. Editing creates v{data.cur.version + 1} as a draft; v{data.cur.version} stays live until you publish it.</Text>
@@ -100,6 +101,7 @@ function Workspace({ children }: { children: ReactNode }) {
             )}
             {children}
           </div>
+          {direct && <StageFooter />}
         </main>
         {agent}
       </div>
