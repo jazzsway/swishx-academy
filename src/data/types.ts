@@ -345,6 +345,8 @@ export interface CourseSettings {
   baseline?: boolean;
   /** The final test gives no hints and no prompts. */
   finalNoHints?: boolean;
+  /** Direct trainings: how many of an objective's situations a rep is scored on. One, drawn per rep (default), or all. */
+  situationsPerObjective?: "one" | "all";
   verify: "auto" | "manager";
   recertMonths: number;
   attestation: string;
@@ -481,6 +483,8 @@ export interface Progress {
   attempts: Attempt[];
   /** Direct trainings: where the rep stands on each scenario of the call. */
   scenarioRuns?: Record<string, ScenarioRun>;
+  /** "1 drawn" per objective: the situation drawn for this rep, by objective id. A retry draws again. */
+  draws?: Record<string, string>;
   verify?: {
     status: "pending" | "approved" | "needs_coaching";
     requestedAt: string;

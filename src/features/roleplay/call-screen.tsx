@@ -28,11 +28,13 @@ const MODE: Record<CallMode, { label: string; tone: string }> = {
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
 };
 
-export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted, hints, run }: {
+export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onComplete, onExit, personaOverride, skipPrep, showSamples, onChange, assisted, hints, run, covers }: {
   scenario: Scenario; objectionIds?: string[]; mode: CallMode; voiceAllowed: boolean;
   onComplete: (r: CallOutcome, meta: { assisted: boolean; hints: number }) => void;
   /** Assisted mode on a scored call (a training setting): a Hint button the rep can tap when stuck. */
   hints?: boolean;
+  /** One call that covers several objectives with the same person: what comes up, in order. */
+  covers?: { objective: string; situation: string }[];
   /** Practice only: start with live prompts on. The rep can switch before the call starts. */
   assisted?: boolean; onExit: () => void; personaOverride?: Partial<Scenario["persona"]>;
   /** The page did its own briefing: go straight into the call. */
@@ -126,7 +128,21 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
           {sc.persona.traits.length > 0 && <div className="-mt-2 flex flex-wrap gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-white/10 px-2.5 py-1 text-caption text-white/85">{t}</span>)}</div>}
 
           {/* What's happening, and what you're there to do. */}
-          {sc.description && (
+          {covers && (
+            <div className="squircle flex flex-col gap-2.5 rounded-panel bg-white/[0.06] p-4">
+              <span className="text-micro font-bold uppercase tracking-wider text-white/50">This call covers {covers.length} objectives</span>
+              <ol className="flex flex-col gap-2">
+                {covers.map((x, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-micro font-extrabold">{i + 1}</span>
+                    <span className="flex min-w-0 flex-col"><Text size="body" weight="bold" tone="inverse" className="leading-snug">{x.objective}</Text><Text size="caption" tone="inverse" className="opacity-60">{x.situation}</Text></span>
+                  </li>
+                ))}
+              </ol>
+              <Text size="caption" tone="inverse" className="opacity-55">{sc.persona.name.replace(/,.*$/, "")} brings each one up in turn. Each is scored on its own, so a slip on one doesn&apos;t cost you the others.</Text>
+            </div>
+          )}
+          {!covers && sc.description && (
             <div className="squircle flex flex-col gap-1.5 rounded-panel bg-white/[0.06] p-4">
               <span className="text-micro font-bold uppercase tracking-wider text-white/50">The situation</span>
               <Text size="body-lg" weight="bold" tone="inverse" className="leading-snug">{sc.title}</Text>
@@ -185,7 +201,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         <div className="flex min-w-0 flex-1 flex-col">
           <Text size="body-lg" weight="bold" tone="inverse" truncate>{sc.persona.name}</Text>
           <span className="flex items-center gap-1.5 text-caption text-white/60">
-            {mode === "practice" && <Lock className="size-3" aria-hidden="true" />}{run ? `${run.label} · ` : ""}{MODE[mode].label}
+            {mode === "practice" && <Lock className="size-3" aria-hidden="true" />}{run ? `${run.label} · ` : covers ? `${covers.length} objectives · ` : ""}{MODE[mode].label}
           </span>
         </div>
         <Text size="body-lg" weight="bold" tone="inverse" tabular className="opacity-80">{mmss(elapsed)}</Text>

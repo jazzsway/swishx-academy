@@ -10,12 +10,12 @@ import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/librar
 import { seed } from "@/data/seed";
 import { TODAY, registerUploads } from "@/data/org";
 import { registerScenarios } from "@/data/scenarios";
-import { FIELD_KIT_MANAGER, FIELD_KIT_OBJECTIVES, FIELD_KIT_SCENARIO, FIELD_KIT_SCREENER, FIELD_KIT_ID } from "@/data/courses/field-kit";
+import { FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, FIELD_KIT_OBJECTIVES, FIELD_KIT_SCENARIO, FIELD_KIT_SCREENER, FIELD_KIT_ID } from "@/data/courses/field-kit";
 import { buildPath } from "@/lib/learning";
 import { POINTS, seedPoints } from "@/lib/points";
 
 /* Seeded roleplays are findable before saved state loads. */
-registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER]);
+registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY]);
 
 /** The field structure is set up by the SwishX team; clients ask for changes rather than edit it. */
 export interface StructureRequest {
@@ -116,6 +116,8 @@ export interface AppState extends Seeded {
   submitAssessment: (progressId: string, attempt: Attempt) => void;
   /** One scenario of a direct training's call, scored. A retry replaces the earlier result. */
   saveScenarioRun: (progressId: string, scenarioId: string, r: { score: number; passed: boolean; call?: RoleplayResult; scores?: Record<string, number>; hints?: number }) => void;
+  /** The situations drawn for a rep's next call, by objective. */
+  setDraws: (progressId: string, draws: Record<string, string>) => void;
   /** A direct training's screening, one situation at a time, so stopping partway keeps what's done. */
   saveScreeningPart: (progressId: string, scenarioId: string, result: NonNullable<Progress["screeningPart"]>[number]["result"]) => void;
   attest: (progressId: string, name: string) => void;
@@ -179,7 +181,7 @@ function initial() {
     structureRequests: [] as StructureRequest[],
     uploads: [] as Source[],
     /* The direct course's roleplay ships in the demo; trainers' own join it. */
-    scenarios: [FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER] as Scenario[],
+    scenarios: [FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY] as Scenario[],
   };
 }
 
@@ -236,7 +238,7 @@ export const useApp = create<AppState>()(
       updateUser: (userId, patch) => set((s) => ({ users: s.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
       setPresenter: (v) => set({ presenter: v }),
       requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
-      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
+      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
       completeOnboarding: (userId) => set((s) => ({ onboarded: { ...s.onboarded, [userId]: true } })),
       setVoiceConsent: (userId, v) => set((s) => ({ voiceConsent: { ...s.voiceConsent, [userId]: v } })),
 
@@ -510,6 +512,9 @@ export const useApp = create<AppState>()(
           }),
         })),
 
+      setDraws: (progressId, draws) =>
+        set((s) => ({ progress: s.progress.map((p) => (p.id === progressId ? { ...p, draws: { ...p.draws, ...draws } } : p)) })),
+
       saveScreeningPart: (progressId, scenarioId, result) =>
         set((s) => ({
           progress: s.progress.map((p) => (p.id === progressId
@@ -683,13 +688,13 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 32,
-      /* From v29 to v31: keep everything a trainer made; only give the field kit its objectives, the practice manager and assisted mode. */
+      version: 33,
+      /* From v29 to v32: keep everything a trainer made; only give the field kit its objectives, the practice manager and assisted mode. */
       migrate: (persisted, from) => {
-        if (from < 29 || from > 31) return initial() as unknown as AppState;
+        if (from < 29 || from > 32) return initial() as unknown as AppState;
         const st = persisted as AppState;
-        const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER];
-        const courses = st.courses.map((c) => (c.id === FIELD_KIT_ID ? { ...c, settings: { ...c.settings, finalNoHints: false }, objectives: FIELD_KIT_OBJECTIVES, scenarioIds: [...new Set([...c.scenarioIds, FIELD_KIT_MANAGER.id])] } : c));
+        const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
+        const courses = st.courses.map((c) => (c.id === FIELD_KIT_ID ? { ...c, settings: { ...c.settings, finalNoHints: false }, objectives: FIELD_KIT_OBJECTIVES, scenarioIds: [...new Set([...c.scenarioIds, FIELD_KIT_MANAGER.id, FIELD_KIT_SAFETY.id])] } : c));
         return { ...st, scenarios, courses };
       },
       storage: createJSONStorage(() => localStorage),

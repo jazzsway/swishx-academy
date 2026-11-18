@@ -14,6 +14,7 @@ export const FIELD_KIT_ID = "c-fieldkit";
 export const FIELD_KIT_SCENARIO_ID = "sc-fieldkit";
 export const FIELD_KIT_SCREENER_ID = "sc-fieldkit-screen";
 export const FIELD_KIT_MANAGER_ID = "sc-fieldkit-pm";
+export const FIELD_KIT_SAFETY_ID = "sc-fieldkit-ae";
 
 /** The team's own video. There's no file behind it in the demo, so it plays as the stand-in. */
 const MOA_VIDEO: Source = {
@@ -55,6 +56,15 @@ export const FIELD_KIT_MANAGER: Scenario = {
   objective: "Explain the Lumora support program to Dana, without promising coverage, and agree a next step.",
 };
 
+/** A doctor who mentions a patient's reaction: fair balance, and the adverse event reported. */
+const ae = draftScenario({ courseId: FIELD_KIT_ID, productId: "p-lumora", sources: ROLEPLAY_DOCS.map(src), sellingModelId: "src-selling", id: FIELD_KIT_SAFETY_ID, name: "Dr. Marcus Lee", createdAt: "2026-11-05T10:08:00" });
+export const FIELD_KIT_SAFETY: Scenario = {
+  ...withWeights(ae, [{ competency: "c-safety", pct: 50 }, { competency: "c-compliance", pct: 50 }]),
+  title: "A doctor mentions a patient's reaction", character: "doctor", objectiveId: "ob-fk-safety", durationMin: 3,
+  description: "Mid-call, Dr. Lee mentions a patient who got a rash after a dose. Keep fair balance, and say you'll report it within 24 hours.",
+  objective: "Give Dr. Lee the safety information in balance, and report the adverse event he mentions.",
+};
+
 /** What reps should be able to do on the call, each tested by one or more situations. */
 export const FIELD_KIT_OBJECTIVES: Objective[] = [
   {
@@ -71,6 +81,13 @@ export const FIELD_KIT_OBJECTIVES: Objective[] = [
     cites: [{ sourceId: "src-lum-payer", page: 2, quote: "the program provides benefits verification and prior authorization support" }],
     lookFors: ["Explains what the support program takes off the office", "Never promises coverage or a copay amount", "Gives the next step: a benefits check"],
   },
+  {
+    id: "ob-fk-safety", title: "Keep fair balance and report adverse events", people: ["doctor"],
+    description: "Every benefit comes with the safety information, and any side effect a doctor mentions is reported within 24 hours.",
+    weights: [{ competency: "c-safety", pct: 50 }, { competency: "c-compliance", pct: 50 }],
+    cites: [{ sourceId: "src-lum-pi", page: 6, quote: "the most common adverse reactions were injection site reactions" }],
+    lookFors: ["Gives the most common side effects alongside any benefit", "Says the event will be reported within 24 hours", "Doesn't speculate on the cause"],
+  },
 ];
 
 export function fieldKitCourse(settings: Course["settings"]): Course {
@@ -81,7 +98,7 @@ export function fieldKitCourse(settings: Course["settings"]): Course {
     audience: "Field reps · Immunology", writtenFor: "reps", teams: ["div-imm"], divisionId: "div-imm",
     sourceIds: [...REP_FILES.map((s) => s.id), ...ROLEPLAY_DOCS], roleplaySourceIds: ROLEPLAY_DOCS,
     competencyIds: [...new Set(FIELD_KIT_MODULES.map((m) => m.competency))],
-    modules: FIELD_KIT_MODULES, items: [], scenarioIds: [FIELD_KIT_SCREENER_ID, FIELD_KIT_SCENARIO_ID, FIELD_KIT_MANAGER_ID], objectives: FIELD_KIT_OBJECTIVES,
+    modules: FIELD_KIT_MODULES, items: [], scenarioIds: [FIELD_KIT_SCREENER_ID, FIELD_KIT_SCENARIO_ID, FIELD_KIT_MANAGER_ID, FIELD_KIT_SAFETY_ID], objectives: FIELD_KIT_OBJECTIVES,
     brief: "Reps can open a first call with a dermatologist on the right patient, handle the cost objection with the support program, and stay on-label.",
     settings: { ...settings, screeningIds: [FIELD_KIT_SCREENER_ID] },
     versions: [{

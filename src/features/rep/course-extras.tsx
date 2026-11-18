@@ -8,7 +8,7 @@ import { modulesOf, pathModules } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
 import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
-import { objectiveGroups, scenarioStatus, type ObjectiveState } from "./situations";
+import { callPlan, scenarioStatus, type ObjectivePlanState, type PlannedCall } from "./situations";
 import type { Character, Course, Module, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 
@@ -47,7 +47,7 @@ export function BaselineCard({ c, p }: { c: Course; p: Progress }) {
   if (!c.settings.baseline || !p.screening) return null;
   const base = p.screening.overall;
   const best = p.attempts.length ? Math.max(...p.attempts.map((a) => a.overall)) : undefined;
-  const pass = c.settings.passOverall;
+  const pass = c.origin === "direct" ? c.settings.passRoleplay : c.settings.passOverall;
   const now = best ?? base;
   const gain = best !== undefined ? best - base : 0;
   return (
@@ -159,9 +159,9 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const waitScreen = screens && !screened;
   const filesDone = !waitScreen && lessonsDone === needed.length;
   const nextFile = needed.find((m) => !isDone(m));
-  const groups = objectiveGroups(c, p, presenter);
-  const total = groups.reduce((a, g) => a + g.scs.length, 0);
-  const passedAll = groups.reduce((a, g) => a + g.passed, 0);
+  const plan = callPlan(c, p, presenter);
+  const passedObs = plan.objectives.filter((o) => o.state === "passed").length;
+  const done = plan.allPassed;
   const callsLocked = !filesDone;
   let n = 0;
 
@@ -219,79 +219,116 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
           </Stage>
         )}
 
-        {groups.length > 0 && (
-          <Stage n={++n} title="The calls" done={run.allPassed} current={!callsLocked && !run.allPassed} locked={callsLocked}
-            status={callsLocked ? <Pill_ tone="muted">After the lessons</Pill_> : <Pill_ tone={run.allPassed ? "ok" : "muted"}>{passedAll} of {total} passed</Pill_>}>
-            <Text size="caption" tone="subtle" className="-mt-1">Scored · pass {c.settings.passRoleplay} on each situation · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} each{c.settings.finalNoHints === false ? " · hints allowed" : ""}. Stop between situations any time; what you&apos;ve done is kept.</Text>
-            <ul className="flex flex-col gap-2.5">
-              {groups.map((g, gi) => <ObjectiveCard key={g.ob?.id ?? "loose"} c={c} g={g} i={gi} locked={callsLocked} />)}
+        {plan.objectives.length > 0 && (
+          <Stage n={++n} title="The calls" done={done} current={!callsLocked && !done} locked={callsLocked}
+            status={callsLocked ? <Pill_ tone="muted">After the lessons</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} objectives</Pill_>}>
+            <Text size="caption" tone="subtle" className="-mt-1">
+              Scored · pass {c.settings.passRoleplay} · {(c.settings.situationsPerObjective ?? "one") === "one" ? "one situation per objective, drawn for you" : "every situation"} · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} per objective{c.settings.finalNoHints === false ? " · hints allowed" : ""}. One call per person; each objective is scored on its own.
+            </Text>
+            {!callsLocked && plan.calls.length > 0 && (
+              <ul className="flex flex-col gap-2" aria-label="Your calls">
+                {plan.calls.map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} />)}
+              </ul>
+            )}
+            <ul className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card" aria-label="Objectives">
+              {plan.objectives.map((o, i) => <ObjectiveRow key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} plan={plan} locked={callsLocked} />)}
             </ul>
           </Stage>
         )}
 
-        <Stage n={++n} title="Certified" last done={certified} current={run.allPassed && !certified} locked={!run.allPassed && !certified}
-          status={certified ? <Pill_ tone="ok">Done</Pill_> : run.allPassed ? <Pill_ tone="brand">Sign now</Pill_> : undefined}>
-          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : run.allPassed ? "Every situation passed. Sign the statement to get certified." : "Pass every situation, then sign once."}</Text>
-          {run.allPassed && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Sign and get certified</Link>}
+        <Stage n={++n} title="Certified" last done={certified} current={done && !certified} locked={!done && !certified}
+          status={certified ? <Pill_ tone="ok">Done</Pill_> : done ? <Pill_ tone="brand">Sign now</Pill_> : undefined}>
+          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : done ? "Every objective passed. Sign the statement to get certified." : "Pass every objective, then sign once."}</Text>
+          {done && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Sign and get certified</Link>}
         </Stage>
       </ol>
     </section>
   );
 }
 
-const OB_STATUS: Record<ObjectiveState, { label: string; tone: "ok" | "danger" | "warn" | "brand" | "muted" }> = {
+const OB_STATUS: Record<ObjectivePlanState, { label: string; tone: "ok" | "danger" | "warn" | "brand" | "muted" }> = {
   todo: { label: "Not started", tone: "muted" }, started: { label: "In progress", tone: "brand" }, passed: { label: "Passed", tone: "ok" },
   retry: { label: "Retry", tone: "danger" }, waiting: { label: "Retry later", tone: "warn" }, out: { label: "No tries left", tone: "danger" },
 };
+type Plan = ReturnType<typeof callPlan>;
 
-/** An objective on the rep's side: where they stand on it, its situations, and the one thing to do. */
-function ObjectiveCard({ c, g, i, locked }: { c: Course; g: ReturnType<typeof objectiveGroups>[number]; i: number; locked: boolean }) {
-  const base = `/rep/course/${c.id}`;
-  const st = OB_STATUS[g.state];
-  const retry = g.each.filter((x) => x.state === "retry");
-  const action = locked ? null
-    : g.todo > 0 ? { label: g.state === "started" ? `Continue · ${g.todo} left` : "Start", href: `${base}/assessment${g.ob ? `?obj=${g.ob.id}` : ""}`, icon: Mic }
-    : retry.length ? { label: retry.length > 1 ? `Retry ${retry.length}` : "Retry", href: `${base}/assessment${g.ob ? `?obj=${g.ob.id}` : `?sc=${retry[0].sc.id}`}`, icon: RotateCcw }
-    : null;
+/** A call to take: who the rep meets, and the objectives it covers. */
+function CallCard({ c, call, k, plan }: { c: Course; call: PlannedCall; k: number; plan: Plan }) {
+  const I = ROLE[call.key];
+  const host = call.items[0].sc;
   return (
-    <li className={cn("squircle flex flex-col overflow-hidden rounded-card border bg-card", g.state === "passed" ? "border-ok-line" : g.state === "retry" || g.state === "out" ? "border-danger-line" : "border-hair")}>
-      <div className="flex items-start gap-3 p-3.5 pb-3">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-control text-caption font-extrabold tabular-nums", g.state === "passed" ? "bg-ok text-white" : "bg-tint text-brand-deep")}>{g.state === "passed" ? <Check className="size-4" aria-hidden="true" /> : String(i + 1).padStart(2, "0")}</span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text size="body" weight="bold" className="leading-snug">{g.ob?.title ?? "More situations"}</Text>
-          <Text size="caption" tone="subtle">{g.passed} of {g.scs.length} passed · about {g.scs.reduce((a, x) => a + x.durationMin, 0)} min</Text>
+    <li className="squircle flex flex-col gap-3 rounded-card border border-tint-line bg-tint/40 p-3.5">
+      <div className="flex items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-white"><I className="size-4.5" aria-hidden="true" /></span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <Text size="body" weight="bold" truncate>Call {k + 1} · {host.persona.name.replace(/,.*$/, "")}</Text>
+          <Text size="caption" tone="subtle">{CHARACTERS[call.key].label} · {call.items.length} objective{call.items.length === 1 ? "" : "s"} · about {call.minutes} min</Text>
         </span>
-        <Pill_ tone={st.tone}>{st.label}</Pill_>
+        <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-brand px-3.5 text-caption font-bold text-white shadow-brand-lift"><Mic className="size-3.5" aria-hidden="true" />Start</Link>
       </div>
-      <ul className="flex flex-col border-t border-hair">
-        {g.each.map(({ sc, state, run, triesLeft, retryAt }) => {
-          const I = ROLE[characterOf(sc)];
+      <ol className="flex flex-col gap-1 border-t border-tint-line pt-2.5">
+        {call.items.map((x) => {
+          const n = plan.objectives.findIndex((o) => o.ob?.id === x.ob?.id);
+          const retry = plan.objectives[n]?.state === "retry";
           return (
-            <li key={sc.id} className="flex items-center gap-2.5 border-b border-hair px-3.5 py-2.5 last:border-0">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><I className="size-3.5" aria-hidden="true" /></span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <Text size="caption" weight="semibold" truncate className="text-ink">{sc.title}</Text>
-                <Text size="micro" tone="subtle" truncate>
-                  {sc.persona.name.replace(/,.*$/, "")} · {CHARACTERS[characterOf(sc)].label}
-                  {state === "retry" ? ` · ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left` : state === "waiting" ? ` · retry ${retryAt!.toLocaleString("en-US", { weekday: "short", hour: "numeric" })}` : state === "out" ? " · no tries left" : ""}
-                </Text>
-              </span>
-              {run && <span className={cn("shrink-0 rounded-chip px-1.5 py-0.5 text-micro font-extrabold tabular-nums", run.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{run.score}</span>}
-              {run
-                ? <Link href={`${base}/assessment?report=${sc.id}`} className="flex h-7 shrink-0 items-center gap-1 rounded-control border border-hair-2 px-2 text-micro font-bold text-ink-2 hover:bg-subtle"><BarChart3 className="size-3" aria-hidden="true" />Report</Link>
-                : <Text size="micro" tone="subtle" className="shrink-0">Not taken</Text>}
-              {state === "retry" && !locked && <Link href={`${base}/assessment?sc=${sc.id}`} aria-label={`Retry ${sc.title}`} className="grid size-7 shrink-0 place-items-center rounded-control bg-danger-bg text-danger hover:bg-danger/15"><RotateCcw className="size-3.5" aria-hidden="true" /></Link>}
+            <li key={x.sc.id} className="flex items-baseline gap-2 text-caption">
+              <span className="w-5 shrink-0 font-extrabold tabular-nums text-brand-deep">{String(n + 1).padStart(2, "0")}</span>
+              <span className="min-w-0 flex-1 text-ink-2">{x.ob?.title ?? x.sc.title}{retry && <span className="ml-1.5 font-bold text-danger">· retry</span>}</span>
             </li>
           );
         })}
-      </ul>
-      {action && (
-        <Link href={action.href} className="flex h-10 items-center justify-center gap-1.5 border-t border-hair bg-tint/50 text-body font-bold text-brand-deep transition-colors hover:bg-tint">
-          <action.icon className="size-4" aria-hidden="true" />{action.label}
-        </Link>
+      </ol>
+    </li>
+  );
+}
+
+/** An objective, for the rep: where they stand, and the situation it was (or will be) tested with. */
+function ObjectiveRow({ c, p, o, i, plan, locked }: { c: Course; p: Progress; o: Plan["objectives"][number]; i: number; plan: Plan; locked: boolean }) {
+  const base = `/rep/course/${c.id}`;
+  const st = OB_STATUS[o.state];
+  const run = o.tested ? p.scenarioRuns?.[o.tested.id] : undefined;
+  const inCall = plan.calls.findIndex((call) => call.items.some((x) => x.ob?.id === o.ob?.id));
+  const all = (c.settings.situationsPerObjective ?? "one") === "all" || !o.ob;
+  const when = o.retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const line = o.state === "passed" ? `Passed with “${o.tested?.title}”`
+    : o.state === "retry" ? `${o.tested ? `“${o.tested.title}” not passed · ` : ""}${o.triesLeft} ${o.triesLeft === 1 ? "try" : "tries"} left${all || o.bank.length < 2 ? "" : "; your retry draws another situation"}`
+    : o.state === "waiting" ? `Retry from ${when}. Go back over the lessons first.`
+    : o.state === "out" ? "No tries left. Your manager can reset it."
+    : locked ? `${o.bank.length} situation${o.bank.length === 1 ? "" : "s"} in the bank${all ? "" : "; one is drawn for you"}`
+    : inCall >= 0 ? `In call ${inCall + 1}${all || o.bank.length < 2 ? "" : `, with one of its ${o.bank.length} situations`}` : "";
+  return (
+    <li className="flex flex-col gap-2 p-3.5">
+      <div className="flex items-start gap-3">
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-control text-micro font-extrabold tabular-nums", o.state === "passed" ? "bg-ok text-white" : "bg-tint text-brand-deep")}>{o.state === "passed" ? <Check className="size-3.5" aria-hidden="true" /> : String(i + 1).padStart(2, "0")}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Text size="body" weight="bold" className="leading-snug">{o.ob?.title ?? "More situations"}</Text>
+          {line && <Text size="caption" tone="subtle">{line}</Text>}
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-1.5">
+          <Pill_ tone={st.tone}>{st.label}</Pill_>
+          {run && !all && (
+            <Link href={`${base}/assessment?report=${o.tested!.id}`} className="flex items-center gap-1 text-micro font-bold text-ink-2 hover:text-brand-deep">
+              <span className={cn("rounded-chip px-1.5 py-0.5 tabular-nums", run.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{run.score}</span>Report
+            </Link>
+          )}
+        </span>
+      </div>
+      {/* "All": every situation counts, so each shows on its own. */}
+      {all && (
+        <ul className="ml-10 flex flex-col gap-1">
+          {o.bank.map((sc) => {
+            const r = p.scenarioRuns?.[sc.id];
+            const I = ROLE[characterOf(sc)];
+            return (
+              <li key={sc.id} className="flex items-center gap-2 text-caption">
+                <I className="size-3.5 shrink-0 text-ink-4" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-ink-2">{sc.title}</span>
+                {r ? <Link href={`${base}/assessment?report=${sc.id}`} className="flex items-center gap-1 font-bold text-ink-2 hover:text-brand-deep"><span className={cn("rounded-chip px-1.5 py-0.5 text-micro tabular-nums", r.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{r.score}</span>Report</Link> : <span className="text-ink-4">Not taken</span>}
+              </li>
+            );
+          })}
+        </ul>
       )}
-      {!action && g.state === "waiting" && <Text size="caption" tone="subtle" className="border-t border-hair px-3.5 py-2">Go back over the lessons; retries open after {c.settings.cooldownHours} hours.</Text>}
-      {!action && g.state === "out" && <Text size="caption" tone="subtle" className="border-t border-hair px-3.5 py-2">Out of tries on a situation. Your manager can reset it.</Text>}
     </li>
   );
 }

@@ -151,11 +151,13 @@ function JustDone({ search }: { search: URLSearchParams }) {
   const done = Number(search.get("done") ?? 0);
   const of = Number(search.get("of") ?? 0);
   const paused = search.get("paused") === "screening";
-  if (!paused && !of) return null;
+  const took = Number(search.get("took") ?? 0);
+  const ok = Number(search.get("passed") ?? 0);
+  if (!paused && !of && !took) return null;
   return (
     <div className="squircle rise-in flex items-start gap-3 rounded-panel border border-ok-line bg-ok-bg/60 p-3.5" role="status">
       <CircleCheck className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />
-      <Text size="body">{paused ? "Screening paused. What you did is saved; resume it any time." : done >= of ? `Saved. You took ${of === 1 ? "the situation" : `all ${of} situations`}; your scores are below.` : `Saved. You took ${done} of ${of}; the rest are waiting for you below.`}</Text>
+      <Text size="body">{took ? (ok === took ? `Call saved. You passed ${took === 1 ? "the objective" : `all ${took} objectives`} it covered.` : `Call saved. ${ok} of ${took} objective${took === 1 ? "" : "s"} passed; the rest show a retry below.`) : paused ? "Screening paused. What you did is saved; resume it any time." : done >= of ? `Saved. You took ${of === 1 ? "the situation" : `all ${of} situations`}; your scores are below.` : `Saved. You took ${done} of ${of}; the rest are waiting for you below.`}</Text>
     </div>
   );
 }

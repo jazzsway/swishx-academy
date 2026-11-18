@@ -326,6 +326,7 @@ export function ScenarioList({ course, editable }: { course: Course; editable: b
                         </li>
                       )}
                     </ul>
+                    {mine.length > 1 && <Text size="caption" tone="subtle">{(course.settings.situationsPerObjective ?? "one") === "one" ? `Each rep is scored on one of these ${mine.length}, drawn for them; a retry draws another. All of them are open for practice.` : `Each rep is scored on all ${mine.length}.`} <Link href={`${base}/settings`} className="font-semibold text-brand-deep hover:underline">Change</Link></Text>}
                   </Block>
 
                   <Block label="What good looks like">

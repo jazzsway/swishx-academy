@@ -15,6 +15,7 @@ import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
 import { StageHeader } from "./stage-ui";
 import { Toggle } from "./settings";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 
 const SEG = ["bg-brand", "bg-info", "bg-ok", "bg-warn", "bg-ink-3", "bg-brand-2"];
 
@@ -156,9 +157,15 @@ function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
         <Line label="Pass mark" hint="On each situation, from its weighted criteria. A critical compliance flag always fails it.">
           <Stepper label="Pass mark" value={st.passRoleplay} step={5} min={10} max={100} suffix="%" onChange={(n) => set({ passRoleplay: n })} />
         </Line>
-        <Line label="Retries" hint="A failed situation is retried on its own; passed ones stay passed.">
+        <Line label="Retries" hint="Per objective. A failed objective is retried on its own; passed ones stay passed.">
           <Stepper label="Tries" value={st.attempts} min={1} max={10} suffix={st.attempts === 1 ? "try" : "tries"} onChange={(n) => set({ attempts: n })} />
           {st.attempts > 1 && <><Text size="caption" tone="subtle">every</Text><Stepper label="Hours between tries" value={st.cooldownHours} step={12} min={0} max={168} suffix="h" onChange={(n) => set({ cooldownHours: n })} /></>}
+        </Line>
+        <Line label="Situations per objective" hint={(st.situationsPerObjective ?? "one") === "one" ? "Each rep is scored on one situation per objective, drawn for them (closest to their screening gaps). A retry draws another. Objectives with the same person share one call." : "Each rep is scored on every situation. More calls, full coverage."}>
+          <Segmented aria-label="Situations per objective">
+            <SegmentedButton active={(st.situationsPerObjective ?? "one") === "one"} onClick={() => set({ situationsPerObjective: "one" })}>1, drawn</SegmentedButton>
+            <SegmentedButton active={st.situationsPerObjective === "all"} onClick={() => set({ situationsPerObjective: "all" })}>All</SegmentedButton>
+          </Segmented>
         </Line>
         <Line label="Assisted mode" hint={st.finalNoHints === false ? "Reps can tap a bulb for a hint during the scored call. It doesn't change the score; you see how many they used. Screening never has hints." : "Off: the scored call has no hints, like the real thing. Reps can still practise with hints."}>
           <Toggle label="Assisted mode" on={st.finalNoHints === false} onChange={(v) => set({ finalNoHints: !v })} />

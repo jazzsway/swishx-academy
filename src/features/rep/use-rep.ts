@@ -9,7 +9,7 @@ import { unmetPrereqs } from "@/features/library/library-data";
 import { blockCards } from "@/lib/short-form";
 import { allScenarios } from "@/data/scenarios";
 import { screeningOf } from "@/lib/scenario-set";
-import { objectiveGroups, scenarioStatus } from "./situations";
+import { callPlan } from "./situations";
 
 /** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
 const blockMinutes = (c: Course, b: Module["blocks"][number]) => (c.format === "short" ? blockCards(b).length / 3 : b.minutes);
@@ -80,17 +80,16 @@ export function directNext(p: Progress, c: Course): NextStep | null {
     const pr = pathProgress(p, c);
     return step(nb.module.title, `Lesson ${pr.modulesDone + 1} of ${pr.modules}`, `${pr.modulesDone ? "Continue" : "Start"}: ${nb.module.title}`, `${base}/learn?module=${nb.module.id}`, pr.minutesLeft);
   }
-  const groups = objectiveGroups(c, p);
-  const k = groups.findIndex((g) => g.todo > 0);
-  if (k >= 0) {
-    const open = groups[k];
-    const name = open.ob?.title ?? "The call";
-    const what = open.ob ? `objective ${k + 1}` : "the call";
-    return step(name, `${open.todo} situation${open.todo === 1 ? "" : "s"} to take · scored`, `${open.state === "started" ? `Continue ${what} · ${open.todo} left` : `Start ${what} · ${open.todo} situation${open.todo === 1 ? "" : "s"}`}`, `${base}/assessment${open.ob ? `?obj=${open.ob.id}` : ""}`, open.scs.reduce((a, x) => a + x.durationMin, 0));
+  /* The calls: one per person, covering every objective drawn for them; retries ride along. */
+  const plan = callPlan(c, p, useApp.getState().presenter);
+  const call = plan.calls[0];
+  if (call) {
+    const host = call.items[0].sc.persona.name.replace(/,.*$/, "");
+    const retry = call.items.every((x) => plan.objectives.find((o) => o.ob?.id === x.ob?.id)?.state === "retry");
+    const n = call.items.length;
+    return step(`Call with ${host}`, `${n} objective${n === 1 ? "" : "s"} · about ${call.minutes} min · scored`, `${retry ? "Retry" : "Start"} call ${plan.calls.length > 1 ? "1 " : ""}· ${host} · ${n} objective${n === 1 ? "" : "s"}`, `${base}/assessment?call=${call.key}`, call.minutes);
   }
-  const retry = groups.flatMap((g) => g.each).find((x) => x.state === "retry");
-  if (retry) return step(retry.sc.title, `${retry.run!.score} last time · ${retry.triesLeft} ${retry.triesLeft === 1 ? "try" : "tries"} left`, `Retry: ${retry.sc.persona.name.replace(/,.*$/, "")} · ${retry.triesLeft} ${retry.triesLeft === 1 ? "try" : "tries"} left`, `${base}/assessment?sc=${retry.sc.id}`, retry.sc.durationMin);
-  if (scenarioStatus(c, p).allPassed) return step("Sign and get certified", "Every situation passed. One last step.", "Sign and get certified", `${base}/attest`);
+  if (plan.allPassed) return step("Sign and get certified", "Every objective passed. One last step.", "Sign and get certified", `${base}/attest`);
   return null;
 }
 

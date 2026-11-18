@@ -132,7 +132,8 @@ export function repSays(state: CallState, text: string): CallState {
       }
     }
   }
-  if (!done && repCount >= 8) {
+  /* A call that covers several situations gets the turns it needs: two for each thing raised. */
+  if (!done && repCount >= Math.max(8, state.queue.length * 2 + 2)) {
     parts.push(`I'm out of time. ${persona.closing}`);
     done = true;
   }
