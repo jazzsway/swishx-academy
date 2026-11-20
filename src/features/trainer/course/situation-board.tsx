@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import type { Objective, Scenario } from "@/data/types";
-import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
+import { screeningOf } from "@/lib/scenario-set"; // v1-hidden: CHARACTERS, characterOf
 import { exampleSituations } from "@/lib/objectives";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -17,15 +17,17 @@ import { AgentIcon } from "@/components/ui/logo-mark";
 import { useCopilot } from "@/features/copilot/copilot-store";
 import { useCourse } from "./use-course";
 import { StageHeader } from "./stage-ui";
-import { People, ROLE_ICON, SituationDetail, removeSituation, useHomeStrays } from "./scenarios";
+import { People, SituationDetail, removeSituation, useHomeStrays } from "./scenarios"; // v1-hidden: ROLE_ICON
 import { askFor, turnId, useTrainingChat } from "./training-chat-store";
 
 const GENERATE_SECONDS = 120;
+/** v1-hidden: trainers picking which situations go into screening. SwishX sets screening up. */
+const SCREENING_PICK = false;
 
 /**
- * Stage 2: the situations, the moments on a call where each objective is tested. A board with one
- * column per objective, side by side, and its situations down the column. SwishX writes a few for
- * each as the trainer arrives; they add their own in the chat, open one to read it in full, or test it.
+ * Stage 2: the situations, the moments on a call where each objective is tested. One tab per objective,
+ * like browser tabs, and the open objective's situations laid out in full under it. SwishX writes a few
+ * for each as the trainer arrives; they add their own in the chat, open one to read it in full, or test it.
  */
 export function SituationBoard() {
   const { id } = useParams<{ id: string }>();
@@ -45,11 +47,13 @@ export function SituationBoard() {
   const auto = useRef(false);
   useHomeStrays(course, scs);
 
-  /* The column the chat or a link points at comes into view. */
+  /* A situation just added in the chat opens its objective's tab. */
   useEffect(() => {
-    const at = fresh ? scs.find((x) => x.id === fresh)?.objectiveId : focusId;
-    if (at) window.setTimeout(() => document.getElementById(`col-${at}`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }), 80);
-  }, [fresh, focusId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const at = fresh ? scs.find((x) => x.id === fresh)?.objectiveId : undefined;
+    if (at && at !== focusId && course) router.replace(`/trainer/courses/${course.id}/situations?obj=${at}`, { scroll: false });
+  }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* The open tab stays in view when there are more than fit. */
+  useEffect(() => { if (focusId) window.setTimeout(() => document.getElementById(`tab-${focusId}`)?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" }), 60); }, [focusId]);
   /* The chat's "generate". */
   useEffect(() => { if (asked !== seen.current) { seen.current = asked; startGen(); } }); // eslint-disable-line react-hooks/exhaustive-deps
   /* Arriving with no situations at all: SwishX starts writing them straight away. */
@@ -116,7 +120,7 @@ export function SituationBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <StageHeader n={2} sub="The moments on a call where each objective is tested: one column per objective, its situations down the column."
+      <StageHeader n={2} sub="The moments on a call where each objective is tested. Each objective has its own tab, with its situations under it."
         actions={editable && !gen && bare.length > 0 && scs.length > 0 ? <Button size="sm" onClick={() => startGen()}><AgentIcon className="size-4" aria-hidden="true" />Write situations for {bare.length} more</Button> : undefined} />
 
       {gen && (
@@ -131,8 +135,9 @@ export function SituationBoard() {
 
       {(screening || scs.length > 0) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption text-ink-3">
-          {screening && <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-info" aria-hidden="true" /><b className="text-ink-2">Screening</b> uses {screen.length} of these, a 3-minute call before the lessons. Not graded.</span>}
-          <span>{one ? "Each rep is scored on one situation per objective, drawn for them; a retry draws another." : "Each rep is scored on every situation."} <Link href={`${base}/settings`} className="font-semibold text-brand-deep hover:underline">Change</Link></span>
+          {/* v1-hidden: which situations screening uses. SwishX sets screening up.
+          {screening && <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-info" aria-hidden="true" /><b className="text-ink-2">Screening</b> uses {screen.length} of these, a 3-minute call before the lessons. Not graded.</span>} */}
+          <span>{one ? "Each rep is scored on one situation per objective, drawn for them; a retry draws another." : "Each rep is scored on every situation."}</span>
         </div>
       )}
 
@@ -142,81 +147,101 @@ export function SituationBoard() {
           <Text size="body" tone="muted">Situations test objectives. Add the objectives first.</Text>
           <Link href={`${base}/roleplay`} className="mt-1 text-body font-semibold text-brand-deep hover:underline">Go to objectives</Link>
         </section>
-      ) : (
-        /* The board: objectives side by side, scrolling sideways when there are more than fit. */
-        <div className="-mx-5 overflow-x-auto px-5 pb-2 [scrollbar-width:thin] lg:-mx-8 lg:px-8">
-          <ol className="flex items-start gap-3" aria-label="Situations by objective">
-            {obs.map((ob, i) => {
-              const mine = scs.filter((x) => x.objectiveId === ob.id);
-              const on = focusId === ob.id;
-              return (
-                <li key={ob.id} id={`col-${ob.id}`} className={cn("squircle flex w-[296px] shrink-0 flex-col gap-2 rounded-card border p-2.5 transition-colors", on ? "border-brand/40 bg-tint/50" : "border-hair bg-black/[0.025]")}>
-                  {/* The column's heading: the objective. */}
-                  <div className="flex flex-col gap-1.5 px-1.5 pb-1 pt-1">
-                    <span className="flex items-center gap-2">
-                      <span className="grid size-6 shrink-0 place-items-center rounded-glyph bg-brand text-micro font-extrabold tabular-nums text-white">{String(i + 1).padStart(2, "0")}</span>
-                      <span className="flex-1 text-micro font-bold uppercase tracking-wider text-ink-4">{mine.length} situation{mine.length === 1 ? "" : "s"}</span>
-                      {mine.length > 0 && (
-                        <Link href={`${base}/roleplay/test?run=objective&obj=${ob.id}`} title={`Test ${one ? "a drawn situation" : `the ${mine.length} situations`} of this objective`}
-                          className="inline-flex h-7 items-center gap-1 rounded-control border border-hair-2 bg-card px-2 text-micro font-bold text-ink-2 transition-colors hover:border-brand hover:text-brand-deep">
-                          <Mic className="size-3" aria-hidden="true" />Test
-                        </Link>
-                      )}
-                    </span>
-                    <Link href={`${base}/roleplay?obj=${ob.id}`} title="Open the objective" className="line-clamp-2 text-body font-bold leading-snug text-ink hover:text-brand-deep">{ob.title}</Link>
-                    <span className="text-caption text-ink-3"><People people={ob.people} /></span>
-                  </div>
+      ) : (() => {
+        const cur = obs.find((o) => o.id === focusId) ?? obs[0];
+        const ci = obs.indexOf(cur);
+        const mine = scs.filter((x) => x.objectiveId === cur.id);
+        const pick = (ob: Objective) => router.replace(`${base}/situations?obj=${ob.id}`, { scroll: false });
+        return (
+          <div className="flex flex-col">
+            {/* The objectives, as tabs. The open one joins the sheet below it. */}
+            <div role="tablist" aria-label="Objectives" className="-mb-px flex items-end gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
+              {obs.map((ob, i) => {
+                const n = scs.filter((x) => x.objectiveId === ob.id).length;
+                const on = ob.id === cur.id;
+                return (
+                  <button key={ob.id} id={`tab-${ob.id}`} type="button" role="tab" aria-selected={on} aria-controls="situations-panel" onClick={() => pick(ob)} title={ob.title}
+                    className={cn("group relative flex min-w-[150px] max-w-[260px] flex-1 items-center gap-2 rounded-t-panel border px-3 py-2.5 text-left transition-colors",
+                      on ? "z-10 border-hair border-b-card bg-card text-ink" : "border-transparent bg-black/[0.04] text-ink-3 hover:bg-black/[0.07] hover:text-ink")}>
+                    <span className={cn("grid size-5 shrink-0 place-items-center rounded-glyph text-micro font-extrabold tabular-nums", on ? "bg-brand text-white" : "bg-black/[0.08] text-ink-3")}>{String(i + 1).padStart(2, "0")}</span>
+                    <span className={cn("min-w-0 flex-1 truncate text-body", on ? "font-bold" : "font-semibold")}>{ob.title}</span>
+                    {waiting(ob)
+                      ? <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-brand/25 border-t-brand" aria-label="Writing situations" />
+                      : <span className={cn("shrink-0 rounded-chip px-1.5 text-micro font-bold tabular-nums", on ? "bg-tint text-brand-deep" : n ? "bg-black/[0.06] text-ink-3" : "text-ink-4")}>{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
 
-                  <ul className="flex flex-col gap-2">
-                    {mine.map((sc) => {
-                      const Icon = ROLE_ICON[characterOf(sc)];
-                      const scr = inScreen.has(sc.id);
-                      return (
-                        <li key={sc.id} className={cn("squircle group flex flex-col gap-1.5 rounded-panel border border-hair bg-card p-3 shadow-hair transition-shadow hover:shadow-soft", fresh === sc.id && "node-flash border-brand")}>
-                          <button type="button" onClick={() => setOpenSc(sc.id)} title="Open the full situation" className="-m-1 flex flex-col gap-1.5 rounded-control p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
-                            <span className="flex w-full items-center gap-2">
-                              <span className="grid size-7 shrink-0 place-items-center rounded-glyph bg-tint text-brand-deep"><Icon className="size-3.5" aria-hidden="true" /></span>
-                              <span className="min-w-0 flex-1 truncate text-micro font-semibold text-ink-3">{CHARACTERS[characterOf(sc)].label} · {sc.persona.name.replace(/,.*$/, "")}</span>
-                              <Maximize2 className="size-3.5 shrink-0 text-ink-4 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
-                            </span>
-                            <span className="line-clamp-2 text-body font-semibold leading-snug text-ink group-hover:text-brand-deep">{sc.title}</span>
-                            {sc.description && <span className="line-clamp-2 text-caption leading-relaxed text-ink-3">{sc.description}</span>}
-                          </button>
-                          {(screening || (editable && sc.custom)) && (
-                            <span className="flex items-center gap-1 pt-0.5">
-                              {screening && (
-                                <button type="button" aria-pressed={scr} disabled={!editable || (scr && screen.length === 1)} onClick={() => toggleScreen(sc.id)} title={scr ? "In the screening call. Click to take it out." : "Add it to the screening call"}
-                                  className={cn("flex items-center gap-1 rounded-chip px-2 py-0.5 text-micro font-bold transition-colors disabled:cursor-default", scr ? "bg-info-bg text-info" : "text-ink-4 hover:bg-subtle hover:text-ink")}>
-                                  <ShieldCheck className="size-3" aria-hidden="true" />{scr ? "In screening" : "Screening"}
-                                </button>
-                              )}
-                              {editable && sc.custom && <button type="button" aria-label={`Delete ${sc.title}`} title="Delete" onClick={() => removeSituation(sc)} className="ml-auto grid size-6 place-items-center rounded-control text-ink-4 opacity-0 transition-opacity hover:bg-subtle hover:text-danger group-hover:opacity-100 focus:opacity-100"><Trash2 className="size-3.5" /></button>}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                    {waiting(ob) && [0, 1].map((k) => <li key={k} className="squircle shimmer h-[104px] rounded-panel bg-tint" aria-label="Writing a situation" />)}
-                    {drafting && on && <li className="squircle shimmer grid min-h-[104px] place-items-center rounded-panel bg-tint p-3 text-center text-caption font-semibold text-brand-deep">Drafting “{drafting}”…</li>}
-                    {!mine.length && !waiting(ob) && (
-                      <li className="squircle flex flex-col items-center gap-2 rounded-panel border border-dashed border-hair-3 px-3 py-5 text-center">
-                        <Text size="caption" tone="subtle">No situations yet</Text>
-                        {editable && !gen && <Button size="sm" onClick={() => startGen(ob)}><AgentIcon className="size-3.5" aria-hidden="true" />Write a few</Button>}
-                      </li>
-                    )}
-                  </ul>
-                  {editable && (
-                    <button type="button" onClick={() => addTo(ob)} disabled={!!drafting}
-                      className="flex items-center gap-1.5 rounded-control px-2 py-1.5 text-caption font-semibold text-ink-3 transition-colors hover:bg-card hover:text-brand-deep disabled:opacity-40">
-                      <Plus className="size-3.5" aria-hidden="true" />Add a situation
-                    </button>
+            {/* The open objective: what it is, then every one of its situations, in full. */}
+            <section id="situations-panel" role="tabpanel" aria-label={cur.title} className="squircle flex flex-col gap-4 rounded-card rounded-tl-none border border-hair bg-card p-4 shadow-hair sm:p-5">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="flex min-w-0 flex-1 basis-[260px] flex-col gap-1">
+                  <span className="text-micro font-bold uppercase tracking-wider text-ink-4">Objective {String(ci + 1).padStart(2, "0")} · {mine.length} situation{mine.length === 1 ? "" : "s"}</span>
+                  <Link href={`${base}/roleplay?obj=${cur.id}`} title="Open the objective" className="text-title font-bold leading-snug text-ink hover:text-brand-deep">{cur.title}</Link>
+                  <span className="text-caption text-ink-3"><People people={cur.people} /></span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {mine.length > 0 && (
+                    <Link href={`${base}/roleplay/test?run=objective&obj=${cur.id}`} title={`Test ${one ? "a drawn situation" : `the ${mine.length} situations`} of this objective`}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-3 text-caption font-bold text-ink-2 transition-colors hover:border-brand hover:text-brand-deep">
+                      <Mic className="size-3.5" aria-hidden="true" />Test
+                    </Link>
                   )}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
+                  {editable && <Button size="sm" onClick={() => addTo(cur)} disabled={!!drafting}><Plus className="size-4" aria-hidden="true" />Add a situation</Button>}
+                </div>
+              </div>
+
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
+                {mine.map((sc) => {
+                  const scr = inScreen.has(sc.id);
+                  return (
+                    <li key={sc.id} className={cn("squircle group flex flex-col gap-1 rounded-panel border border-hair bg-card p-3.5 shadow-hair transition-shadow hover:shadow-soft", fresh === sc.id && "node-flash border-brand")}>
+                      <button type="button" onClick={() => setOpenSc(sc.id)} title="Open the full situation" className="-m-1 flex flex-1 flex-col gap-2 rounded-control p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+                        {/* v1-hidden: who the situation is with (role and name). A situation is the moment, not the person.
+                        <span className="flex w-full items-center gap-2"><Icon />{CHARACTERS[characterOf(sc)].label} · {sc.persona.name}</span> */}
+                        <span className="flex items-start gap-2">
+                          <span className="min-w-0 flex-1 text-body-lg font-semibold leading-snug text-ink group-hover:text-brand-deep">{sc.title}</span>
+                          <Maximize2 className="mt-1 size-3.5 shrink-0 text-ink-4 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                        </span>
+                        {sc.description && <span className="line-clamp-4 text-body leading-relaxed text-ink-3">{sc.description}</span>}
+                      </button>
+                      {editable && sc.custom && (
+                        <span className="flex items-center gap-1">
+                          {/* v1-hidden: the per-situation screening toggle. */}
+                          {SCREENING_PICK && screening && (
+                            <button type="button" aria-pressed={scr} disabled={!editable || (scr && screen.length === 1)} onClick={() => toggleScreen(sc.id)} title={scr ? "In the screening call. Click to take it out." : "Add it to the screening call"}
+                              className={cn("flex items-center gap-1 rounded-chip px-2 py-0.5 text-micro font-bold transition-colors disabled:cursor-default", scr ? "bg-info-bg text-info" : "text-ink-4 hover:bg-subtle hover:text-ink")}>
+                              <ShieldCheck className="size-3" aria-hidden="true" />{scr ? "In screening" : "Screening"}
+                            </button>
+                          )}
+                          {editable && sc.custom && <button type="button" aria-label={`Delete ${sc.title}`} title="Delete" onClick={() => removeSituation(sc)} className="ml-auto grid size-6 place-items-center rounded-control text-ink-4 opacity-0 transition-opacity hover:bg-subtle hover:text-danger group-hover:opacity-100 focus:opacity-100"><Trash2 className="size-3.5" /></button>}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+                {waiting(cur) && [0, 1].map((k) => <li key={k} className="squircle shimmer h-[150px] rounded-panel bg-tint" aria-label="Writing a situation" />)}
+                {drafting && <li className="squircle shimmer grid min-h-[150px] place-items-center rounded-panel bg-tint p-3 text-center text-caption font-semibold text-brand-deep">Drafting “{drafting}”…</li>}
+                {editable && mine.length > 0 && !drafting && (
+                  <li>
+                    <button type="button" onClick={() => addTo(cur)} className="squircle flex size-full min-h-[150px] flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed border-hair-3 text-caption font-semibold text-ink-3 transition-colors hover:border-brand hover:bg-tint/50 hover:text-brand-deep">
+                      <Plus className="size-5" aria-hidden="true" />Add a situation<span className="font-normal text-ink-4">Describe it in the chat</span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+              {!mine.length && !waiting(cur) && !drafting && (
+                <div className="squircle flex flex-col items-center gap-2 rounded-panel border border-dashed border-hair-3 px-4 py-10 text-center">
+                  <Text size="body" weight="semibold">No situations for this objective yet</Text>
+                  <Text size="caption" tone="subtle">SwishX can write a few, or describe one in the chat.</Text>
+                  {editable && !gen && <Button size="sm" onClick={() => startGen(cur)}><AgentIcon className="size-3.5" aria-hidden="true" />Write a few</Button>}
+                </div>
+              )}
+            </section>
+          </div>
+        );
+      })()}
 
       {(() => {
         const sc = scs.find((x) => x.id === openSc);
@@ -226,10 +251,11 @@ export function SituationBoard() {
           <Modal open onClose={() => setOpenSc(null)} size="md"
             footer={<>
               {editable && sc.custom && <Button variant="secondary" className="mr-auto" onClick={() => { removeSituation(sc); setOpenSc(null); }}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>}
-              {screening && editable && <Button variant="secondary" disabled={scr && screen.length === 1} onClick={() => toggleScreen(sc.id)}><ShieldCheck className="size-4" aria-hidden="true" />{scr ? "Take out of screening" : "Add to screening"}</Button>}
+              {/* v1-hidden: the screening toggle. */}
+              {SCREENING_PICK && screening && editable && <Button variant="secondary" disabled={scr && screen.length === 1} onClick={() => toggleScreen(sc.id)}><ShieldCheck className="size-4" aria-hidden="true" />{scr ? "Take out of screening" : "Add to screening"}</Button>}
               <Button onClick={() => setOpenSc(null)}>Done</Button>
             </>}>
-            <SituationDetail sc={sc} objective={obs.find((o) => o.id === sc.objectiveId)} inScreening={screening && scr} />
+            <SituationDetail sc={sc} objective={obs.find((o) => o.id === sc.objectiveId)} inScreening={SCREENING_PICK && screening && scr} />
           </Modal>
         );
       })()}

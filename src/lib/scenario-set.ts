@@ -75,19 +75,19 @@ export function scenarioScore(sc: Scenario, r: { score: number; competencyScores
 function lines(c: Character, brand: string, prefix: string): { opening: string; closing: string; traits: string[]; obs: Objection[] } {
   if (c === "nurse")
     return {
-      opening: `Hi, the doctor's running late, so you've got me. What do our patients need to know about ${brand}?`,
+      opening: `Hi, the doctor's running late, so you've got me. A few patients have asked about ${brand}. What should I be telling them?`,
       closing: "Okay. Send me the patient leaflet and the support number, and I'll walk the next one through it.",
       traits: ["Practical", "Protective of patients", "Short on time"],
       obs: [
         { id: `${prefix}-ob1`, label: "Who teaches the injections", competency: "c-dosing", line: "Who's going to teach patients to inject this? We don't have time for that.", pushback: "That still doesn't tell me who does the teaching.", handled: "If the support program covers the first injection training, that helps.", keywords: ["nurse educator", "training", "support program", "injection", "teach", "first dose"], answer: "The support program offers injection training with a nurse educator, at home or in the clinic, so your team doesn't have to cover it." },
         { id: `${prefix}-ob2`, label: "Side effects to warn about", competency: "c-safety", line: "Honestly, what side effects should I warn patients about?", pushback: "That's vague. What do I actually tell them?", handled: "Good, that's what I'd want them to hear.", keywords: ["side effect", "injection site", "reaction", "common", "report", "prescribing information"], answer: "The most common ones are listed in the prescribing information, and I'll walk you through them. Anything a patient reports, we report within 24 hours." },
         { id: `${prefix}-ob3`, label: "Missed doses", competency: "c-dosing", line: "If a patient misses a dose, what do I tell them?", pushback: "I need something I can actually say to a patient.", handled: "Okay, that's clear enough to pass on.", keywords: ["missed", "dose", "next scheduled", "prescribing information", "label"], answer: "The prescribing information covers it: I'll show you the missed-dose section so you can tell patients exactly what it says.", finalOnly: true },
-        moments(brand, prefix)[0],
+        moments(brand, prefix, c)[0],
       ],
     };
   if (c === "manager")
     return {
-      opening: `I've got ten minutes before the phones start. What does ${brand} mean for my front desk?`,
+      opening: `I've got ten minutes before the phones start. If the doctors start prescribing ${brand}, what does that mean for my front desk?`,
       closing: "Fine. Leave me the hub's number and the forms, and I'll brief the team.",
       traits: ["Busy", "Thinks in staff hours", "Wary of paperwork"],
       obs: [
@@ -98,31 +98,31 @@ function lines(c: Character, brand: string, prefix: string): { opening: string; 
     };
   if (c === "patient")
     return {
-      opening: `My dermatologist mentioned ${brand}. I've tried so many creams. What would actually be different?`,
+      opening: `My doctor brought up ${brand} at my last visit. I've tried so many things already. What would actually be different this time?`,
       closing: "Okay. I'll talk to my doctor about it at my next visit.",
       traits: ["Worried", "Tired of trying things", "Asks plain questions"],
       obs: [
         { id: `${prefix}-ob1`, label: "Is it safe", competency: "c-safety", line: "Is it safe to take for years? What are the side effects?", pushback: "That sounds like you're avoiding the question.", handled: "Okay, that's honest. I'll ask my doctor about those.", keywords: ["side effect", "doctor", "prescribing information", "common", "report", "talk to"], answer: "Every medicine has side effects, and the common ones are in the patient leaflet. Your doctor is the right person to weigh them up with you." },
         { id: `${prefix}-ob2`, label: "Needles", competency: "c-dosing", line: "It's an injection? I really don't like needles.", pushback: "So I'd have to do it myself?", handled: "If someone shows me how, I could try.", keywords: ["training", "nurse", "support", "show you", "pen", "injection"], answer: "Many people feel that way. The support program can arrange for a nurse to show you how, step by step." },
         { id: `${prefix}-ob3`, label: "Medical advice", competency: "c-compliance", line: "Should I stop my current cream and switch to this?", pushback: "But what would you do?", handled: "Right, I'll ask my doctor.", keywords: ["your doctor", "can't advise", "talk to", "medical information", "healthcare provider"], answer: "I can't give medical advice. That's a decision to make with your doctor; I can share the patient information to take with you." },
-        moments(brand, prefix)[0],
+        moments(brand, prefix, c)[0],
       ],
     };
   if (c === "pharmacist")
     return {
-      opening: `We've had a few ${brand} scripts come through. I've got questions before we stock it.`,
+      opening: `We've had a few scripts for ${brand} come through. Before we stock it, I've got some questions.`,
       closing: "Okay. Send me the storage sheet and I'll raise it at the next formulary meeting.",
       traits: ["Precise", "Safety-first", "Asks for the label"],
       obs: [
         { id: `${prefix}-ob1`, label: "Storage and handling", competency: "c-dosing", line: "How does this need to be stored, and what if it's left out of the fridge?", pushback: "I need the actual answer, not 'check the label'.", handled: "Okay, that matches what I'd expect.", keywords: ["refrigerat", "fridge", "room temperature", "days", "storage", "label"], answer: "It's stored in the fridge. The prescribing information says how long it can stay at room temperature; I'll show you that section." },
         { id: `${prefix}-ob2`, label: "Interactions", competency: "c-safety", line: "Any interactions I should flag when I check a patient's other medicines?", pushback: "So is there anything or not?", handled: "Fine, I'll add that to our checks.", keywords: ["interaction", "live vaccine", "prescribing information", "label", "check"], answer: "The prescribing information lists what to watch for, including live vaccines. I'll leave you that section." },
         { id: `${prefix}-ob3`, label: "Formulary", competency: "c-access", line: "It isn't on our formulary yet. Why should the committee add it?", pushback: "The committee will want more than that.", handled: "Okay, send me the dossier and I'll take it to them.", keywords: ["formulary", "committee", "data", "patients", "criteria", "dossier"], answer: "For patients who aren't controlled on current options, the approved data supports it. I can send the formulary dossier for the committee." },
-        moments(brand, prefix)[0],
+        moments(brand, prefix, c)[0],
       ],
     };
   const regular = objections(brand, prefix);
   return {
-    opening: `I've got about five minutes between patients. What's new with ${brand}?`,
+    opening: `I've got about five minutes before my next patient. Go on, tell me about ${brand}.`,
     closing: `Alright. Leave me the information, and I'll think about ${brand} for the next patient who fits.`,
     traits: ["Time-pressed", "Sceptical", "Happy with current treatment"],
     obs: [regular[0], ...moments(brand, prefix), ...regular.slice(1)],
@@ -160,12 +160,39 @@ export function proposeWeights(text: string, c: Character): { competency: string
 const characterIn = (l: string): Character =>
   /pharmac/.test(l) ? "pharmacist" : /patient|caregiver|parent/.test(l) ? "patient" : /manager|front desk|office|admin|billing/.test(l) ? "manager" : /nurse|\bnp\b|\bpa\b/.test(l) ? "nurse" : "doctor";
 
+/** The product as the person on the call says it: its name, or (with no product picked) plainly "this new treatment". */
+export const spoken = (brand?: string) => brand ?? "this new treatment";
+
+/**
+ * How someone opens a situation SwishX writes: in their own words, about the thing the situation is about.
+ * Keyed by the situation's title; anything else opens the way that kind of person usually does.
+ */
+const OPENINGS: Record<string, (it: string) => string> = {
+  "A busy doctor gives the rep one minute": (it) => `I've got a minute before my next patient, and honestly, what I prescribe now works fine. So why ${it}?`,
+  "The nurse asks which patients it's for": (it) => `The doctor asked me to find out about ${it}. Which of our patients would it actually be for?`,
+  "A doctor asks how it compares with her usual choice": (it) => `I keep hearing about ${it}. How does it stack up against what I already use?`,
+  "A pharmacist asks for the study results": (it) => `Before we stock ${it}, I want the numbers. What did the trial actually show?`,
+  "A patient asks if it's safe long term": (it) => `My doctor brought up ${it}. I'd be on it for years, so before anything else: is it safe long term?`,
+  "The nurse mentions a patient's reaction": (it) => `Good timing. I wanted to ask you about ${it}; a couple of things have come up with our patients.`,
+  "The practice manager worries about prior auths": (it) => `I've got ten minutes before the phones start. Every new drug means another prior auth fight. What does ${it} do about that?`,
+  "A patient asks what it will cost": (it) => `My doctor wants me to try ${it}, but my last treatment cost a fortune. What am I going to end up paying?`,
+  "A doctor asks about a 15-year-old": (it) => `Quick one before you start. I see a lot of teenagers in my clinic. Could I use ${it} for them?`,
+  "A pharmacist asks about use in pregnancy": (it) => `One of our customers is pregnant, and her doctor mentioned ${it}. Is it okay for her to take?`,
+};
+
+/** The opening line for a situation: written for it when SwishX knows it, otherwise the person's usual one. */
+export function openingFor(c: Character, title: string, brand?: string): string {
+  const it = spoken(brand);
+  return OPENINGS[title]?.(it) ?? lines(c, it, "x").opening;
+}
+
 export function build(o: { course: Course; character: Character; title: string; description: string; objective: string; weights: { competency: string; pct: number }[]; name: string; specialty?: string; traits?: string[]; difficulty?: "easy" | "standard" | "hard" }): Scenario {
   const p = product(o.course.productId);
   const brand = p?.brand ?? "our product";
   const prefix = `sc-${rid()}`;
   const ch = CHARACTERS[o.character];
-  const l = lines(o.character, brand, prefix);
+  /* Spoken by the person on the call, in their words. */
+  const l = lines(o.character, spoken(p?.brand), prefix);
   const docs = (o.course.roleplaySourceIds?.length ? o.course.roleplaySourceIds : o.course.sourceIds).map((x) => source(x)).filter((x): x is Source => !!x);
   const cfg = draftConfig({ productId: o.course.productId, sources: docs, name: o.name, regular: l.obs.filter((x) => !x.moment).length });
   const prs = rules(brand, prefix);
@@ -173,7 +200,7 @@ export function build(o: { course: Course; character: Character; title: string; 
   const specialty = o.specialty ?? (o.character === "doctor" ? (p && SPECIALIST[p.therapyArea]) ?? "Physician" : ch.label);
   return {
     id: prefix, courseId: o.course.id, title: o.title, description: o.description, character: o.character, weights: o.weights,
-    persona: { name: o.name, specialty, setting: ch.setting, traits: o.traits ?? l.traits, opening: l.opening, closing: l.closing },
+    persona: { name: o.name, specialty, setting: ch.setting, traits: o.traits ?? l.traits, opening: openingFor(o.character, o.title, p?.brand), closing: l.closing },
     context: ch.callType, objective: o.objective, durationMin: ch.minutes,
     objectionIds: l.obs.map((x) => x.id), rubric: rubricFor(o.weights, prefix), prohibitedIds: prs.map((x) => x.id),
     behaviourNote: `The AI ${ch.label.toLowerCase()} stays in character, gives no medical advice, and raises only this scenario's objections. It never states product facts beyond the training's own material.`,

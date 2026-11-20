@@ -1,4 +1,4 @@
-import type { ActorConfig, Citation, Objection, ProhibitedRule, RubricCriterion, Scenario, Source } from "@/data/types";
+import type { ActorConfig, Character, Citation, Objection, ProhibitedRule, RubricCriterion, Scenario, Source } from "@/data/types";
 import { SOURCES, product } from "@/data/org";
 
 /*
@@ -72,11 +72,20 @@ export function rules(brand: string, prefix: string): ProhibitedRule[] {
 }
 
 /** The two moments every pharma call can throw at a rep: a reported side effect, and an off-label question. */
-export function moments(brand: string, prefix: string): Objection[] {
+/** The reported side effect, as each person on a call would actually say it. */
+export const AE_LINE: Record<Character, (brand: string) => string> = {
+  doctor: (b) => `One more thing: a patient of mine got a rash after her second dose of ${b}.`,
+  nurse: (b) => `One more thing: one of our patients came back with a rash after her second dose of ${b}.`,
+  pharmacist: (b) => `One more thing: a customer came back with a rash after her second dose of ${b}.`,
+  manager: (b) => `One more thing: a patient called the front desk about a rash after her second dose of ${b}.`,
+  patient: (b) => `One more thing: my friend started ${b} and got a rash after her second dose.`,
+};
+
+export function moments(brand: string, prefix: string, who: Character = "doctor"): Objection[] {
   return [
     {
       id: `${prefix}-ae`, label: "Adverse event", competency: "c-compliance", moment: "ae",
-      line: `One more thing: a patient of mine got a rash after her second dose of ${brand}.`,
+      line: AE_LINE[who](brand),
       pushback: "So what am I supposed to do with that?",
       handled: "Okay, good. Thanks for flagging it properly.",
       keywords: ["report", "24 hours", "safety", "pharmacovigilance", "adverse event", "drug safety"],

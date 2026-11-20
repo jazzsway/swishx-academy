@@ -203,7 +203,14 @@ export function ObjectiveList({ course, editable }: { course: Course; editable: 
                     </ul>
                   </Block>
                   <Block label="Scored on" action={editable ? <Text size="caption" tone="subtle">Change it in the chat</Text> : undefined}>
-                    <Criteria weights={ob.weights} />
+                    {/* Just what it's scored on; the weights stay behind the scenes. */}
+                    <ul className="flex flex-wrap gap-1.5">
+                      {ob.weights.map((w, i) => (
+                        <li key={w.competency} className="flex items-center gap-1.5 rounded-chip border border-hair-2 bg-card px-2.5 py-1 text-body text-ink-2">
+                          <span className={cn("size-2 shrink-0 rounded-full", SEG[i % SEG.length])} aria-hidden="true" />{competency(w.competency)?.name}
+                        </li>
+                      ))}
+                    </ul>
                   </Block>
                   {editable && <button type="button" onClick={() => removeObjective(ob)} className="flex items-center gap-1.5 self-end text-caption font-semibold text-ink-4 transition-colors hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Delete objective</button>}
                 </div>
@@ -261,7 +268,7 @@ export function SituationDetail({ sc, objective: ob, inScreening }: { sc: Scenar
           </ul>
         </Block>
       )}
-      <Block label="Scored on"><Criteria weights={weightsOf(sc)} /></Block>
+      {/* v1-hidden: what the situation is scored on. <Block label="Scored on"><Criteria weights={weightsOf(sc)} /></Block> */}
     </div>
   );
 }

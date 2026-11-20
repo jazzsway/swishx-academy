@@ -8,10 +8,12 @@ import type {
 } from "@/data/types";
 import { SEED_LIBRARY_VIEWS, SEED_MATERIALS, SEED_SEARCHES } from "@/data/library";
 import { seed } from "@/data/seed";
-import { TODAY, registerUploads } from "@/data/org";
+import { TODAY, product, registerUploads } from "@/data/org";
 import { registerScenarios } from "@/data/scenarios";
 import { FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, FIELD_KIT_OBJECTIVES, FIELD_KIT_SCENARIO, FIELD_KIT_SCREENER, FIELD_KIT_ID } from "@/data/courses/field-kit";
 import { buildPath } from "@/lib/learning";
+import { AE_LINE } from "@/lib/roleplay-draft";
+import { openingFor, spoken } from "@/lib/scenario-set";
 import { POINTS, seedPoints } from "@/lib/points";
 
 /* Seeded roleplays are findable before saved state loads. */
@@ -440,7 +442,7 @@ export const useApp = create<AppState>()(
         const created: Progress[] = targets.map((u) => ({
           id: `p-${u.id}-${courseId}-${uid("a").slice(-4)}`, userId: u.id, courseId, version: v, state: "not_started",
           assignedAt: at, startsAt: startsAt && startsAt > at ? startsAt : undefined, dueAt, assignType: type, campaignId, completedBlocks: [], minutesSpent: 0, attempts: [], coachingNotes: [],
-          mode: mode === "practice" ? "practice" : undefined,
+          mode: mode === "practice" || mode === "optional" ? mode : undefined,
         }));
         const notes: Notification[] = targets.slice(0, 400).map((u) => ({
           id: uid("n"), userId: u.id, at: nowIso(), read: false,
@@ -695,14 +697,18 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 33,
-      /* From v29 to v32: keep everything a trainer made; only give the field kit its objectives, the practice manager and assisted mode. */
+      version: 35,
+      /* From v29: keep everything a trainer made. To v33: give the field kit its objectives, the practice manager and assisted mode.
+         To v35: the people in situations speak in their own voice: an opening written for the situation, a patient's own side-effect line, no "our product". */
       migrate: (persisted, from) => {
-        if (from < 29 || from > 32) return initial() as unknown as AppState;
-        const st = persisted as AppState;
-        const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
-        const courses = st.courses.map((c) => (c.id === FIELD_KIT_ID ? { ...c, settings: { ...c.settings, finalNoHints: false }, objectives: FIELD_KIT_OBJECTIVES, scenarioIds: [...new Set([...c.scenarioIds, FIELD_KIT_MANAGER.id, FIELD_KIT_SAFETY.id])] } : c));
-        return { ...st, scenarios, courses };
+        if (from < 29 || from > 34) return initial() as unknown as AppState;
+        let st = persisted as AppState;
+        if (from <= 32) {
+          const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
+          const courses = st.courses.map((c) => (c.id === FIELD_KIT_ID ? { ...c, settings: { ...c.settings, finalNoHints: false }, objectives: FIELD_KIT_OBJECTIVES, scenarioIds: [...new Set([...c.scenarioIds, FIELD_KIT_MANAGER.id, FIELD_KIT_SAFETY.id])] } : c));
+          st = { ...st, scenarios, courses };
+        }
+        return { ...st, scenarios: st.scenarios.map((sc) => ownVoice(sc, st.courses)) };
       },
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
@@ -713,5 +719,22 @@ export const useApp = create<AppState>()(
     },
   ),
 );
+
+/** The opening lines SwishX used to write, before each situation got its own. */
+const OLD_OPENING = /What would actually be different\?$|What do our patients need to know about|What does .+ mean for my front desk\?$|I've got questions before we stock it\.$|^I've got about five minutes between patients\. What's new with .+\?$/;
+
+/** A situation's people in their own voice: an opening written for the situation, the side effect said the way they'd say it, and no "our product" in their mouth. */
+function ownVoice(sc: Scenario, courses: Course[]): Scenario {
+  if (!sc.custom) return sc;
+  const who = sc.character ?? "doctor";
+  const brand = product(courses.find((c) => c.id === sc.courseId)?.productId)?.brand;
+  const voice = (t: string) => t.replace(/\b(our|your) product\b/g, spoken(brand));
+  const objections = sc.custom.objections.map((o) => {
+    if (o.moment === "ae" && who !== "doctor" && /a patient of mine got a rash/.test(o.line)) return { ...o, line: AE_LINE[who](spoken(brand)) };
+    return { ...o, line: voice(o.line) };
+  });
+  const opening = OLD_OPENING.test(sc.persona.opening) ? openingFor(who, sc.title, brand) : voice(sc.persona.opening);
+  return { ...sc, persona: { ...sc.persona, opening, closing: sc.persona.closing && voice(sc.persona.closing) }, custom: { ...sc.custom, objections } };
+}
 
 export type { District };
