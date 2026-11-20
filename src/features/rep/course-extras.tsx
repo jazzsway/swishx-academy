@@ -225,14 +225,15 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
             <Text size="caption" tone="subtle" className="-mt-1">
               Scored · pass {c.settings.passRoleplay} · {(c.settings.situationsPerObjective ?? "one") === "one" ? "one situation per objective, drawn for you" : "every situation"} · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} per objective{c.settings.finalNoHints === false ? " · hints allowed" : ""}. One call per person; each objective is scored on its own.
             </Text>
-            {!callsLocked && plan.calls.length > 0 && (
-              <ul className="flex flex-col gap-2" aria-label="Your calls">
-                {plan.calls.map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} />)}
-              </ul>
-            )}
+            {/* The calls to take, from the start: one per person, each with its objectives and where they stand. Start opens after the lessons. */}
+            <ul className="flex flex-col gap-2" aria-label="Your calls">
+              {callsOf(plan).map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} locked={callsLocked} />)}
+            </ul>
+            {/* v1-hidden: the separate objectives list. Each call now shows its objectives' status.
             <ul className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card" aria-label="Objectives">
               {plan.objectives.map((o, i) => <ObjectiveRow key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} plan={plan} locked={callsLocked} />)}
             </ul>
+            */}
           </Stage>
         )}
 
@@ -252,28 +253,54 @@ const OB_STATUS: Record<ObjectivePlanState, { label: string; tone: "ok" | "dange
 };
 type Plan = ReturnType<typeof callPlan>;
 
-/** A call to take: who the rep meets, and the objectives it covers. */
-function CallCard({ c, call, k, plan }: { c: Course; call: PlannedCall; k: number; plan: Plan }) {
+type JourneyCall = { key: Character; items: { o: Plan["objectives"][number]; sc: PlannedCall["items"][number]["sc"]; n: number }[]; minutes: number };
+
+/** Every call the rep has to take, whether or not it's open yet: each objective's situation (drawn, last tried, or the first in its bank), one call per person. */
+function callsOf(plan: Plan): JourneyCall[] {
+  const out: JourneyCall[] = [];
+  plan.objectives.forEach((o, n) => {
+    const scs = o.ob ? [o.next[0] ?? o.tested ?? o.bank[0]] : o.bank;
+    for (const sc of scs.filter(Boolean)) {
+      const key = characterOf(sc);
+      const call = out.find((x) => x.key === key) ?? (out.push({ key, items: [], minutes: 0 }), out.at(-1)!);
+      call.items.push({ o, sc, n });
+    }
+  });
+  for (const call of out) call.minutes = plan.calls.find((x) => x.key === call.key)?.minutes ?? Math.min(15, Math.max(3, call.items.reduce((a, x) => a + Math.ceil(x.sc.durationMin * 0.7), 0)));
+  return out;
+}
+
+/** A call to take: who the rep meets, the objectives it covers and where each stands. Start shows from the beginning and opens once the lessons are done. */
+function CallCard({ c, call, k, plan, locked }: { c: Course; call: JourneyCall; k: number; plan: Plan; locked: boolean }) {
   const I = ROLE[call.key];
   const host = call.items[0].sc;
+  const ready = plan.calls.some((x) => x.key === call.key);
+  const passed = call.items.every((x) => x.o.state === "passed");
+  const retry = ready && call.items.some((x) => x.o.state === "retry");
+  const live = ready && !locked;
+  const n = call.items.length;
   return (
-    <li className="squircle flex flex-col gap-3 rounded-card border border-tint-line bg-tint/40 p-3.5">
+    <li className={cn("squircle flex flex-col gap-3 rounded-card border p-3.5", live ? "border-tint-line bg-tint/40" : passed ? "border-ok-line bg-ok-bg/40" : "border-hair bg-card")}>
       <div className="flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-white"><I className="size-4.5" aria-hidden="true" /></span>
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-white", passed ? "bg-ok" : live ? "bg-gradient-to-br from-brand-2 to-brand" : "bg-ink-4")}>{passed ? <Check className="size-4.5" aria-hidden="true" /> : <I className="size-4.5" aria-hidden="true" />}</span>
         <span className="flex min-w-0 flex-1 flex-col">
           <Text size="body" weight="bold" truncate>Call {k + 1} · {host.persona.name.replace(/,.*$/, "")}</Text>
-          <Text size="caption" tone="subtle">{CHARACTERS[call.key].label} · {call.items.length} objective{call.items.length === 1 ? "" : "s"} · about {call.minutes} min</Text>
+          <Text size="caption" tone="subtle">{CHARACTERS[call.key].label} · {n} objective{n === 1 ? "" : "s"} · about {call.minutes} min</Text>
         </span>
-        <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-brand px-3.5 text-caption font-bold text-white shadow-brand-lift"><Mic className="size-3.5" aria-hidden="true" />Start</Link>
+        {passed ? <Pill_ tone="ok">Passed</Pill_>
+          : live ? <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-brand px-3.5 text-caption font-bold text-white shadow-brand-lift"><Mic className="size-3.5" aria-hidden="true" />{retry ? "Retry" : "Start"}</Link>
+          : <span aria-disabled="true" title={locked ? "Opens after the lessons" : undefined} className="flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control bg-subtle px-3.5 text-caption font-bold text-ink-4">{locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Mic className="size-3.5" aria-hidden="true" />}Start</span>}
       </div>
-      <ol className="flex flex-col gap-1 border-t border-tint-line pt-2.5">
+      <ol className={cn("flex flex-col gap-1.5 border-t pt-2.5", live ? "border-tint-line" : "border-hair")}>
         {call.items.map((x) => {
-          const n = plan.objectives.findIndex((o) => o.ob?.id === x.ob?.id);
-          const retry = plan.objectives[n]?.state === "retry";
+          const st = OB_STATUS[x.o.state];
+          const when = x.o.retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+          const note = x.o.state === "waiting" ? `Retry from ${when}. Go back over the lessons first.` : x.o.state === "out" ? "No tries left. Your manager can reset it." : x.o.state === "retry" ? `${x.o.triesLeft} ${x.o.triesLeft === 1 ? "try" : "tries"} left` : undefined;
           return (
             <li key={x.sc.id} className="flex items-baseline gap-2 text-caption">
-              <span className="w-5 shrink-0 font-extrabold tabular-nums text-brand-deep">{String(n + 1).padStart(2, "0")}</span>
-              <span className="min-w-0 flex-1 text-ink-2">{x.ob?.title ?? x.sc.title}{retry && <span className="ml-1.5 font-bold text-danger">· retry</span>}</span>
+              <span className="w-5 shrink-0 font-extrabold tabular-nums text-brand-deep">{String(x.n + 1).padStart(2, "0")}</span>
+              <span className="flex min-w-0 flex-1 flex-col"><span className="text-ink-2">{x.o.ob?.title ?? x.sc.title}</span>{note && <span className="text-ink-3">{note}</span>}</span>
+              {x.o.state !== "todo" && <Pill_ tone={st.tone}>{st.label}</Pill_>}
             </li>
           );
         })}
@@ -282,7 +309,7 @@ function CallCard({ c, call, k, plan }: { c: Course; call: PlannedCall; k: numbe
   );
 }
 
-/** An objective, for the rep: where they stand, and the situation it was (or will be) tested with. */
+/** v1-hidden (the objectives list is off). An objective, for the rep: where they stand, and the situation it was (or will be) tested with. */
 function ObjectiveRow({ c, p, o, i, plan, locked }: { c: Course; p: Progress; o: Plan["objectives"][number]; i: number; plan: Plan; locked: boolean }) {
   const base = `/rep/course/${c.id}`;
   const st = OB_STATUS[o.state];

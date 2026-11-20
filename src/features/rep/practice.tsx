@@ -7,7 +7,7 @@ import { Lock, Mic, ChevronRight, Trash2, RotateCcw, Flame, X, Check } from "luc
 import { cn } from "@/lib/cn";
 import { nowIso, useApp } from "@/store/app-store";
 import { useMe, fmtDate, daysFromToday } from "@/store/selectors";
-import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, allScenarios, registerExtraObjections, scenario as getScenario } from "@/data/scenarios";
+import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, registerExtraObjections, scenario as getScenario } from "@/data/scenarios"; // v1-hidden: allScenarios
 import { situationObjection } from "@/lib/roleplay-draft";
 import type { Item, PracticeSession } from "@/data/types";
 import { competency } from "@/data/org";
@@ -35,8 +35,8 @@ export function PracticeHub() {
   const me = useMe();
   const s = useApp();
   const mine = s.practice.filter((x) => x.userId === me.id);
-  const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId);
-  const library = allScenarios().filter((x) => x.use.includes("practice") && assigned.includes(x.courseId));
+  /* v1-hidden: const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId); */
+  /* v1-hidden: const library = allScenarios().filter((x) => x.use.includes("practice") && assigned.includes(x.courseId)); */
   const calls = mine.filter((x) => x.kind === "roleplay"); // v1-hidden: quiz sessions (no quiz in v1)
   const scored = calls.filter((x) => x.result);
   const weekAgo = new Date(new Date(nowIso()).getTime() - 7 * 86400_000).toISOString();
@@ -100,6 +100,7 @@ export function PracticeHub() {
         </section>
       )}
 
+      {/* v1-hidden: AI doctors from your trainings. Practice is your own rehearsals and their history.
       <section className="flex flex-col gap-2.5">
         <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">AI doctors</Text><Text size="caption" tone="subtle">From your trainings</Text></div>
         {library.length === 0 && <Text tone="subtle">No practice doctors in your trainings yet. Prep for a meeting builds one for you.</Text>}
@@ -129,8 +130,9 @@ export function PracticeHub() {
         })}
       </section>
 
+      */}
       <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Your sessions</Text>{calls.length > 0 && <Text size="caption" tone="subtle">{calls.length} saved</Text>}</div>
+        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Your practice calls</Text>{calls.length > 0 && <Text size="caption" tone="subtle">{calls.length} saved</Text>}</div>
         {calls.length === 0 && (
           <div className="squircle flex flex-col items-center gap-2 rounded-card border border-dashed border-hair-2 px-6 py-8 text-center">
             <Mic className="size-6 text-ink-4" aria-hidden="true" />

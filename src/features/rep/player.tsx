@@ -48,7 +48,8 @@ export function BlockPlayer() {
   const started = [...material, ...checks].some((b) => done(b.id));
   const resumeAt = material.findIndex((b) => !done(b.id));
 
-  const [screen, setScreen] = useState<Screen>({ kind: "intro" });
+  /* Tapping a material opens it straight away: where the rep left off, or the first one. A lesson with only a check opens on the check. */
+  const [screen, setScreen] = useState<Screen>(() => (material.length ? { kind: "step", i: Math.max(0, resumeAt) } : checks.length ? { kind: "check", q: 0 } : { kind: "intro" }));
   const [mediaDone, setMediaDone] = useState<Record<string, boolean>>({});
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [retakes, setRetakes] = useState(0);
@@ -87,7 +88,7 @@ export function BlockPlayer() {
     if (checkScore !== undefined) s.earn(me.id, "check", retakes ? "Passed the quick check" : "Passed the quick check, first try", { points: retakes ? 10 : 15, key: `chk-${p.id}-${mod.id}` });
   }
   function goModule(m: Module) {
-    setScreen({ kind: "intro" });
+    setScreen(m.blocks.some((b) => b.type !== "check") ? { kind: "step", i: 0 } : { kind: "check", q: 0 });
     setPinned(undefined);
     router.replace(`/rep/course/${c!.id}/learn?module=${m.id}${explore ? "&explore=1" : ""}`);
   }
@@ -113,7 +114,7 @@ export function BlockPlayer() {
     </div>
   );
 
-  /* ── Overview ── */
+  /* ── Overview ── v1-hidden: materials open directly now; this only shows for a lesson with nothing in it. */
   if (screen.kind === "intro") {
     const minutes = mod.blocks.reduce((a, b) => a + b.minutes, 0);
     const allMaterialDone = resumeAt === -1;
@@ -191,7 +192,7 @@ export function BlockPlayer() {
             onComplete={() => setMediaDone((d) => (d[block.id] ? d : { ...d, [block.id]: true }))} />
         </div>
         <Footer>
-          <Button size="lg" variant="secondary" onClick={() => setScreen(screen.i > 0 ? { kind: "step", i: screen.i - 1 } : { kind: "intro" })}>Back</Button>
+          <Button size="lg" variant="secondary" onClick={() => (screen.i > 0 ? setScreen({ kind: "step", i: screen.i - 1 }) : router.push(`/rep/course/${c.id}`))}>Back</Button>
           <Button size="lg" className="min-w-0 flex-1" disabled={gated} onClick={() => next(screen.i)}>
             <span className="truncate">{gated ? gateLabel : !last ? "Continue" : checks.length ? "Go to the lesson check" : "Finish lesson"}</span>
           </Button>

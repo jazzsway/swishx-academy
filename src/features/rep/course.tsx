@@ -29,8 +29,7 @@ const TAG: Record<Progress["assignType"], { label: string; tone: "brand" | "defa
 };
 
 /**
- * My learning, in three parts: what's assigned to you (with due dates), what you're certified on,
- * and the Library of open courses you can take any time, for your team or for everyone.
+ * My learning: what's assigned to you (with due dates) and the Library of open courses you can take any time, for your team or for everyone.
  */
 export function RepLearn() {
   const me = useMe();
@@ -42,7 +41,7 @@ export function RepLearn() {
   /* Trainings built from the team's own material lead the list, then by due date. */
   const assigned = mine.filter((p) => p.assignType !== "self" && p.state !== "certified")
     .sort((a, b) => Number(courseOf(b).origin === "direct") - Number(courseOf(a).origin === "direct") || due(a).localeCompare(due(b)));
-  const certified = mine.filter((p) => p.state === "certified");
+  /* v1-hidden: const certified = mine.filter((p) => p.state === "certified"); */
   const overdue = assigned.filter(isOverdue).length;
   const nextDue = assigned.find((p) => p.dueAt && !isOverdue(p));
 
@@ -74,6 +73,7 @@ export function RepLearn() {
         </section>
       )}
 
+      {/* v1-hidden: Certified courses. They live under Me.
       {certified.length > 0 && (
         <section className="flex flex-col gap-2.5" aria-labelledby="cert-h">
           <div className="flex flex-col gap-0.5">
@@ -83,6 +83,7 @@ export function RepLearn() {
           {certified.map((p) => <CourseRow key={p.id} p={p} c={courseOf(p)} />)}
         </section>
       )}
+      */}
 
       <section className="flex flex-col gap-2.5 border-t border-hair pt-6" aria-labelledby="lib-h">
         <div className="flex items-center gap-2.5">
