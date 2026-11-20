@@ -343,7 +343,7 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
           <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />On to the calls</Button>
         ) : allDone ? (
           linear
-            ? <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/attest`)}>Sign attestation<ArrowRight className="size-4" aria-hidden="true" /></Button>
+            ? <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/attest`)}>Get your certificate<ArrowRight className="size-4" aria-hidden="true" /></Button>
             : <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment`)}><AgentIcon className="size-4" aria-hidden="true" />{p?.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment"}</Button>
         ) : nextModule && !optional ? (
           <Button size="lg" fullWidth onClick={() => onNext(nextModule)}><span className="truncate">Next: {nextModule.title}</span><ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>

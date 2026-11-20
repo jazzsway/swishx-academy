@@ -148,14 +148,14 @@ export function StepperRail({ course }: { course: Course }) {
   const sub: Record<number, string> = {
     1: `${obs} objective${obs === 1 ? "" : "s"}`,
     2: `${scs.length} situation${scs.length === 1 ? "" : "s"}`,
-    3: `Pass ${course.settings.passRoleplay}% · ${course.settings.attempts} tries`,
+    3: `Screening ${course.settings.screening ? "on" : "off"} · recertify ${course.settings.recertMonths} mo`,
     4: assigned ? "Assigned" : lv ? "Published" : "Not published yet",
   };
   const done: Record<number, boolean> = { 1: obs > 0, 2: scs.length > 0, 3: settingsSeen && scs.length > 0, 4: assigned };
   const steps = STAGES.map((st) => ({ n: st.n, href: `${base}${st.path}`, label: st.label, short: st.short, sub: sub[st.n], done: done[st.n] }));
   return (
     <nav aria-label="Build your training" className="hidden w-[84px] shrink-0 flex-col border-r border-hair bg-canvas px-1.5 py-4 md:flex xl:w-[208px] xl:px-3">
-      <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="hidden px-2 pb-3 xl:block">Build your training</Text>
+      {/* v1-hidden: the rail's heading. <Text size="micro" tone="subtle" weight="bold" uppercase tracking="wider" className="hidden px-2 pb-3 xl:block">Build your training</Text> */}
       <ol className="flex flex-col">
         {steps.map((st, i) => {
           const on = step === st.n;
@@ -163,15 +163,15 @@ export function StepperRail({ course }: { course: Course }) {
           return (
             <li key={st.n} className="relative">
               {!last && <span className={cn("absolute bottom-0 left-1/2 top-[60px] w-px xl:left-[21px] xl:top-9", st.done ? "bg-ok/50" : "bg-hair-2")} aria-hidden="true" />}
-              <Link href={st.href} aria-current={on ? "step" : undefined} title={`${st.label} · ${st.sub}`}
-                className={cn("squircle relative flex flex-col items-center gap-1 rounded-panel px-1 pb-5 pt-2 transition-colors xl:flex-row xl:items-start xl:gap-3 xl:px-2", on ? "bg-tint" : "hover:bg-subtle", last && "pb-2")}>
+              <Link href={st.href} aria-current={on ? "step" : undefined} title={st.label}
+                className={cn("squircle relative flex flex-col items-center gap-1 rounded-panel px-1 pb-5 pt-2 transition-colors xl:flex-row xl:items-center xl:gap-3 xl:px-2", on ? "bg-tint" : "hover:bg-subtle", last && "pb-2")}>
                 <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-caption font-bold", on ? "bg-brand text-white shadow-brand-lift" : st.done ? "bg-ok text-white" : "border border-hair-3 bg-card text-ink-3")}>
                   {st.done && !on ? <Check className="size-3.5" aria-hidden="true" /> : st.n}
                 </span>
                 <span className={cn("text-center text-micro font-semibold leading-tight xl:hidden", on ? "text-ink" : "text-ink-3")}>{st.short}</span>
-                <span className="hidden min-w-0 flex-col pt-0.5 xl:flex">
+                <span className="hidden min-w-0 flex-col xl:flex">
                   <span className={cn("text-body font-semibold leading-snug", on ? "text-ink" : "text-ink-2")}>{st.label}</span>
-                  <span className="text-caption text-ink-3">{st.sub}</span>
+                  {/* v1-hidden: the stage's sub-line (counts, status). <span className="text-caption text-ink-3">{st.sub}</span> */}
                 </span>
               </Link>
             </li>

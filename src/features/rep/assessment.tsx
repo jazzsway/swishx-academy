@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { X, ArrowRight, Check, ChevronDown, ChevronRight, Hourglass, Mic, ShieldAlert, ShieldCheck, RotateCcw } from "lucide-react";
@@ -206,6 +206,9 @@ export function Assessment() {
   );
 }
 
+/** v1-hidden: reps typing their name under a statement before they certify. Off for now: the certificate is given straight away. */
+const ATTESTATION_ON = false;
+
 export function Attestation() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -214,7 +217,18 @@ export function Attestation() {
   const p = s.progress.find((x) => x.userId === me.id && x.courseId === id);
   const c = s.courses.find((x) => x.id === id);
   const [name, setName] = useState("");
+  /* No signing: a rep who's done everything gets the certificate as they arrive here. */
+  const done = useRef(false);
+  const ready = !!p && !!c && p.state !== "certified" && p.state !== "awaiting_verify";
+  useEffect(() => {
+    if (ATTESTATION_ON || done.current || !p || !c) return;
+    done.current = true;
+    if (ready) s.attest(p.id, me.name);
+    const after = useApp.getState().progress.find((x) => x.id === p.id)!;
+    router.replace(after.state === "certified" ? `/rep/course/${c.id}?celebrate=1` : `/rep/course/${c.id}`);
+  }, [p?.id, c?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
+  if (!ATTESTATION_ON) return <div className="grid min-h-full flex-1 place-items-center p-6"><Text size="body" tone="subtle">Getting your certificate…</Text></div>;
   const ok = name.trim().toLowerCase() === me.name.toLowerCase();
   // v1-hidden (doc number): const ver = c.versions.find((v) => v.version === p.version);
   return (
@@ -351,7 +365,7 @@ function ResultView({ result, sc, pass, base, callOnly, attemptNo, attempts, lef
       <section className="mt-auto flex flex-col gap-2">
         {result.passed ? (
           <>
-            <Button size="lg" fullWidth onClick={onAttest}><ShieldCheck className="size-4" aria-hidden="true" />Sign and get certified</Button>
+            <Button size="lg" fullWidth onClick={onAttest}><ShieldCheck className="size-4" aria-hidden="true" />Get your certificate</Button>
             <Text size="caption" tone="subtle" className="text-center">One last step: confirm you&apos;ll promote only within the approved label.</Text>
           </>
         ) : (

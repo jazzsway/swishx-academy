@@ -15,7 +15,7 @@ import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
 import { StageHeader } from "./stage-ui";
 import { Toggle } from "./settings";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
+// v1-hidden (situations per objective): import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 
 const SEG = ["bg-brand", "bg-info", "bg-ok", "bg-warn", "bg-ink-3", "bg-brand-2"];
 
@@ -45,6 +45,11 @@ export function TrainingSettings() {
  * training (objectives with more situations count for more), where it's tested, and whether it's
  * must-pass. The weights are set on each objective; the floors are set here.
  */
+/** v1-hidden: must-pass criteria with a minimum score. */
+const MUST_PASS_ON = false;
+/** v1-hidden: listing the organisation's criteria this training doesn't test. */
+const UNTESTED_ON = false;
+
 function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
   const updateSettings = useApp((s) => s.updateSettings);
   const st = course.settings;
@@ -63,7 +68,6 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
   const untested = COMPETENCIES.filter((c) => !list.some((x) => x.c === c.id));
   const [more, setMore] = useState(false);
   const must = st.criticalCompetencies.filter((c) => list.some((x) => x.c === c));
-  const toggle = (c: string) => updateSettings(course.id, { criticalCompetencies: st.criticalCompetencies.includes(c) ? st.criticalCompetencies.filter((x) => x !== c) : [...st.criticalCompetencies, c] });
 
   return (
     <Card title="How reps are scored" eyebrow="Criteria"
@@ -72,45 +76,27 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
         <Text size="body" tone="subtle">Each objective is scored on its own criteria. <Link href={`${base}/roleplay`} className="font-semibold text-brand-deep hover:underline">Add objectives</Link> to see them here.</Text>
       ) : (
         <>
-          <Text size="body" tone="subtle" className="-mt-2 max-w-[68ch]">From your organisation&apos;s {COMPETENCIES.length} criteria, this training tests {list.length}. Each situation is scored on its objective&apos;s criteria; here&apos;s what each counts for across the training, and where it&apos;s tested. Change the weights on an objective, or in the chat.</Text>
+          <Text size="body" tone="subtle" className="-mt-2 max-w-[68ch]">This training tests {list.length} of your organisation&apos;s criteria. Here&apos;s what each counts for across the training. Ask the agent to change the weights.</Text>
           <ul className="flex flex-col">
-            {list.map(({ c, pct, in: where }, k) => {
-              const on = must.includes(c);
-              return (
-                <li key={c} className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 border-t border-hair py-3.5 first:border-0 first:pt-0">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <span className="flex items-center gap-2">
-                      <span className={cn("size-2.5 shrink-0 rounded-full", SEG[k % SEG.length])} aria-hidden="true" />
-                      <span className="text-body-lg font-semibold text-ink">{competency(c)?.name}</span>
-                      <span className="rounded-chip bg-subtle px-1.5 py-0.5 text-micro font-semibold text-ink-3">{domainOf(c)?.short}</span>
-                    </span>
-                    <Text size="caption" tone="subtle" className="pl-[18px] leading-relaxed">{competency(c)?.description}</Text>
-                    <span className="flex flex-wrap gap-1.5 pl-[18px] pt-1">
-                      {where.map((r) => (
-                        <Link key={r.ob.id} href={`${base}/roleplay?obj=${r.ob.id}`} title={r.ob.title}
-                          className="flex max-w-[260px] items-center gap-1.5 rounded-chip border border-hair-2 bg-card py-0.5 pl-1 pr-2 text-micro font-semibold text-ink-2 transition-colors hover:border-brand hover:text-brand-deep">
-                          <span className="rounded-full bg-tint px-1.5 font-extrabold tabular-nums text-brand-deep">{String(r.i + 1).padStart(2, "0")}</span>
-                          <span className="truncate">{r.ob.title}</span>
-                          <span className="shrink-0 tabular-nums text-ink-4">{r.pct}%</span>
-                        </Link>
-                      ))}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="flex items-baseline gap-1"><span className="text-title font-extrabold tabular-nums text-ink">{pct}%</span><span className="text-micro text-ink-4">of the score</span></span>
-                    <button type="button" aria-pressed={on} onClick={() => toggle(c)} title={on ? "Must pass. Click to make it optional." : "Make this must-pass"}
-                      className={cn("flex items-center gap-1 rounded-chip border px-2 py-0.5 text-micro font-bold transition-colors", on ? "border-danger/30 bg-danger/10 text-danger" : "border-hair-2 text-ink-3 hover:border-danger/40 hover:text-danger")}>
-                      <ShieldAlert className="size-3" aria-hidden="true" />{on ? "Must pass" : "Make must-pass"}
-                    </button>
-                  </div>
-                  <span className="col-span-2 ml-[18px] h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
-                    <span className={cn("block h-full rounded-full", SEG[k % SEG.length])} style={{ width: `${(pct / top) * 100}%` }} />
+            {list.map(({ c, pct }, k) => (
+              <li key={c} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-t border-hair py-3.5 first:border-0 first:pt-0">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="flex items-center gap-2">
+                    <span className={cn("size-2.5 shrink-0 rounded-full", SEG[k % SEG.length])} aria-hidden="true" />
+                    <span className="text-body-lg font-semibold text-ink">{competency(c)?.name}</span>
                   </span>
-                </li>
-              );
-            })}
+                  <Text size="caption" tone="subtle" className="pl-[18px] leading-relaxed">{competency(c)?.description}</Text>
+                </div>
+                <span className="flex items-baseline gap-1"><span className="text-title font-extrabold tabular-nums text-ink">{pct}%</span><span className="text-micro text-ink-4">of the score</span></span>
+                <span className="col-span-2 ml-[18px] h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
+                  <span className={cn("block h-full rounded-full", SEG[k % SEG.length])} style={{ width: `${(pct / top) * 100}%` }} />
+                </span>
+              </li>
+            ))}
+            {/* v1-hidden: on each criterion, its domain tag, the objectives that test it (as chips) and a must-pass toggle. */}
           </ul>
-          {untested.length > 0 && (
+          {/* v1-hidden: the criteria this training doesn't test. */}
+          {UNTESTED_ON && untested.length > 0 && (
             <div className="flex flex-col gap-2 border-t border-hair pt-3">
               <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="flex items-center gap-1.5 self-start text-caption font-semibold text-ink-3 hover:text-ink">
                 <ChevronDown className={cn("size-3.5 transition-transform", more && "rotate-180")} aria-hidden="true" />{untested.length} more not tested in this training
@@ -129,7 +115,8 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
               )}
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel bg-subtle px-4 py-3">
+          {/* v1-hidden: must-pass criteria and their minimum. */}
+          {MUST_PASS_ON && <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel bg-subtle px-4 py-3">
             <ShieldAlert className="size-4 shrink-0 text-danger" aria-hidden="true" />
             <Text size="body" className="min-w-[220px] flex-1">
               {must.length
@@ -137,7 +124,7 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
                 : "No must-pass criteria, so only the pass mark counts. Mark the ones where a gap is a compliance risk."}
             </Text>
             {must.length > 0 && <Stepper label="Must-pass minimum" value={st.passCritical} step={5} min={10} max={100} suffix="%" onChange={(n) => updateSettings(course.id, { passCritical: n })} />}
-          </div>
+          </div>}
         </>
       )}
     </Card>
@@ -154,6 +141,7 @@ function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
   return (
     <Card title="Rules of the call" eyebrow="Passing and certification">
       <ul className="-mt-1 flex flex-col">
+        {/* v1-hidden: pass mark, retries and situations per objective. SwishX sets them.
         <Line label="Pass mark" hint="On each situation, from its weighted criteria. A critical compliance flag always fails it.">
           <Stepper label="Pass mark" value={st.passRoleplay} step={5} min={10} max={100} suffix="%" onChange={(n) => set({ passRoleplay: n })} />
         </Line>
@@ -167,19 +155,22 @@ function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
             <SegmentedButton active={st.situationsPerObjective === "all"} onClick={() => set({ situationsPerObjective: "all" })}>All</SegmentedButton>
           </Segmented>
         </Line>
+        */}
         <Line label="Assisted mode" hint={st.finalNoHints === false ? "Reps can tap a bulb for a hint during the scored call. It doesn't change the score; you see how many they used. Screening never has hints." : "Off: the scored call has no hints, like the real thing. Reps can still practise with hints."}>
           <Toggle label="Assisted mode" on={st.finalNoHints === false} onChange={(v) => set({ finalNoHints: !v })} />
         </Line>
-        <Line label="Screening call" hint={st.screening ? `3 minutes, not graded, from ${screen.length} situation${screen.length === 1 ? "" : "s"} (pick them on Objectives). It sets each rep's baseline, and lessons they already know become optional.` : "Off: every rep takes every lesson, in order, with no baseline."}>
+        <Line label="Screening call" hint={st.screening ? `3 minutes, not graded, from ${screen.length} situation${screen.length === 1 ? "" : "s"} SwishX picks. It sets each rep's baseline, and lessons they already know become optional.` : "Off: every rep takes every lesson, in order, with no baseline."}>
           <Toggle label="Screening" on={st.screening} onChange={(v) => { set(v ? { screening: true, screeningCall: true, baseline: true } : { screening: false, screeningCall: false, baseline: false }); updateCourse(course.id, { type: v ? "personalised" : "linear" }); }} />
         </Line>
         <Line label="Recertify" hint="Reps take the scored call again; the certificate lapses if they don't.">
           <Text size="caption" tone="subtle">every</Text>
           <Stepper label="Recertify months" value={st.recertMonths} min={1} max={36} suffix="mo" onChange={(n) => set({ recertMonths: n })} />
         </Line>
+{/* v1-hidden: attestation. Reps certify without signing.
         <Line label="Attestation" hint="Reps type their full name under the statement before they certify.">
           <Toggle label="Attestation" on={st.completion.attestation} onChange={(v) => set({ completion: { ...st.completion, attestation: v } })} />
         </Line>
+        */}
       </ul>
     </Card>
   );
