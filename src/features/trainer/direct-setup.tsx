@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Plus, Upload, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Eye, EyeOff, Paperclip, Plus, Upload, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -107,72 +107,82 @@ export function DirectSetup() {
     </header>
   );
 
-  const picker = (label: string) => (
-    <label className="flex cursor-pointer items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline">
-      <Plus className="size-4" aria-hidden="true" />{label}
-      <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
-    </label>
-  );
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; };
+  const drop = {
+    onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } },
+    onDragLeave: () => setOver(false),
+    onDrop: (e: React.DragEvent) => { if (!e.dataTransfer.files.length) return; e.preventDefault(); setOver(false); add(upload(Array.from(e.dataTransfer.files), "f")); },
+  };
+  const ready = !!brief.trim();
+  const seen = items.filter((f) => f.visible).length;
 
-  /* Describe it, and add the material: two clear parts. */
+  /* Like starting a chat: one prompt box, the files attached inside it, and the send arrow last. */
   return (
       <div className="flex h-dvh flex-col bg-canvas">
         {header}
-        <main className="min-h-0 flex-1 overflow-y-auto bg-subtle/60">
-          <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-5 pb-16 pt-[10vh]">
-            <div className="flex flex-col items-center gap-1.5 text-center">
-              <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">Describe the training you want to build</Text>
-              <Text size="body" tone="subtle">Tell SwishX what reps should learn, and add the material it should use.</Text>
+        <main className="min-h-0 flex-1 overflow-y-auto bg-subtle/60" {...drop}>
+          <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-5 pb-16 pt-[9vh]">
+            <div className="flex flex-col items-center gap-2 pb-2 text-center">
+              <span className="grid size-12 place-items-center rounded-panel border border-tint-line bg-gradient-to-br from-tint to-white shadow-hair"><AgentIcon className="size-6 text-brand" aria-hidden="true" /></span>
+              <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">What should reps be able to do?</Text>
+              <Text size="body-lg" tone="subtle">Describe the training and attach your material. SwishX drafts the objectives and the calls from both.</Text>
             </div>
 
-            {/* One composer: the brief, the material, and the way on. Drop files anywhere on it. */}
-            <section className={cn("squircle flex flex-col overflow-hidden rounded-card border bg-card shadow-soft transition-colors", over ? "border-brand ring-2 ring-brand/20" : "border-hair")}
-              onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)}
-              onDrop={(e) => { if (!e.dataTransfer.files.length) return; e.preventDefault(); setOver(false); add(upload(Array.from(e.dataTransfer.files), "f")); }}>
-              <div className="flex flex-col gap-2 px-5 pt-5">
-                <label htmlFor="brief" className="flex items-center gap-2 text-body font-bold text-ink"><AgentIcon className="size-4 text-brand" aria-hidden="true" />What should reps learn and be able to do?</label>
-                <textarea id="brief" rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} autoFocus
-                  placeholder="e.g. Reps can present the new trial results exactly as approved, keep fair balance, and handle doctors who are happy with what they prescribe."
-                  className="w-full resize-none bg-transparent py-1 text-body-lg leading-relaxed text-ink outline-none placeholder:text-ink-4" />
-              </div>
-
-              <div className="flex flex-col gap-2.5 px-5 pb-4 pt-1">
-                <div className="flex items-center gap-2">
-                  <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider" className="flex-1">Your material{items.length ? ` · ${items.length}` : ""}</Text>
-                  {items.length > 0 && picker("Add more")}
+            <section className={cn("flex flex-col rounded-[26px] border bg-card shadow-soft transition-[border-color,box-shadow] focus-within:border-brand/50 focus-within:shadow-float", over ? "border-brand ring-2 ring-brand/20" : "border-hair")}>
+              {/* The material, attached to the prompt: what reps see is picked on each file. */}
+              {items.length > 0 && (
+                <div className="flex flex-col gap-2 px-4 pt-4">
+                  <ul className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]" aria-label="Your material">
+                    {items.map((f) => <FileCard key={f.id} s={f.src} visible={f.visible} onToggle={() => setFiles(files.map((x) => (x.id === f.id ? { ...x, visible: !x.visible } : x)))}
+                      onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
+                    <li className="shrink-0">
+                      <label className="flex h-full w-[92px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed border-hair-3 text-caption font-semibold text-ink-3 transition-colors hover:border-brand hover:bg-tint/60 hover:text-brand-deep">
+                        <Plus className="size-4.5" aria-hidden="true" />Add
+                        <input type="file" multiple className="sr-only" onChange={pick} />
+                      </label>
+                    </li>
+                  </ul>
+                  <Text size="caption" tone="subtle" className="px-0.5">Reps see {seen} as lessons, in this order. {items.length - seen ? `${items.length - seen} ${items.length - seen === 1 ? "is" : "are"} information only: SwishX uses ${items.length - seen === 1 ? "it" : "them"}, reps don't see ${items.length - seen === 1 ? "it" : "them"}.` : "Switch one to Info only to keep it from reps."}</Text>
                 </div>
-                {items.length === 0 ? (
-                  <label className={cn("squircle flex cursor-pointer items-center gap-3 rounded-panel border border-dashed px-3.5 py-2.5 transition-colors hover:border-brand hover:bg-tint/60", over ? "border-brand bg-tint" : "border-hair-3")}>
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-tint text-brand-deep"><Upload className="size-4" aria-hidden="true" /></span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-body font-semibold text-ink-2">Add your files, or drop them here</span>
-                      <span className="truncate text-caption text-ink-3">Decks, PDFs, videos, reference documents. You choose which ones reps see.</span>
-                    </span>
-                    <span className="hidden shrink-0 rounded-control border border-hair-2 bg-card px-3 py-1.5 text-caption font-bold text-ink-2 sm:block">Browse</span>
-                    <input type="file" multiple className="sr-only" onChange={(e) => { add(upload(Array.from(e.target.files ?? []), "f")); e.target.value = ""; }} />
-                  </label>
-                ) : (
-                  <>
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                      {items.map((f) => <FileCard key={f.id} s={f.src} visible={f.visible} onToggle={() => setFiles(files.map((x) => (x.id === f.id ? { ...x, visible: !x.visible } : x)))}
-                        onPreview={() => setPreview(f.src)} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
-                    </ul>
-                    <Text size="caption" tone="subtle">Reps see {items.filter((f) => f.visible).length} as lessons, in this order. The rest are information only: SwishX uses them for the objectives and situations, reps don&apos;t see them.</Text>
-                  </>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-hair bg-subtle/50 px-5 py-3">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                  <Text size="caption" tone="subtle" className="mr-0.5">Try</Text>
-                  {SAMPLES.map(([label, t]) => (
-                    <button key={label} type="button" onClick={() => setBrief(t)} className={cn("rounded-chip border px-2.5 py-1 text-caption font-semibold transition-colors", brief === t ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:border-brand hover:text-brand-deep")}>{label}</button>
-                  ))}
-                </div>
-                <Button disabled={!brief.trim()} onClick={start} title={brief.trim() ? undefined : "Describe the training to continue"}>Continue<ArrowRight className="size-4" aria-hidden="true" /></Button>
+              )}
+              <label htmlFor="brief" className="sr-only">What should reps learn and be able to do?</label>
+              <textarea id="brief" rows={5} value={brief} onChange={(e) => setBrief(e.target.value)} autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) start(); }}
+                placeholder="e.g. Reps can present the new trial results exactly as approved, keep fair balance, and handle doctors who are happy with what they prescribe."
+                className={cn("w-full resize-none bg-transparent px-6 pb-3 text-subhead leading-relaxed text-ink outline-none placeholder:text-ink-4", items.length ? "min-h-[120px] pt-3" : "min-h-[150px] pt-6")} />
+              <div className="flex items-center gap-2 rounded-b-[26px] border-t border-hair bg-canvas/95 px-3.5 py-2.5">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-chip px-2.5 py-1.5 text-body font-medium text-ink-3 transition-colors hover:bg-tint hover:text-brand">
+                  <Paperclip className="size-4" aria-hidden="true" />{items.length ? `${items.length} file${items.length === 1 ? "" : "s"}` : "Attach material"}
+                  <input type="file" multiple className="sr-only" onChange={pick} />
+                </label>
+                <span className="ml-auto hidden text-caption text-ink-4 sm:block">{ready ? "⌘↵ to continue" : ""}</span>
+                <button type="button" onClick={start} disabled={!ready} aria-label="Continue" title={ready ? "Continue (⌘↵)" : "Describe the training to continue"}
+                  className="grid size-9 place-items-center rounded-control bg-brand text-white shadow-sm transition-all hover:scale-105 hover:bg-brand-deep active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:scale-100">
+                  <ArrowUp className="size-4.5 stroke-[2.6]" aria-hidden="true" />
+                </button>
               </div>
             </section>
-            {!brief.trim() && <Text size="caption" tone="subtle" className="-mt-3 text-center">Describe the training to continue. Files are optional; you can add them later.</Text>}
+            {items.length === 0 && (
+              <Text size="caption" tone="subtle" className="-mt-2 flex items-center justify-center gap-1.5 text-center">
+                <Upload className="size-3.5 shrink-0" aria-hidden="true" />Attach decks, PDFs, videos or reference documents, or drop them anywhere. You choose which ones reps see.
+              </Text>
+            )}
+
+            {/* Ideas to start from. */}
+            <div className="flex flex-col gap-2 pt-2">
+              <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider" className="px-1">Or start from one of these</Text>
+              {SAMPLES.map(([label, t]) => {
+                const on = brief === t;
+                return (
+                  <button key={label} type="button" onClick={() => setBrief(t)}
+                    className={cn("group flex items-center gap-3 rounded-panel border px-3.5 py-2.5 text-left transition-all", on ? "border-brand bg-tint/70 ring-2 ring-brand/15" : "border-hair bg-card hover:border-brand")}>
+                    <span className="shrink-0 rounded-chip border border-tint-line bg-tint px-2 py-0.5 text-caption font-extrabold text-brand-deep">{label}</span>
+                    <span className="line-clamp-1 min-w-0 flex-1 text-body text-ink-2">&ldquo;{t}&rdquo;</span>
+                    <span className="flex shrink-0 items-center gap-1 text-caption font-bold text-brand opacity-80 group-hover:opacity-100"><span className="hidden sm:inline">{on ? "In the box" : "Use it"}</span><ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </main>
         {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
@@ -180,27 +190,27 @@ export function DirectSetup() {
     );
 }
 
-/** An uploaded file, as a preview: the picture or video itself, or its type. */
+/** An attached file, inside the prompt: a preview, its name, and whether reps see it. */
 function FileCard({ s, visible, onToggle, onPreview, onRemove }: { s: Source; visible: boolean; onToggle: () => void; onPreview: () => void; onRemove: () => void }) {
   const k = kindOf(s);
   const Icon = FORMAT_ICON[k];
   const url = s.uploaded ? fileUrl(s.id) : undefined;
   return (
-    <li className="squircle group relative flex flex-col overflow-hidden rounded-panel border border-hair bg-card transition-shadow hover:shadow-hair">
-      <button type="button" onClick={onPreview} className="flex flex-col text-left">
-        <span className={cn("grid aspect-[4/3] place-items-center overflow-hidden transition-opacity", THUMB[k], !visible && "opacity-45 grayscale")}>
+    <li className="squircle group relative flex w-[168px] shrink-0 flex-col overflow-hidden rounded-panel border border-hair bg-card transition-shadow hover:shadow-hair">
+      <button type="button" onClick={onPreview} className="flex flex-col text-left" title={`Preview ${s.title}`}>
+        <span className={cn("grid h-[76px] place-items-center overflow-hidden transition-opacity", THUMB[k], !visible && "opacity-45 grayscale")}>
           {url && k === "image" ? <img src={url} alt="" className="size-full object-cover" />
             : url && k === "video" ? <video src={url} muted preload="metadata" className="size-full object-cover" />
-            : <Icon className="size-8 opacity-80" aria-hidden="true" />}
+            : <Icon className="size-6 opacity-80" aria-hidden="true" />}
         </span>
-        <span className="flex flex-col gap-0.5 p-2.5">
-          <span className="line-clamp-2 text-caption font-semibold leading-snug text-ink">{s.title}</span>
+        <span className="flex flex-col px-2.5 pb-1.5 pt-2">
+          <span className="truncate text-caption font-semibold text-ink">{s.title}</span>
           <span className="text-micro text-ink-3">{FORMAT_LABEL[k]}{s.pages ? ` · ${s.pages} pages` : ""}</span>
         </span>
       </button>
       {/* Whether reps see it, chosen right here: a lesson, or information only. */}
       <button type="button" role="switch" aria-checked={visible} onClick={onToggle} title={visible ? "Reps see it as a lesson. Click to make it information only." : "Information only. Click to show it to reps."}
-        className={cn("mx-2.5 mb-2.5 mt-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-micro font-bold transition-colors", visible ? "bg-ok-bg text-ok hover:bg-ok-bg/70" : "bg-subtle text-ink-3 hover:bg-hair")}>
+        className={cn("mx-2 mb-2 mt-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-micro font-bold transition-colors", visible ? "bg-ok-bg text-ok hover:bg-ok-bg/70" : "bg-subtle text-ink-3 hover:bg-hair")}>
         {visible ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}{visible ? "Reps see it" : "Info only"}
         <span className={cn("relative ml-auto h-3.5 w-6 rounded-full transition-colors", visible ? "bg-ok" : "bg-hair-3")}><span className={cn("absolute top-0.5 size-2.5 rounded-full bg-white transition-all", visible ? "left-[12px]" : "left-0.5")} /></span>
       </button>
