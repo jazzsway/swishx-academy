@@ -145,6 +145,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const mods = modulesOf(c);
   const base = `/rep/course/${c.id}`;
   const practiceOnly = p.mode === "practice";
+  /* Optional material: on hand to look through, but not a step, and it doesn't hold the calls back. */
+  const optionalMaterial = p.mode === "optional";
   const certified = p.state === "certified";
   const screens = c.settings.screening && !practiceOnly;
   const run = scenarioStatus(c, p);
@@ -157,7 +159,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const isDone = (m: Module) => m.blocks.every((b) => p.completedBlocks.includes(b.id));
   const lessonsDone = needed.filter(isDone).length;
   const waitScreen = screens && !screened;
-  const filesDone = !waitScreen && lessonsDone === needed.length;
+  const filesDone = !waitScreen && (optionalMaterial || lessonsDone === needed.length);
   const nextFile = needed.find((m) => !isDone(m));
   const plan = callPlan(c, p, presenter);
   const passedObs = plan.objectives.filter((o) => o.state === "passed").length;
@@ -179,7 +181,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
               <span className="flex -space-x-1.5">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-8 place-items-center rounded-full border-2 border-card bg-tint text-brand-deep"><I className="size-3.5" aria-hidden="true" /></span>; })}</span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <Text size="body" weight="semibold" truncate>{screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
-                <Text size="caption" tone="subtle">{screened ? (skipped.length ? `You skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you already know` : "Every lesson stays in your path") : part.length ? `${part.length} of ${screen.length} done · what you did is saved` : "About 3 min · not graded · decides which lessons you skip"}</Text>
+                <Text size="caption" tone="subtle">{screened ? (optionalMaterial ? "Your baseline is set" : skipped.length ? `You skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you already know` : "Every lesson stays in your path") : part.length ? `${part.length} of ${screen.length} done · what you did is saved` : optionalMaterial ? "About 3 min · not graded · sets your baseline" : "About 3 min · not graded · decides which lessons you skip"}</Text>
               </span>
               {screened
                 ? <Link href={`${base}/results`} className="shrink-0 text-caption font-bold text-brand-deep hover:underline">Results</Link>
@@ -188,7 +190,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
           </Stage>
         )}
 
-        {!practiceOnly && (
+        {!practiceOnly && !optionalMaterial && (
           <Stage n={++n} title="Lessons" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen}
             status={waitScreen ? <Pill_ tone="muted">After screening</Pill_> : <Pill_ tone={filesDone ? "ok" : "muted"}>{lessonsDone} of {needed.length} done</Pill_>}>
             <ul className="flex flex-col gap-1.5">
@@ -221,13 +223,13 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
 
         {plan.objectives.length > 0 && (
           <Stage n={++n} title="The calls" done={done} current={!callsLocked && !done} locked={callsLocked}
-            status={callsLocked ? <Pill_ tone="muted">After the lessons</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} objectives</Pill_>}>
+            status={callsLocked ? <Pill_ tone="muted">{optionalMaterial ? "After screening" : "After the lessons"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} objectives</Pill_>}>
             <Text size="caption" tone="subtle" className="-mt-1">
               Scored · pass {c.settings.passRoleplay} · {(c.settings.situationsPerObjective ?? "one") === "one" ? "one situation per objective, drawn for you" : "every situation"} · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} per objective{c.settings.finalNoHints === false ? " · hints allowed" : ""}. One call per person; each objective is scored on its own.
             </Text>
             {/* The calls to take, from the start: one per person, each with its objectives and where they stand. Start opens after the lessons. */}
             <ul className="flex flex-col gap-2" aria-label="Your calls">
-              {callsOf(plan).map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} locked={callsLocked} />)}
+              {callsOf(plan).map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} locked={callsLocked} lockNote={optionalMaterial ? "Opens after screening" : "Opens after the lessons"} />)}
             </ul>
             {/* v1-hidden: the separate objectives list. Each call now shows its objectives' status.
             <ul className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card" aria-label="Objectives">
@@ -238,11 +240,39 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         )}
 
         <Stage n={++n} title="Certified" last done={certified} current={done && !certified} locked={!done && !certified}
-          status={certified ? <Pill_ tone="ok">Done</Pill_> : done ? <Pill_ tone="brand">Sign now</Pill_> : undefined}>
-          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : done ? "Every objective passed. Sign the statement to get certified." : "Pass every objective, then sign once."}</Text>
-          {done && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Sign and get certified</Link>}
+          status={certified ? <Pill_ tone="ok">Done</Pill_> : done ? <Pill_ tone="brand">Ready</Pill_> : undefined}>
+          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : done ? "Every objective passed. Your certificate is ready." : "Pass every objective to get certified."}</Text>
+          {done && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Get your certificate</Link>}
         </Stage>
       </ol>
+
+      {optionalMaterial && mods.length > 0 && (
+        <section className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-4" aria-labelledby="material-h">
+          <div className="flex items-baseline justify-between gap-3">
+            <Text as="h3" id="material-h" size="body-lg" weight="bold">The material</Text>
+            <Pill_ tone="muted">Optional</Pill_>
+          </div>
+          <Text size="caption" tone="subtle" className="-mt-1">Look through any of it, any time. It isn&apos;t a step, and the calls don&apos;t wait for it.</Text>
+          <ul className="flex flex-col gap-1.5">
+            {mods.map((m) => {
+              const meta = fileMeta(m);
+              const seen = isDone(m);
+              return (
+                <li key={m.id}>
+                  <Link href={`${base}/learn?module=${m.id}`} className="squircle flex items-center gap-3 rounded-panel px-1 py-1 transition-colors hover:bg-subtle">
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-control", seen ? "bg-ok-bg text-ok" : "bg-subtle text-ink-3")}>{seen ? <Check className="size-4" aria-hidden="true" /> : <meta.icon className="size-4" aria-hidden="true" />}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <Text size="body" weight="semibold" truncate>{m.title}</Text>
+                      <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}</Text>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </section>
   );
 }
@@ -271,7 +301,7 @@ function callsOf(plan: Plan): JourneyCall[] {
 }
 
 /** A call to take: who the rep meets, the objectives it covers and where each stands. Start shows from the beginning and opens once the lessons are done. */
-function CallCard({ c, call, k, plan, locked }: { c: Course; call: JourneyCall; k: number; plan: Plan; locked: boolean }) {
+function CallCard({ c, call, k, plan, locked, lockNote }: { c: Course; call: JourneyCall; k: number; plan: Plan; locked: boolean; lockNote: string }) {
   const I = ROLE[call.key];
   const host = call.items[0].sc;
   const ready = plan.calls.some((x) => x.key === call.key);
@@ -289,7 +319,7 @@ function CallCard({ c, call, k, plan, locked }: { c: Course; call: JourneyCall; 
         </span>
         {passed ? <Pill_ tone="ok">Passed</Pill_>
           : live ? <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-brand px-3.5 text-caption font-bold text-white shadow-brand-lift"><Mic className="size-3.5" aria-hidden="true" />{retry ? "Retry" : "Start"}</Link>
-          : <span aria-disabled="true" title={locked ? "Opens after the lessons" : undefined} className="flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control bg-subtle px-3.5 text-caption font-bold text-ink-4">{locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Mic className="size-3.5" aria-hidden="true" />}Start</span>}
+          : <span aria-disabled="true" title={locked ? lockNote : undefined} className="flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control bg-subtle px-3.5 text-caption font-bold text-ink-4">{locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Mic className="size-3.5" aria-hidden="true" />}Start</span>}
       </div>
       <ol className={cn("flex flex-col gap-1.5 border-t pt-2.5", live ? "border-tint-line" : "border-hair")}>
         {call.items.map((x) => {

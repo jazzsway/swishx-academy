@@ -83,7 +83,8 @@ export function directNext(p: Progress, c: Course): NextStep | null {
       ? step("Resume your screening", `${done} of ${all.length} done. What you've done is saved.`, `Resume screening · ${all.length - done} left`, `${base}/screening`, 3)
       : step("Start with a screening call", "About 3 minutes, not graded. It decides which lessons you can skip.", "Start with screening", `${base}/screening`, 3);
   }
-  const nb = nextBlock(p, c);
+  /* Optional material is there to look through, not a step: the calls come next. */
+  const nb = p.mode === "optional" ? null : nextBlock(p, c);
   if (nb) {
     const pr = pathProgress(p, c);
     return step(nb.module.title, `Lesson ${pr.modulesDone + 1} of ${pr.modules}`, `${pr.modulesDone ? "Continue" : "Start"}: ${nb.module.title}`, `${base}/learn?module=${nb.module.id}`, pr.minutesLeft);
@@ -97,7 +98,7 @@ export function directNext(p: Progress, c: Course): NextStep | null {
     const n = call.items.length;
     return step(`Call with ${host}`, `${n} objective${n === 1 ? "" : "s"} · about ${call.minutes} min · scored`, `${retry ? "Retry" : "Start"} call ${plan.calls.length > 1 ? "1 " : ""}· ${host} · ${n} objective${n === 1 ? "" : "s"}`, `${base}/assessment?call=${call.key}`, call.minutes);
   }
-  if (plan.allPassed) return step("Sign and get certified", "Every objective passed. One last step.", "Sign and get certified", `${base}/attest`);
+  if (plan.allPassed) return step("Get your certificate", "Every objective passed. Your certificate is ready.", "Get your certificate", `${base}/attest`);
   return null;
 }
 
@@ -133,8 +134,8 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
     };
   }
   const last = p.attempts.at(-1);
-  if (p.state === "assessment" && last?.passed) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "One last step before certification.", cta: "Sign", href: `${base}/attest` };
-  if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Sign your attestation", why: "You've finished every lesson.", cta: "Sign", href: `${base}/attest` };
+  if (p.state === "assessment" && last?.passed) return { progress: p, course: c, eyebrow: c.title, title: "Get your certificate", why: "You passed. Your certificate is ready.", cta: "Get your certificate", href: `${base}/attest` };
+  if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Get your certificate", why: "You've finished every lesson.", cta: "Get your certificate", href: `${base}/attest` };
   if (scenarioCall) return { progress: p, course: c, eyebrow: c.title, title: "Take the scenario call", why: `Your lessons are done. ${c.scenarioIds.length} people, back to back in one call.`, cta: "Start the call", href: `${base}/assessment`, minutes: 15 };
   return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: c.items.some((i) => i.pool === "assessment") ? "Your path is done. Quiz plus a short call." : "Your path is done. One scored call.", cta: "Start assessment", href: `${base}/assessment`, minutes: 15 };
 }

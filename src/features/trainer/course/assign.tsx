@@ -143,9 +143,9 @@ function DirectAssign() {
   const publish = useApp((s) => s.publish);
   const { message, open, showToast } = useToast();
   const [rules, setRules] = useState<AudienceRules>({ ...EMPTY_RULES, roles: ["rep"], divisionIds: data?.course.teams?.length ? data.course.teams : data?.course.productId === "p-cardexa" ? ["div-cm"] : ["div-imm"] });
-  const [type, setType] = useState<Progress["assignType"]>("required");
-  const [mode, setMode] = useState<"learn" | "practice">("learn");
-  const [due, setDue] = useState(in30);
+  /* v1-hidden: picking Required / Onboarding / Optional. A due date makes it required (with reminders); without one it's open-ended. */
+  const [due, setDue] = useState("");
+  const [mode, setMode] = useState<"learn" | "optional">("optional");
   const [start, setStart] = useState(today);
   const [rollout, setRollout] = useState<Rollout>("minor");
   const [addMore, setAddMore] = useState<boolean | null>(null);
@@ -158,7 +158,8 @@ function DirectAssign() {
   const mine = progress.filter((p) => p.courseId === course.id);
   const already = new Set(mine.map((p) => p.userId));
   const fresh = matched.filter((u) => !already.has(u.id));
-  const badDates = type !== "recommended" && !!due && due < start;
+  const type: Progress["assignType"] = due ? "required" : "recommended";
+  const badDates = !!due && due < start;
   const day = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const dateInput = "h-9 rounded-control border border-hair-2 bg-card px-2.5 text-body text-ink outline-none focus:border-brand/60";
 
@@ -184,7 +185,7 @@ function DirectAssign() {
   const lines = [
     { label: "Lessons", value: `${course.modules.length} file${course.modules.length === 1 ? "" : "s"} reps see${info ? ` · ${info} information only` : ""}`, href: `${base}/roleplay?files=1` },
     { label: "Objectives", value: `${obs.length} objective${obs.length === 1 ? "" : "s"} · ${scs.length} situation${scs.length === 1 ? "" : "s"}`, href: `${base}/situations` },
-    { label: "Rules", value: `Pass ${st.passRoleplay}% · ${st.attempts} ${st.attempts === 1 ? "try" : "tries"} · screening ${st.screening ? "on" : "off"}${st.finalNoHints === false ? " · assisted" : ""}`, href: `${base}/settings` },
+    { label: "Rules", value: `Screening ${st.screening ? "on" : "off"} · recertify every ${st.recertMonths} months${st.finalNoHints === false ? " · hints on" : ""}`, href: `${base}/settings` },
   ];
 
   /* On a first publish, assigning is the point; on a new version, it's an extra. */
@@ -198,7 +199,7 @@ function DirectAssign() {
 
   function go() {
     if (draft) publish(course.id, lv && mine.length ? rollout : "minor");
-    const assigned = assignCount ? assign(course.id, targetRules(rules), type, type === "recommended" ? undefined : due, undefined, start, mode) : 0;
+    const assigned = assignCount ? assign(course.id, targetRules(rules), type, due || undefined, undefined, start, mode) : 0;
     const what = [draft && `Published v${cur.version}`, draft && lv && mine.length && `${ROLLOUT.find((r) => r.v === rollout)!.label.toLowerCase()} for the ${ppl(mine.length)} on v${lv.version}`, assigned && `assigned to ${assigned} new rep${assigned === 1 ? "" : "s"}`].filter(Boolean).join(", ");
     const said = what.charAt(0).toUpperCase() + what.slice(1);
     showToast(said);
@@ -295,22 +296,16 @@ function DirectAssign() {
           </Card>
           <Card title="What and when">
             <ul className="-mt-1 flex flex-col">
-              <Line label="What they do" hint={mode === "learn" ? "Screening, the lessons, then the scored call. For new hires and anyone new to the product." : "No lessons, straight to the scored call. For experienced reps."}>
-                <Segmented aria-label="What they do">
-                  <SegmentedButton active={mode === "learn"} onClick={() => setMode("learn")}>Lessons + call</SegmentedButton>
-                  <SegmentedButton active={mode === "practice"} onClick={() => setMode("practice")}>Call only</SegmentedButton>
+              <Line label="Material walkthrough" hint={mode === "learn" ? "Mandatory: reps go through the material before the scored calls. Screening lets them skip what they already know." : "Optional: the material is there to look through any time. It isn't a step; reps can go straight to the scored calls."}>
+                <Segmented aria-label="Material walkthrough">
+                  <SegmentedButton active={mode === "learn"} onClick={() => setMode("learn")}>Mandatory</SegmentedButton>
+                  <SegmentedButton active={mode === "optional"} onClick={() => setMode("optional")}>Optional</SegmentedButton>
                 </Segmented>
               </Line>
-              <Line label="Assignment" hint={type === "default" ? "Everyone who matches now, and anyone who matches later (new hires, transfers), gets it." : type === "required" ? "With a due date. Reminders 7, 3 and 1 day before." : "Optional. No due date, no reminders."}>
-                <Segmented aria-label="Assignment type">
-                  <SegmentedButton active={type === "required"} onClick={() => setType("required")}>Required</SegmentedButton>
-                  <SegmentedButton active={type === "default"} onClick={() => setType("default")}>Onboarding</SegmentedButton>
-                  <SegmentedButton active={type === "recommended"} onClick={() => setType("recommended")}>Optional</SegmentedButton>
-                </Segmented>
-              </Line>
-              <Line label="Dates" hint={badDates ? "Pick a due date after the start date." : start > today ? "Reps see it now but can't start until then." : "Reps can start right away."}>
+              <Line label="Dates" hint={badDates ? "Pick a due date after the start date." : `Both optional. ${start > today ? "Reps see it now but can't start until the start date." : "Reps can start right away."}${due ? " Reminders 7, 3 and 1 day before it's due." : " No due date, no reminders."}`}>
                 <label className="flex items-center gap-1.5 text-caption text-ink-3">Starts<input type="date" aria-label="Starts" value={start} min={today} onChange={(e) => setStart(e.target.value || today)} className={dateInput} /></label>
-                {type !== "recommended" && <label className="flex items-center gap-1.5 text-caption text-ink-3">Due<input type="date" aria-label="Due" value={due} min={start} onChange={(e) => setDue(e.target.value)} className={cn(dateInput, badDates && "border-danger")} /></label>}
+                <label className="flex items-center gap-1.5 text-caption text-ink-3">Due<input type="date" aria-label="Due" value={due} min={start} onChange={(e) => setDue(e.target.value)} className={cn(dateInput, badDates && "border-danger", !due && "text-ink-4")} /></label>
+                {due && <button type="button" onClick={() => setDue("")} className="text-caption font-semibold text-ink-3 hover:text-ink">Clear</button>}
               </Line>
             </ul>
           </Card>
@@ -326,7 +321,7 @@ function DirectAssign() {
             <Text size="body" weight="semibold" className="line-clamp-2 leading-snug">
               {[draft && `v${cur.version} goes live`, draft && lv && mine.length && `${ppl(mine.length)} on v${lv.version}: ${ROLLOUT.find((r) => r.v === rollout)!.label.toLowerCase()}`, assigning && `${fresh.length} new ${fresh.length === 1 ? "rep" : "reps"}`].filter(Boolean).join(" · ")}
             </Text>
-            {assigning && <Text size="caption" tone="subtle" truncate>{fresh.length ? `${fresh.slice(0, 2).map((u) => u.name).join(", ")}${fresh.length > 2 ? ` and ${fresh.length - 2} more` : ""} · ` : "Nobody new matches · "}{mode === "learn" ? "lessons + call" : "call only"} · {type === "default" ? "onboarding" : type === "required" ? "required" : "optional"} · {start > today ? `opens ${day(start)}` : "opens now"}{type !== "recommended" && due ? ` · due ${day(due)}` : ""}</Text>}
+            {assigning && <Text size="caption" tone="subtle" truncate>{fresh.length ? `${fresh.slice(0, 2).map((u) => u.name).join(", ")}${fresh.length > 2 ? ` and ${fresh.length - 2} more` : ""} · ` : "Nobody new matches · "}{mode === "learn" ? "material mandatory" : "material optional"} · {start > today ? `opens ${day(start)}` : "opens now"}{due ? ` · due ${day(due)}` : " · no due date"}</Text>}
           </div>
           {draft && !lv && assigning && <button type="button" disabled={blockers.length > 0} onClick={() => { setAddMore(false); publish(course.id, "minor"); showToast(`Published v${cur.version}`); useTrainingChat.getState().push(course.id, { id: turnId("a"), from: "ai", text: `Published v${cur.version}, not assigned yet. Choose who takes it here when you're ready.` }); }}
             className="h-10 rounded-control px-3 text-body font-semibold text-ink-3 transition-colors hover:bg-subtle hover:text-ink disabled:opacity-40">Publish only</button>}

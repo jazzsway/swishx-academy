@@ -474,7 +474,8 @@ export interface Progress {
   dueAt?: string;
   assignType: "default" | "required" | "recommended" | "self";
   /** practice: experienced reps skip the modules and go straight to roleplay calls and the final test. */
-  mode?: "learn" | "practice";
+  /** optional: the material is there to look through, but it isn't a step; reps can go straight to the calls. */
+  mode?: "learn" | "practice" | "optional";
   campaignId?: string;
   startedAt?: string;
   screening?: { at: string; overall: number; scores: Record<string, number>; call?: RoleplayResult };

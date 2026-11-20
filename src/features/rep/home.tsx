@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, ChevronRight, CheckCircle2, ArrowRight, Sparkle, Clock, ScanSearch, BookOpen, ClipboardCheck, PenLine, Library, Lock, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
+import { Mic, ChevronRight, CheckCircle2, ArrowRight, Sparkle, Clock, ScanSearch, BookOpen, ClipboardCheck, Award, Library, Lock, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { fmtDate, daysFromToday, isOverdue } from "@/store/selectors";
@@ -171,7 +171,7 @@ function stageOf(st: NextStep): { icon: LucideIcon; label: string } {
     return { icon: BookOpen, label: pr.modules ? `Lesson ${Math.min(pr.modulesDone + 1, pr.modules)} of ${pr.modules}` : "Lessons" };
   }
   if (st.href.includes("/assessment")) return { icon: ClipboardCheck, label: "Assessment" };
-  if (st.href.includes("/attest")) return { icon: PenLine, label: "Sign-off" };
+  if (st.href.includes("/attest")) return { icon: Award, label: "Certificate" };
   return { icon: Mic, label: "Practice" };
 }
 
@@ -185,7 +185,7 @@ function UpNext({ next }: { next: NextStep }) {
   return (
     <UpNextCard tag={tag} due={due} course={next.course.title} stage={stageOf(next)} title={next.title} why={next.why}
       unlocks={next.unlocks} practiceOnly={p.mode === "practice"} cta={next.cta} href={next.href} minutes={next.minutes}
-      bar={(p.path || !next.course.settings.screening) && pr.modules > 0 ? { pct: pr.pct, label: `${pr.modulesDone}/${pr.modules} lessons` } : undefined} />
+      bar={p.mode !== "optional" && (p.path || !next.course.settings.screening) && pr.modules > 0 ? { pct: pr.pct, label: `${pr.modulesDone}/${pr.modules} lessons` } : undefined} />
   );
 }
 
