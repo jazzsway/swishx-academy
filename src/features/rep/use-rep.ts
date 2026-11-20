@@ -5,7 +5,8 @@ import { useMe, daysFromToday, opensLater } from "@/store/selectors";
 import type { Course, Module, Progress } from "@/data/types";
 import { competency } from "@/data/org";
 import { pathMinutes } from "@/lib/learning";
-import { unmetPrereqs } from "@/features/library/library-data";
+import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
+import { product } from "@/data/org";
 import { blockCards } from "@/lib/short-form";
 import { allScenarios } from "@/data/scenarios";
 import { screeningOf } from "@/lib/scenario-set";
@@ -56,7 +57,14 @@ export interface NextStep {
   cta: string;
   href: string;
   minutes?: number;
+  /** Set by useRep: an assigned course whose screening this one unlocks. */
+  unlocks?: string;
 }
+
+/** Assigned by someone, as opposed to opted into from the library. */
+export const isAssigned = (p: Progress) => p.assignType !== "self";
+/** Under way: anything done on it, even a screening stopped partway. */
+export const isStarted = (p: Progress) => p.state !== "not_started" || !!p.startedAt || p.completedBlocks.length > 0 || !!p.screeningPart?.length;
 
 /**
  * What's next on a training built from the trainer's own material, in its order: the screening call
@@ -136,23 +144,32 @@ export function useRep() {
   const s = useApp();
   const mine = s.progress.filter((p) => p.userId === me.id);
   const courseOf = (p: Progress) => s.courses.find((c) => c.id === p.courseId)!;
+  /* Up next, in order: assigned and under way, assigned, opted into and under way, opted into. Then the library. */
+  const tier = (p: Progress) => (isAssigned(p) ? 0 : 2) + (isStarted(p) ? 0 : 1);
+  const urgency = (p: Progress) => (p.state === "needs_coaching" || p.state === "remediation" ? 0 : p.assignType === "required" ? 1 : 2);
+  /* A course whose screening is locked can't start; what unlocks it takes its place in the order. */
+  const isLocked = (p: Progress) => p.state === "not_started" && courseOf(p).settings.screening && unmetPrereqs(s, me.id, courseOf(p)).length > 0;
+  const lift = new Map<string, { tier: number; title: string }>();
+  for (const p of mine) if (p.state !== "certified" && isLocked(p)) for (const pre of unmetPrereqs(s, me.id, courseOf(p))) {
+    const had = lift.get(pre.id);
+    if (!had || tier(p) < had.tier) lift.set(pre.id, { tier: tier(p), title: courseOf(p).title });
+  }
+  const rank = (p: Progress) => Math.min(tier(p), lift.get(p.courseId)?.tier ?? 9);
   const active = mine
     .filter((p) => p.state !== "certified")
-    .sort((a, b) => {
-      const rank = (p: Progress) => (p.state === "needs_coaching" || p.state === "remediation" ? 0 : p.assignType === "required" ? 1 : p.assignType === "default" ? 2 : 3);
-      return rank(a) - rank(b) || (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9");
-    });
-  /* Foundations first: a course whose screening is locked points the rep at what unlocks it. */
-  const lockedBy = new Map<string, string>();
-  const isLocked = (p: Progress) => p.state === "not_started" && courseOf(p).settings.screening && unmetPrereqs(s, me.id, courseOf(p)).length > 0;
-  for (const p of active) if (isLocked(p)) for (const pre of unmetPrereqs(s, me.id, courseOf(p))) if (!lockedBy.has(pre.id)) lockedBy.set(pre.id, courseOf(p).title);
-  const ordered = [...active].sort((a, b) => Number(lockedBy.has(b.courseId)) - Number(lockedBy.has(a.courseId)));
-  const next = ordered.map((p) => {
+    .sort((a, b) => rank(a) - rank(b) || urgency(a) - urgency(b) || (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9"));
+  const next = active.map((p) => {
     if (isLocked(p) || opensLater(p)) return null;
     const st = nextStepFor(p, courseOf(p));
-    if (st && lockedBy.has(p.courseId)) st.eyebrow = `Foundations · unlocks ${lockedBy.get(p.courseId)} screening`;
+    if (st && lift.has(p.courseId)) st.unlocks = lift.get(p.courseId)!.title;
     return st;
   }).find(Boolean) ?? null;
+  /* Nothing to do on anything of theirs: the best course in the library they haven't started.
+     Their own division's first, then the one most of their colleagues have taken. */
+  const taken = (c: Course) => s.progress.filter((p) => p.courseId === c.id).length;
+  const suggested = next ? null : libraryCourses(s, me)
+    .filter((c) => !mine.some((p) => p.courseId === c.id) && !unmetPrereqs(s, me.id, c).length)
+    .sort((a, b) => Number(product(b.productId)?.divisionId === me.divisionId) - Number(product(a.productId)?.divisionId === me.divisionId) || taken(b) - taken(a))[0] ?? null;
   const dueSoon = active.filter((p) => p.dueAt && daysFromToday(p.dueAt) <= 21 && !opensLater(p));
-  return { me, s, mine, active, next, dueSoon, courseOf };
+  return { me, s, mine, active, next, suggested, dueSoon, courseOf };
 }
