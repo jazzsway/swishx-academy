@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { X, ArrowRight, Trophy, Check, RotateCcw, BookOpenCheck, Clock, Lock, ListChecks } from "lucide-react";
+import { X, ArrowRight, ChevronLeft, ChevronRight, Trophy, Check, RotateCcw, BookOpenCheck, Clock, Lock, ListChecks } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -12,9 +12,12 @@ import { competency } from "@/data/org";
 import type { Block, Course, Module } from "@/data/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { usePager } from "@/features/media/pager";
+import { FORMAT_LABEL } from "@/features/trainer/source-preview";
+import { BottomBar } from "@/features/shell/screen-chrome";
 import { Ring, EmptyState } from "@/components/patterns/academy";
 import { BlockView, BLOCK_META } from "@/features/shared/block-view";
-import { modulesOf, pathModules, pathDone, nextBlock } from "./use-rep";
+import { modulesOf, pathModules, pathDone, pathProgress, nextBlock } from "./use-rep";
 import { useCopilot } from "@/features/copilot/copilot-store";
 
 /** With no pass mark set on the course, a module check needs 70%. */
@@ -96,12 +99,12 @@ export function BlockPlayer() {
   const header = (
     <div className="sticky top-0 z-20 flex flex-col gap-2.5 border-b border-hair bg-canvas/90 px-4 pb-3 pt-3 backdrop-blur-xl">
       <div className="flex items-center gap-3">
-        <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="grid size-10 shrink-0 place-items-center rounded-full bg-card shadow-hair transition-colors hover:bg-subtle"><X className="size-5" /></Link>
+        <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60 transition-colors hover:bg-card"><X className="size-5" /></Link>
         <div className="flex min-w-0 flex-1 flex-col">
           <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{explore ? "Exploring · " : ""}Lesson {pos + 1} of {path.length}</Text>
           <Text size="body-lg" weight="bold" truncate>{mod.title}</Text>
         </div>
-        <button type="button" aria-label="Ask SwishX AI Agent about this lesson" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-10 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
+        <button type="button" aria-label="Ask SwishX AI Agent about this lesson" onClick={() => useCopilot.getState().setOpen(true)} className="grid size-11 shrink-0 place-items-center rounded-full bg-tint text-brand-deep transition-transform hover:scale-105"><AgentIcon className="size-4.5" aria-hidden="true" /></button>
       </div>
       {/* One segment per step: done, current, still to come. */}
       <div className="flex gap-1" aria-label={`Step ${Math.max(0, stepNo) + 1} of ${steps}`}>
@@ -178,24 +181,26 @@ export function BlockPlayer() {
     const block = material[screen.i];
     const Meta = BLOCK_META[block.type];
     /* Video 90% watched with every chapter question answered, every assigned page read, every deck page walked. Audio is never gated. */
-    const gated = !explore && !optional && ["video", "document", "visualaid"].includes(block.type) && !mediaDone[block.id] && !done(block.id);
-    const gateLabel = block.type === "video" ? (block.video?.chapters.some((ch) => ch.check) ? "Watch it and answer the questions" : "Watch 90% to continue") : block.type === "document" ? "Read every page to continue" : "Walk every page to continue";
+    /* The team's own files are held the same way: a video or audio file 90% played, a PDF or deck every page turned. */
+    const gated = !explore && !optional && ["video", "document", "visualaid", "file"].includes(block.type) && !mediaDone[block.id] && !done(block.id);
+    const fileKind = block.type === "file" ? block.file?.format : undefined;
+    const gateLabel = block.type === "video" ? (block.video?.chapters.some((ch) => ch.check) ? "Watch it and answer the questions" : "Watch 90% to continue")
+      : fileKind === "video" ? "Watch 90% to continue" : fileKind === "audio" ? "Listen to 90% to continue" : fileKind === "image" ? "Open the image to continue"
+      : block.type === "document" ? "Read every page to continue" : "Walk every page to continue";
     const last = screen.i === material.length - 1;
     return (
       <div className="flex min-h-full flex-1 flex-col">
         {header}
         <div key={block.id} className="rise-in flex min-w-0 flex-1 flex-col gap-4 px-5 py-6">
-          <span className="flex items-center gap-1.5 text-caption font-bold text-brand-deep"><Meta.icon className="size-3.5" aria-hidden="true" />{Meta.label} · {block.minutes} min</span>
-          <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{block.title}</Text>
-          <Text size="body" tone="subtle" className="-mt-2">{stepHint(block)}</Text>
+          {/* The header already names the lesson: a one-block lesson doesn't repeat it as a heading. */}
+          <span className="flex items-center gap-1.5 text-caption font-bold text-brand-deep"><Meta.icon className="size-3.5" aria-hidden="true" />{block.type === "file" && block.file ? FORMAT_LABEL[block.file.format] : Meta.label} · {block.minutes} min{countOf(block) ? ` · ${countOf(block)}` : ""}</span>
+          {block.title !== mod.title && <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{block.title}</Text>}
           <BlockView block={block} sourceIds={c.sourceIds} interactive size="lg" siblings={mod.blocks}
             onComplete={() => setMediaDone((d) => (d[block.id] ? d : { ...d, [block.id]: true }))} />
         </div>
         <Footer>
-          <Button size="lg" variant="secondary" onClick={() => (screen.i > 0 ? setScreen({ kind: "step", i: screen.i - 1 }) : router.push(`/rep/course/${c.id}`))}>Back</Button>
-          <Button size="lg" className="min-w-0 flex-1" disabled={gated} onClick={() => next(screen.i)}>
-            <span className="truncate">{gated ? gateLabel : !last ? "Continue" : checks.length ? "Go to the lesson check" : "Finish lesson"}</span>
-          </Button>
+          <StepNav gated={gated} gateLabel={gateLabel} continueLabel={!last ? "Continue" : checks.length ? "Go to the lesson check" : "Finish lesson"}
+            onBack={() => (screen.i > 0 ? setScreen({ kind: "step", i: screen.i - 1 }) : router.push(`/rep/course/${c.id}`))} onContinue={() => next(screen.i)} />
         </Footer>
       </div>
     );
@@ -299,11 +304,46 @@ export function BlockPlayer() {
   return <ModuleDone c={c} mod={mod} explore={explore} optional={optional} nextModule={nextModule} onNext={goModule} earned={!p || explore ? 0 : 20 + (checks.length ? (retakes ? 10 : 15) : 0)} />;
 }
 
+/**
+ * The footer of a material step. For a paged reader (PDF, deck, slides) it hosts the reader's own page
+ * controls: the main button turns the page ("Next page · 3 of 11") until every page has been read, then
+ * becomes Continue; ‹ goes back a page. Anything else: Back and Continue, Continue held until it's done.
+ */
+function StepNav({ gated, gateLabel, continueLabel, onBack, onContinue }: { gated: boolean; gateLabel: string; continueLabel: string; onBack: () => void; onContinue: () => void }) {
+  const host = usePager((x) => x.host);
+  useEffect(() => host(), [host]);
+  const pager = usePager((x) => x.pager);
+  const reading = !!pager && (gated || pager.page < pager.total - 1);
+  return (
+    <>
+      {pager && pager.page > 0
+        ? <Button size="lg" variant="secondary" aria-label={`Previous ${pager.unit}`} onClick={pager.prev}><ChevronLeft className="size-5" aria-hidden="true" /></Button>
+        : <Button size="lg" variant="secondary" onClick={onBack}>Back</Button>}
+      {reading ? (
+        <Button size="lg" className="min-w-0 flex-1" onClick={pager!.next}>
+          <span className="truncate">Next {pager!.unit}</span><span className="shrink-0 font-semibold tabular-nums opacity-70">{pager!.page + 1} / {pager!.total}</span><ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+        </Button>
+      ) : (
+        <Button size="lg" className="min-w-0 flex-1" disabled={gated} onClick={onContinue}><span className="truncate">{gated ? gateLabel : continueLabel}</span></Button>
+      )}
+    </>
+  );
+}
+
 function Footer({ children }: { children: React.ReactNode }) {
-  return <div className="sticky bottom-0 z-20 flex gap-2 border-t border-hair bg-canvas/90 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur-xl">{children}</div>;
+  return <div className="sticky bottom-0 z-20 flex gap-2 border-t border-hair bg-canvas/90 px-4 pb-[max(env(safe-area-inset-bottom),26px)] pt-3 backdrop-blur-xl">{children}</div>;
 }
 
 /** What the rep does with this piece of material. */
+/** How much there is to get through, in one short phrase (the label already says read / watch / walk). */
+function countOf(b: Block) {
+  if (b.type === "document") return `${b.document?.pages.length} pages`;
+  if (b.type === "visualaid") return `${b.visualaid?.pages.length} pages`;
+  if (b.type === "flashcards") return `${b.cards?.length} cards`;
+  if (b.type === "video") { const n = b.video?.chapters.filter((ch) => ch.check).length ?? 0; return n ? `${n} question${n === 1 ? "" : "s"}` : ""; }
+  return "";
+}
+
 function stepHint(b: Block) {
   if (b.type === "video") {
     const n = b.video?.chapters.filter((ch) => ch.check).length ?? 0;
@@ -332,12 +372,19 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
   const allDone = p && !explore ? pathDone(p, c) : false;
   const linear = !c.settings.completion.assessment;
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center gap-5 px-6 pb-8 pt-16 text-center">
+    <div className="flex min-h-full flex-1 flex-col items-center gap-5 px-6 pt-16 text-center">
       <div className={cn("success-pop grid size-20 place-items-center rounded-full text-white", explore ? "bg-ink" : "bg-brand shadow-brand-lift")}><Trophy className="size-9" aria-hidden="true" /></div>
       <Text as="h1" size="hero" weight="extrabold" tracking="tight">{explore ? "Lesson explored" : allDone ? "Path complete" : "Lesson done"}</Text>
       <Text size="subhead" tone="muted">{mod.title}{explore ? " · not for credit. It's ticked off if you get certified later." : optional ? " · optional review" : ""}</Text>
-      {earned > 0 && <Link href="/rep/leaderboard" className="rounded-chip bg-tint px-3 py-1 text-body font-bold text-brand-deep hover:underline">+{earned} points this month</Link>}
-      <div className="mt-auto flex w-full flex-col gap-2">
+      {earned > 0 && <Link href="/rep/leaderboard" className="rounded-full bg-tint px-3 py-1 text-body font-bold text-brand-deep hover:underline">+{earned} points this month</Link>}
+      {/* Where this leaves you in the training. */}
+      {p && !explore && (() => { const pr = pathProgress(p, c); return pr.modules > 0 && (
+        <div className="mt-2 flex w-full max-w-[280px] flex-col gap-1.5">
+          <div className="flex gap-1">{Array.from({ length: pr.modules }, (_, k) => <span key={k} className={cn("h-2 flex-1 rounded-full", k < pr.modulesDone ? "bg-sage" : "bg-subtle")} />)}</div>
+          <Text size="caption" weight="semibold" tone="subtle">{pr.modulesDone} of {pr.modules} lessons done</Text>
+        </div>
+      ); })()}
+      <BottomBar inset={6} className="self-stretch">
         {allDone && c.origin === "direct" && c.scenarioIds.length ? (
           /* A training built from the team's material ends in its calls, objective by objective, on the training page. */
           <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />On to the calls</Button>
@@ -349,7 +396,7 @@ export function ModuleDone({ c, mod, explore, optional, nextModule, onNext, earn
           <Button size="lg" fullWidth onClick={() => onNext(nextModule)}><span className="truncate">Next: {nextModule.title}</span><ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>
         ) : null}
         <Button size="lg" fullWidth variant="ghost" onClick={() => router.push(`/rep/course/${c.id}`)}>Back to training</Button>
-      </div>
+      </BottomBar>
     </div>
   );
 }

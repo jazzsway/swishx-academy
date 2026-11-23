@@ -5,7 +5,8 @@ import { cn } from "@/lib/cn";
 import { Panel } from "@/components/ui/panel";
 import { Surface } from "@/components/ui/surface";
 import { IconButton } from "@/components/ui/button";
-import { Portal } from "@/components/ui/portal";
+import { Portal, repOverlay } from "@/components/ui/portal";
+import { Sheet } from "@/components/ui/sheet";
 
 /**
  * One dialog shell for the 13 that were hand-built.
@@ -97,6 +98,10 @@ export function Modal({
   }, [open, onKeyDown]);
 
   if (!open) return null;
+
+  /* In the rep app every dialog is an iOS sheet on the device's screen (components/ui/sheet.tsx). */
+  if (repOverlay())
+    return <Sheet open onClose={onClose} title={title} description={description} footer={footer} className={className}>{children}</Sheet>;
 
   return (
     <Portal>

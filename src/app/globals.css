@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* A desktop showing the rep app inside the iPhone/iPad mock (device-frame.tsx
+   uses the same query). Not plain sm: a real iPad is wider than 640px but
+   should get the app full-screen, not a picture of an iPad. */
+@custom-variant desk (@media (min-width: 640px) and (pointer: fine));
+
 /* Tokens ported from SwishX for biz (src/app/globals.css). See docs/DESIGN.md. */
 @theme static {
   /* Brand */
@@ -74,6 +79,24 @@
 
   --color-lime: #d8f05d;
 
+  /* The primary action's fill. Trainer: the brand orange, as before. The rep
+     app (freud-style, see [data-app="rep"] below) makes it the dark ink. */
+  --color-cta:      #fd4816;
+  --color-cta-deep: #b82f0c;
+
+  /* Tile colours from the rep app's freud-derived palette: whole coloured
+     cards (a score, a streak of practice) rather than accents on white. */
+  --color-sage:     #9bb068;
+  --color-sage-bg:  #eef2e3;
+  --color-sun:      #ffce5c;
+  --color-sun-bg:   #fff4d6;
+  --color-peach:    #fe814b;
+  --color-peach-bg: #ffeee6;
+  --color-lilac:    #a694f5;
+  --color-lilac-bg: #f0edfe;
+  --color-sand:     #c9b6a5;
+  --color-sand-bg:  #f2ece6;
+
   /* Greens left over from the pre-orange brand. --color-live is genuinely
      semantic (an online/streaming indicator) and keeps its value;
      --color-canvas-grid is the studio artboard ground, a design decision
@@ -128,6 +151,10 @@
   --radius-control: 14px;
   --radius-panel:   18px;
   --radius-card:    24px;
+  /* Buttons and tags. Trainer: the control and chip steps, unchanged.
+     Rep: full pills, the freud shape. */
+  --radius-button:  14px;
+  --radius-tag:     10px;
 
   /* Elevation */
   --shadow-hair:  0 1px 2px rgba(10,13,20,.05);
@@ -155,8 +182,9 @@
   --ease-exit:     cubic-bezier(.4,0,1,1);
 }
 
-/* ── Aliases: keep every already-shipped var(--x) reference working ── */
-:root {
+/* ── Aliases: keep every already-shipped var(--x) reference working ──
+   Also declared on [data-app="rep"] so they pick up the rep tokens there. */
+:root, [data-app="rep"] {
   --brand:      var(--color-brand);
   --brand-2:    var(--color-brand-2);
   --brand-deep: var(--color-brand-deep);
@@ -240,6 +268,84 @@
   --squircle-panel:   var(--radius-panel);
   --squircle-card:    var(--radius-card);
 }
+
+/* ── Rep app theme ────────────────────────────────────────────────
+   The rep side's design language, rebuilt from the freud UI kit
+   (strangehelix.bio, Figma Community, CC BY 4.0): warm cream ground, brown
+   ink, Urbanist, big soft cards, whole-colour tiles, pill buttons, round
+   corners. Scoped to [data-app="rep"] (the rep shell's frame, and <html>
+   while a rep screen is open so portals follow), so the trainer side is
+   untouched. SwishX orange stays the brand accent. */
+[data-app="rep"] {
+  --color-canvas: #f7f4f2;
+  --color-card:   #ffffff;
+  --color-subtle: #f1ece8;
+
+  --color-ink:   #4f3422;
+  --color-ink-2: #6a5142;
+  --color-ink-3: #7f6a5c;
+  --color-ink-4: #a6978b;
+
+  --color-hair:   rgba(79,52,34,.08);
+  --color-hair-2: rgba(79,52,34,.14);
+  --color-hair-3: rgba(79,52,34,.24);
+
+  --color-brand:       #f2602a;
+  --color-brand-2:     #fe814b;
+  --color-brand-deep:  #c0461b;
+  --color-brand-ink:   #7a2e10;
+  --color-brand-light: #ffb08c;
+  --color-tint:        #fff0e8;
+  --color-tint-2:      #fff7f2;
+  --color-tint-strong: #ffe3d4;
+  --color-tint-line:   #fbd5c2;
+
+  --color-ok:        #56732a;
+  --color-ok-bg:     #eef3e2;
+  --color-ok-line:   #d4e1bb;
+  --color-warn:      #8a5800;
+  --color-warn-bg:   #fff4d6;
+  --color-warn-line: #f5dc9c;
+  --color-danger:      #a8402b;
+  --color-danger-deep: #86311f;
+  --color-danger-bg:   #fbe9e3;
+  --color-danger-line: #f1c9bc;
+
+  --color-cta:      #4f3422;
+  --color-cta-deep: #372316;
+  --color-scroll-thumb: #d6cbc2;
+
+  --radius-glyph:    8px;
+  --radius-chip:    12px;
+  --radius-control: 18px;
+  --radius-panel:   24px;
+  --radius-card:    32px;
+  --radius-button:  9999px;
+  --radius-tag:     9999px;
+
+  --shadow-hair:  0 1px 2px rgba(79,52,34,.05);
+  --shadow-soft:  0 1px 2px rgba(79,52,34,.04), 0 14px 30px -18px rgba(79,52,34,.20);
+  --shadow-float: 0 2px 6px rgba(79,52,34,.05), 0 28px 60px -28px rgba(79,52,34,.32);
+  --shadow-brand-lift: 0 10px 24px -6px rgba(79,52,34,.45);
+  --shadow-brand-soft: 0 16px 40px rgba(79,52,34,.12);
+
+  font-family: var(--font-urbanist), "Urbanist", -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-feature-settings: normal;
+  color: var(--color-ink);
+}
+/* freud's corners are plain round arcs, and pills must stay pills. */
+[data-app="rep"] button,
+[data-app="rep"] .squircle,
+[data-app="rep"] [class*="squircle-"],
+[data-app="rep"] [role="dialog"] > div { corner-shape: round; }
+[data-app="rep"] ::selection { background: var(--color-sun); }
+/* iPad in landscape (device-frame.tsx sets data-wide): pages keep a readable centred column, as iPadOS apps do. */
+[data-wide] #rep-scroll > * { width: 100%; max-width: 840px; margin-inline: auto; }
+/* freud sets every heading in Urbanist ExtraBold, pulled slightly tight. */
+[data-app="rep"] :is(h1, h2) { font-weight: 800; letter-spacing: -0.015em; }
+[data-app="rep"] h3 { font-weight: 700; }
+/* Body copy at Urbanist's regular weight reads thin; freud sets it at medium. */
+[data-app="rep"] { font-weight: 500; }
 
 /* ── Base resets ─────────────────────────────────────────────────── */
 *, *::before, *::after {
@@ -828,3 +934,50 @@ mark.cite-missing { background: transparent; color: inherit; text-decoration: un
 }
 .tile-in { animation: tile-in 320ms var(--ease-entrance) both; }
 @media (prefers-reduced-motion: reduce) { .tile-in { animation: none; } }
+
+/* The rep agent's voice orb (features/copilot/rep-agent.tsx): breathing while it listens, pulsing while it speaks. */
+@keyframes orb-breathe { 0%, 100% { transform: scale(.94); } 50% { transform: scale(1.03); } }
+@keyframes orb-talk { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.08); } 60% { transform: scale(.97); } }
+@media (prefers-reduced-motion: reduce) { [class*="orb-"] { animation: none !important; } }
+
+/* ── Liquid glass (iOS 26) ─────────────────────────────────────────
+   For floating chrome over content: the rep tab bar. A light, saturated
+   blur with a rim of specular light. Where the browser can (Chromium), the
+   backdrop is also bent by the SVG displacement filter #lg-refract
+   (rendered once by the rep shell), the way Apple's glass refracts what is
+   under it; elsewhere the second backdrop-filter line is simply ignored. */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  /* Frosted enough that labels read over any content, clear enough to see what's underneath. */
+  background: linear-gradient(180deg, rgba(255,253,251,.80), rgba(247,242,238,.66));
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: url(#lg-refract) blur(14px) saturate(180%);
+  box-shadow:
+    inset 0 1px 1.5px rgba(255,255,255,.95),
+    inset 0 -1px 1px rgba(255,255,255,.45),
+    inset 0 0 0 1px rgba(255,255,255,.4),
+    inset 0 -10px 24px -14px rgba(79,52,34,.18),
+    0 0 0 0.5px rgba(79,52,34,.16),
+    0 16px 36px -12px rgba(40,25,15,.40),
+    0 3px 10px rgba(40,25,15,.10);
+}
+/* The specular sheen across the top edge. */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 20% -10%, rgba(255,255,255,.55), transparent 40%),
+    radial-gradient(90% 70% at 90% 120%, rgba(255,255,255,.25), transparent 45%);
+  mix-blend-mode: screen;
+}
+/* The lens that sits behind the selected tab. */
+.liquid-lens {
+  background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.35));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,1), inset 0 -1px 2px rgba(79,52,34,.12), 0 4px 12px -4px rgba(40,25,15,.22);
+}

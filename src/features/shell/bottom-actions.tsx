@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
  */
 export function BottomActions({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("sticky bottom-0 z-20 -mx-4 mt-auto flex flex-col gap-2 border-t border-hair bg-canvas/90 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur-xl", className)}>
+    <div className={cn("sticky bottom-0 z-20 -mx-4 mt-auto flex flex-col gap-2 border-t border-hair bg-canvas/90 px-4 pb-[max(env(safe-area-inset-bottom),26px)] pt-3 backdrop-blur-xl", className)}>
       {children}
     </div>
   );

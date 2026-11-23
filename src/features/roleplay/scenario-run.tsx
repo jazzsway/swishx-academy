@@ -76,8 +76,8 @@ export function ScenarioRun({ scenarios, mode, voiceAllowed, onScenarioDone, onF
         </div>
 
         {/* Carry on, or stop here: both always in reach. */}
-        <div className="sticky bottom-0 z-10 flex flex-col gap-1.5 border-t border-white/10 bg-ink/95 px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur">
-          <Button size="lg" fullWidth onClick={() => { setI(i + 1); setBetween(false); }}><Mic className="size-5" aria-hidden="true" />Continue: {next.persona.name.replace(/,.*$/, "")} joins</Button>
+        <div className="sticky bottom-0 z-10 flex flex-col gap-1.5 border-t border-white/10 bg-ink/95 px-5 pb-[max(env(safe-area-inset-bottom),26px)] pt-3 backdrop-blur">
+          <Button size="lg" fullWidth variant="inverse" onClick={() => { setI(i + 1); setBetween(false); }}><Mic className="size-5" aria-hidden="true" />Continue: {next.persona.name.replace(/,.*$/, "")} joins</Button>
           <Button size="lg" fullWidth variant="ghost" className="text-white hover:bg-white/10" onClick={() => onFinish(i + 1)}>
             End for now{mode === "assessment" ? ` · ${n - i - 1} left for later` : " · what you've done is saved"}
           </Button>

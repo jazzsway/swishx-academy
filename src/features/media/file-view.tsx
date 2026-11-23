@@ -6,9 +6,10 @@ import { cn } from "@/lib/cn";
 import type { FileSpec } from "@/data/types";
 import { fmtTime } from "@/data/media";
 import { source } from "@/data/org";
-import { FORMAT_ICON, FORMAT_LABEL, fileUrl } from "@/features/trainer/source-preview";
+import { FORMAT_LABEL, fileUrl } from "@/features/trainer/source-preview";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { usePublishPager, nextUnseen } from "./pager";
 
 /** How long a file runs, or how many pages it has, when the file itself can't say. */
 export const fileLength = (f: FileSpec) => ({
@@ -26,18 +27,18 @@ export function FileView({ spec, onComplete, compact }: { spec: FileSpec; onComp
   const [seen, setSeen] = useState(false);
   const fired = useRef(false);
   const done = () => { setSeen(true); if (!fired.current) { fired.current = true; onComplete?.(); } };
-  const Icon = FORMAT_ICON[spec.format];
+  // v1-hidden: const Icon = FORMAT_ICON[spec.format];
   const title = source(spec.sourceId)?.title ?? spec.fileName;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-caption text-ink-3">
-        <Icon className="size-4 shrink-0 text-brand" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate font-semibold text-ink-2" title={spec.fileName}>{spec.fileName}</span>
+      {/* The lesson header already names it; just its status here. */}
+      {spec.format !== "video" && spec.format !== "audio" && <div className="flex items-center justify-end gap-2 text-caption text-ink-3">
+        {/* v1-hidden: <Icon /> and the file name. */}
         {seen
           ? <span className="flex shrink-0 items-center gap-1 font-semibold text-ok"><Check className="size-3.5" aria-hidden="true" />Seen</span>
-          : <span className="flex shrink-0 items-center gap-1"><Lock className="size-3" aria-hidden="true" />As uploaded · view only</span>}
-      </div>
+          : <span className="flex shrink-0 items-center gap-1"><Lock className="size-3" aria-hidden="true" />View only</span>}
+      </div>}
       {spec.format === "video" || spec.format === "audio"
         ? <Playback spec={spec} url={url} title={title} onDone={done} />
         : spec.format === "image"
@@ -130,6 +131,8 @@ function PagedFile({ spec, url, title, onDone }: { spec: FileSpec; url?: string;
   useEffect(() => { if (seen.length >= n) onDone(); }, [seen, n, onDone]);
   const go = (k: number) => { setI(k); setSeen((s) => (s.includes(k) ? s : [...s, k])); };
   const slides = spec.format === "slides";
+  const hosted = usePublishPager({ page: i, total: n, seen: seen.length, unit: slides ? "slide" : "page",
+    prev: () => i > 0 && go(i - 1), next: () => go(nextUnseen(i, n, (k) => seen.includes(k))) });
   return (
     <div className="flex flex-col gap-3">
       <div key={i} className={cn("rise-in squircle relative mx-auto flex w-full flex-col overflow-hidden rounded-control border border-hair-2 bg-white shadow-soft", slides ? "aspect-video" : "min-h-[380px] max-w-[620px]")}>
@@ -157,11 +160,13 @@ function PagedFile({ spec, url, title, onDone }: { spec: FileSpec; url?: string;
         )}
         <span className="absolute bottom-2 right-3 text-micro font-semibold text-ink-4">{i + 1} / {n}</span>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
-        <Text size="caption" tone="subtle" tabular>{seen.length} of {n} {slides ? "slides" : "pages"} seen</Text>
-        <Button variant="secondary" size="sm" disabled={i === n - 1} onClick={() => go(i + 1)}>Next<ChevronRight className="size-4" aria-hidden="true" /></Button>
-      </div>
+      {!hosted && (
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
+          <Text size="caption" tone="subtle" tabular>{seen.length} of {n} {slides ? "slides" : "pages"} seen</Text>
+          <Button variant="secondary" size="sm" disabled={i === n - 1} onClick={() => go(i + 1)}>Next<ChevronRight className="size-4" aria-hidden="true" /></Button>
+        </div>
+      )}
       {url && <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 self-start text-body font-semibold text-brand-deep hover:underline"><ExternalLink className="size-4" aria-hidden="true" />Open the original file</a>}
     </div>
   );

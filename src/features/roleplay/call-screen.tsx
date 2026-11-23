@@ -12,7 +12,7 @@ import { prohibited } from "@/data/scenarios";
 import { source } from "@/data/org";
 import { configOf } from "@/lib/roleplay-draft";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+// (Primary buttons on the dark call screen are white pills, not <Button>.)
 import { startCall, repSays, sampleAnswers, scoreCall, type CallState } from "./engine";
 import { useVoice } from "./use-voice";
 
@@ -50,6 +50,12 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   /** One scenario of several, back to back: where it sits, and what the end button leads to. */
   run?: { label: string; next: string };
 }) {
+  /* A dark screen: the device mock's status bar and home indicator go light while it's up (see device-frame.tsx). */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.screen = "dark";
+    return () => { delete root.dataset.screen; };
+  }, []);
   const sc: Scenario = personaOverride ? { ...scenario, persona: { ...scenario.persona, ...personaOverride } } : scenario;
   /* prep → joining (the other person comes in) → call → wrap (reviewing) → ended (the summary). */
   const [stage, setStage] = useState<"prep" | "joining" | "call" | "wrap" | "ended">(skipPrep ? "joining" : "prep");
@@ -157,50 +163,46 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
       <div className="relative isolate flex min-h-full flex-[1_0_auto] flex-col bg-ink text-white">
         <Backdrop strong />
         <div className="flex items-center justify-between gap-3 px-5 pt-5">
-          <span className={cn("rounded-chip px-2.5 py-1 text-caption font-semibold", MODE[mode].tone)}>{run ? `${run.label} · ` : ""}{MODE[mode].label}</span>
-          <button type="button" aria-label="Exit" onClick={onExit} className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-5" /></button>
+          <span className={cn("rounded-full px-3 py-1.5 text-caption font-bold", MODE[mode].tone)}>{run ? `${run.label} · ` : ""}{MODE[mode].label}</span>
+          <button type="button" aria-label="Exit" onClick={onExit} className="grid size-11 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-5" /></button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-5 px-5 pb-6 pt-5">
-          {/* Who you're meeting. */}
-          <div className="flex items-center gap-4">
-            <div className="grid size-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand shadow-brand-lift"><Who className="size-7" aria-hidden="true" /></div>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <Text size="title" weight="extrabold" tone="inverse" className="leading-tight">{sc.persona.name}</Text>
-              <Text size="body" tone="inverse" className="opacity-70">{sc.persona.specialty === role ? role : `${role} · ${sc.persona.specialty}`}</Text>
-              <Text size="caption" tone="inverse" className="opacity-50">{sc.persona.setting}</Text>
+        <div className="flex flex-1 flex-col gap-5 px-5 pb-6 pt-2">
+          {/* Who you're meeting: centred, like a contact card. */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="relative grid size-24 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand shadow-brand-lift ring-[6px] ring-white/10">
+              <Who className="size-10" aria-hidden="true" />
             </div>
+            <Text size="display" weight="extrabold" tone="inverse" className="mt-1 leading-tight">{sc.persona.name}</Text>
+            <Text size="body" tone="inverse" className="-mt-1.5 opacity-70">{sc.persona.specialty === role ? role : `${role} · ${sc.persona.specialty}`}</Text>
+            {sc.persona.traits.length > 0 && <div className="flex flex-wrap justify-center gap-1.5">{sc.persona.traits.slice(0, 3).map((t) => <span key={t} className="rounded-full bg-white/10 px-3 py-1 text-caption font-semibold text-white/85">{t}</span>)}</div>}
           </div>
-          {sc.persona.traits.length > 0 && <div className="-mt-2 flex flex-wrap gap-1.5">{sc.persona.traits.map((t) => <span key={t} className="rounded-chip bg-white/10 px-2.5 py-1 text-caption text-white/85">{t}</span>)}</div>}
 
-          {/* What's happening, and what you're there to do. */}
-          {covers && (
-            <div className="squircle flex flex-col gap-2.5 rounded-panel bg-white/[0.06] p-4">
-              <span className="text-micro font-bold uppercase tracking-wider text-white/50">This call covers {covers.length} objectives</span>
-              <ol className="flex flex-col gap-2">
-                {covers.map((x, i) => (
-                  <li key={i} className="flex gap-2.5">
-                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-micro font-extrabold">{i + 1}</span>
-                    <span className="flex min-w-0 flex-col"><Text size="body" weight="bold" tone="inverse" className="leading-snug">{x.objective}</Text><Text size="caption" tone="inverse" className="opacity-60">{x.situation}</Text></span>
-                  </li>
-                ))}
-              </ol>
-              <Text size="caption" tone="inverse" className="opacity-55">{sc.persona.name.replace(/,.*$/, "")} brings each one up in turn. Each is scored on its own, so a slip on one doesn&apos;t cost you the others.</Text>
-            </div>
-          )}
-          {!covers && sc.description && (
-            <div className="squircle flex flex-col gap-1.5 rounded-panel bg-white/[0.06] p-4">
-              <span className="text-micro font-bold uppercase tracking-wider text-white/50">The situation</span>
-              <Text size="body-lg" weight="bold" tone="inverse" className="leading-snug">{sc.title}</Text>
-              <Text size="body" tone="inverse" className="leading-relaxed opacity-75">{sc.description}</Text>
-            </div>
-          )}
-          <ul className="flex flex-col divide-y divide-white/10 rounded-panel border border-white/10">
-            <PrepRow icon={Target} label="Your goal"><Text size="body" tone="inverse" className="leading-relaxed">{sc.objective}</Text></PrepRow>
-            {raise.length > 0 && <PrepRow icon={MessageCircleWarning} label="They may raise"><div className="flex flex-wrap gap-1.5">{raise.map((o) => <span key={o.id} className="rounded-chip bg-white/10 px-2 py-0.5 text-caption text-white/90">{o.label}</span>)}</div></PrepRow>}
+          {/* The brief, in one card: what's going on, then the goal, what they'll raise and where. */}
+          <div className="flex flex-col divide-y divide-white/10 overflow-hidden rounded-card bg-white/[0.07] ring-1 ring-white/10">
+            {covers ? (
+              <div className="flex flex-col gap-2.5 p-4">
+                <span className="text-caption font-bold text-white/55">This call covers</span>
+                <ol className="flex flex-col gap-2">
+                  {covers.map((x, i) => (
+                    <li key={i} className="flex gap-2.5">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-micro font-extrabold">{i + 1}</span>
+                      <Text size="body" weight="bold" tone="inverse" className="leading-snug">{x.objective}</Text>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : sc.description ? (
+              <div className="flex flex-col gap-1 p-4">
+                <Text size="body-lg" weight="bold" tone="inverse" className="leading-snug">{sc.title}</Text>
+                <Text size="body" tone="inverse" className="line-clamp-3 leading-relaxed opacity-70">{sc.description}</Text>
+              </div>
+            ) : null}
+            <PrepRow icon={Target} label="Your goal"><Text size="body" tone="inverse" className="line-clamp-3 leading-relaxed">{sc.objective}</Text></PrepRow>
+            {raise.length > 0 && <PrepRow icon={MessageCircleWarning} label="They may raise"><div className="flex flex-wrap gap-1.5">{raise.map((o) => <span key={o.id} className="rounded-full bg-white/10 px-2.5 py-0.5 text-caption text-white/90">{o.label}</span>)}</div></PrepRow>}
             <PrepRow icon={MapPin} label="Where"><Text size="body" tone="inverse" className="opacity-85">{cfg.callType} · {cfg.place.toLowerCase()}</Text></PrepRow>
             {aid && cfg.showPages && <PrepRow icon={Presentation} label="You can show"><Text size="body" tone="inverse" className="opacity-85">{aid.title}, pages {cfg.showPages.pages.join(", ")}</Text></PrepRow>}
-          </ul>
+          </div>
 
           {hints && mode !== "practice" && mode !== "screening" && (
             <div className="squircle flex items-start gap-3 rounded-panel border border-warn/40 bg-warn/10 p-3.5">
@@ -225,13 +227,15 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
         </div>
 
         {/* Always in reach, however long the brief. */}
-        <div className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-white/10 bg-ink/95 px-5 pb-[max(env(safe-area-inset-bottom),20px)] pt-3 backdrop-blur">
-          <Button size="lg" fullWidth onClick={() => setStage("joining")}>
-            <Mic className="size-5" aria-hidden="true" />Start call
-          </Button>
-          <Text size="caption" tone="inverse" className="text-center opacity-55">
-            About {minutes} min{mode === "assessment" ? ` · scored · an off-label statement fails ${run ? "this situation" : "the call"}` : mode === "screening" ? " · nothing here counts against you" : mode === "practice" ? " · only you see it" : ""}
-            {!voiceAllowed ? " · voice is off, so you'll tap your answers" : voice.supported ? "" : " · this browser can't use the mic, so you'll tap your answers"}
+        <div className="sticky bottom-0 z-10 flex flex-col gap-2.5 bg-gradient-to-t from-ink from-70% to-ink/0 px-5 pb-[max(env(safe-area-inset-bottom),20px)] pt-6">
+          {/* Bright on the dark screen: the one thing to press. */}
+          <button type="button" onClick={() => setStage("joining")}
+            className="focus-ring flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white text-subhead font-extrabold text-ink shadow-[0_10px_30px_-10px_rgba(0,0,0,.6)] transition-transform active:scale-[0.98]">
+            <Mic className="size-5 text-brand" aria-hidden="true" />Start call<span className="font-semibold text-ink-3">· {minutes} min</span>
+          </button>
+          <Text size="caption" tone="inverse" className="text-center opacity-60">
+            {mode === "assessment" ? "Scored · off-label statements fail" : mode === "screening" ? "Not graded" : mode === "practice" ? "Private · only you see it" : "Scored"}
+            {!voiceAllowed ? " · you'll tap your answers" : voice.supported ? "" : " · you'll tap your answers"}
           </Text>
         </div>
       </div>
@@ -250,7 +254,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
   const raise = state.queue.filter((o) => !o.moment);
 
   return (
-    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-ink text-white sm:h-full">
+    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-ink text-white desk:h-full">
       <Backdrop />
 
       {/* The bar: on air and for how long, what kind of call, the brief, the doctor's volume. */}
@@ -323,7 +327,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 
       {/* The controls: dimmed until the other person is in, gone once the call is over. */}
       {!ended && (
-        <div className={cn("flex shrink-0 flex-col gap-2.5 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 transition-opacity", !live && "pointer-events-none opacity-40")} aria-disabled={!live}>
+        <div className={cn("flex shrink-0 flex-col gap-2.5 px-4 pb-[max(env(safe-area-inset-bottom),28px)] pt-3 transition-opacity", !live && "pointer-events-none opacity-40")} aria-disabled={!live}>
           {helped && hint && <HintCard state={state} onClose={() => setHint(null)} />}
           {samples.length > 0 && live && (
             <div className="flex flex-col gap-1.5">
@@ -371,14 +375,14 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
 
       {/* Leaving: a short review, then what happened on the call and the way on to the scorecard. */}
       {ended && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-ink/70 p-4 backdrop-blur-md [animation:fadeIn_300ms_ease_both]">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink/70 p-4 backdrop-blur-md [animation:fadeIn_300ms_ease_both]">
           {stage === "wrap" ? (
             <div className="squircle rise-in flex flex-col items-center gap-3 rounded-card border border-white/15 bg-white/10 px-10 py-8 backdrop-blur-xl" role="status">
               <span className="size-6 animate-spin rounded-full border-2 border-white/25 border-t-white" aria-hidden="true" />
               <span className="text-micro font-bold uppercase tracking-wider text-white/70">{mode === "screening" ? "Reading your answers…" : "Reviewing your call…"}</span>
             </div>
           ) : (
-            <div className="squircle rise-in flex w-full max-w-[420px] flex-col items-center gap-5 rounded-card border border-white/15 bg-white/10 px-5 py-7 text-center shadow-float backdrop-blur-xl sm:px-8">
+            <div className="squircle rise-in flex w-full min-w-0 max-w-[420px] flex-col items-center gap-5 rounded-card border border-white/15 bg-white/10 px-5 py-7 text-center shadow-float backdrop-blur-xl">
               <span className="grid size-12 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand shadow-brand-lift"><AgentIcon className="size-6 text-white" /></span>
               <div className="flex flex-col gap-1">
                 <span className="text-micro font-bold uppercase tracking-wider text-white/60">{state.done ? `${short} has left the call` : "You left the call"}</span>
@@ -399,9 +403,11 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
                 )}
               </div>
               {critical && <Text size="caption" className="-mt-2 text-[#ffb3b0]">A critical compliance flag came up. Your scorecard shows where.</Text>}
-              <Button size="lg" fullWidth onClick={() => { voice.hush(); onComplete(outcome ?? scoreCall(sc, state.turns, usedTyping), { assisted: assist || !!hints, hints: hintsUsed }); }}>
-                <AgentIcon className="size-4" aria-hidden="true" />{run ? run.next : mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
-              </Button>
+              {/* Bright on the dark screen, like Start call. */}
+              <button type="button" onClick={() => { voice.hush(); onComplete(outcome ?? scoreCall(sc, state.turns, usedTyping), { assisted: assist || !!hints, hints: hintsUsed }); }}
+                className="focus-ring flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white text-subhead font-extrabold text-ink transition-transform active:scale-[0.98]">
+                <AgentIcon className="size-4 text-brand" />{run ? run.next : mode === "screening" ? "See my results" : mode === "test" ? "See the scorecard" : "See my scorecard"}
+              </button>
             </div>
           )}
         </div>
@@ -472,7 +478,7 @@ function Tile({ active, name, sub, badge, enter, warm, children }: {
       </div>
       <span className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-1.25rem)] items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1">
         <span className="truncate text-caption font-semibold text-white">{name}</span>
-        {sub && <span className="hidden truncate text-caption text-white/55 sm:inline">{sub}</span>}
+        {/* v1-hidden: the role beside the name; tiles are narrow on a phone, the name is enough. */}
       </span>
       {badge && (
         <span className={cn("rise-in absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-micro font-semibold", badge === "listening" ? "text-white/55" : "text-[#ff8a66]")}>

@@ -103,7 +103,7 @@ export function ShortPlayer() {
   const nextLabel = i === 0 ? "Start" : onResult ? "Finish" : last ? "Finish" : card?.role === "check" && cards[i]?.role !== "check" ? "See result" : "Next";
 
   return (
-    <div className="flex h-dvh flex-col sm:h-auto sm:min-h-0 sm:flex-1">
+    <div className="flex h-dvh flex-col desk:h-auto desk:min-h-0 desk:flex-1">
       <div className="flex flex-col gap-3 px-4 pt-3">
         <div className="flex items-center gap-3">
           <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="grid size-10 shrink-0 place-items-center rounded-full bg-card shadow-hair transition-colors hover:bg-subtle"><X className="size-5" /></Link>
@@ -116,7 +116,7 @@ export function ShortPlayer() {
         <DeckProgress index={i} total={total} />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-4">
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-[max(env(safe-area-inset-bottom),26px)] pt-4">
         <DeckStage index={i} total={total} dir={dir} onPrev={() => go(i - 1)} onNext={() => (onResult || last ? finish() : go(i + 1))} canNext={canNext} nextLabel={nextLabel}>
           {i === 0 ? (
             <CoverFace template={template} kicker={`${TEMPLATES[template].label} · Lesson ${pos + 1}`} title={mod.title}

@@ -14,6 +14,7 @@ import { IconButton } from "@/components/ui/button";
 import { Composer, Suggestions } from "./composer";
 import { BRAINS, type CoItem, type CoReply, type Ctx, type Role, type Tone } from "./brains";
 import { useCopilot } from "./copilot-store";
+import { RepAgent } from "./rep-agent";
 
 const DOT: Record<Tone, string> = { danger: "bg-danger", warn: "bg-warn", ok: "bg-ok", faint: "bg-hair-3" };
 
@@ -165,6 +166,9 @@ export function CopilotPanel({ role, variant }: { role: Role; variant: "desk" | 
     </>
   );
 
+  /* The rep's SwishX is its own thing (chat, voice, practise a call) and brings its own header. */
+  if (variant === "phone" && role === "rep")
+    return <AgentSheet open={open} onClose={close} role={role} bare>{overridden ? body : <RepAgent onClose={close} onGo={close} />}</AgentSheet>;
   if (variant === "phone") return <AgentSheet open={open} onClose={close} role={role}>{body}</AgentSheet>;
   return (
     <aside aria-label="SwishX AI Agent" aria-hidden={!open}
@@ -180,10 +184,11 @@ export function CopilotPanel({ role, variant }: { role: Role; variant: "desk" | 
  * On the phone the agent is a sheet over the screen you're on: it rises to half height,
  * drag the handle up for full screen, down to shrink or close. The page underneath stays put.
  */
-function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose: () => void; role: Role; children: ReactNode }) {
-  const [full, setFull] = useState(false);
+function AgentSheet({ open, onClose, role, bare, children }: { open: boolean; onClose: () => void; role: Role; bare?: boolean; children: ReactNode }) {
+  /* bare: opens full height with just a grabber; the content brings its own header. */
+  const [full, setFull] = useState(!!bare);
   const [drag, setDrag] = useState(0);
-  useEffect(() => { if (!open) { setFull(false); setDrag(0); } }, [open]);
+  useEffect(() => { if (!open) { setFull(!!bare); setDrag(0); } }, [open, bare]);
 
   /* A press only becomes a drag after a few pixels, so taps still reach the buttons in the handle.
      Once pressed, the whole window is watched: a quick flick leaves the handle straight away. */
@@ -215,7 +220,7 @@ function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose:
   if (!open) return null;
   return (
     <>
-      <div aria-hidden="true" onClick={onClose} className="modal-backdrop fixed inset-0 z-40 bg-ink/35 sm:absolute" />
+      <div aria-hidden="true" onClick={onClose} className="modal-backdrop fixed inset-0 z-40 bg-ink/35 desk:absolute" />
       <aside aria-label="SwishX AI Agent" role="dialog" aria-modal="true"
         style={{
           /* Dragging up grows the sheet; dragging down slides it away. */
@@ -223,8 +228,13 @@ function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose:
           transform: drag > 0 ? `translateY(${drag}px)` : undefined,
           transition: drag ? "none" : "height 280ms var(--ease-entrance), transform 200ms ease-out",
         }}
-        className="sheet-up fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-[28px] bg-card shadow-modal sm:absolute">
-        {/* The handle: drag it, or tap to switch between half and full. */}
+        className={cn("sheet-up fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden bg-card shadow-modal desk:absolute", bare ? "rounded-t-[32px]" : "rounded-t-[28px]")}>
+        {bare ? (
+          <div onPointerDown={down} className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing">
+            <span className="h-[5px] w-10 rounded-full bg-ink/20" aria-hidden="true" />
+          </div>
+        ) : (
+        /* The handle: drag it, or tap to switch between half and full. */
         <div onPointerDown={down}
           className="flex shrink-0 cursor-grab touch-none select-none flex-col gap-2 border-b border-hair px-4 pb-3 pt-2 active:cursor-grabbing">
           <button type="button" onClick={() => setFull(!full)} aria-label={full ? "Shrink to half screen" : "Expand to full screen"} className="mx-auto block h-1.5 w-11 rounded-full bg-black/15 hover:bg-black/25" />
@@ -235,6 +245,7 @@ function AgentSheet({ open, onClose, role, children }: { open: boolean; onClose:
             <IconButton aria-label="Close SwishX AI Agent" title="Close" onClick={onClose}><ChevronDown className="size-4.5" /></IconButton>
           </div>
         </div>
+        )}
         {children}
       </aside>
     </>

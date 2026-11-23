@@ -16,6 +16,7 @@ import type { Item, Scenario } from "@/data/types";
 import { blendScores, scoreItems, bandOf, BAND_LABEL, pathMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { ScreenTop, BottomBar } from "@/features/shell/screen-chrome";
 import { Chip } from "@/components/ui/chip";
 import { BandChip, Meter, EmptyState } from "@/components/patterns/academy";
 import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
@@ -100,18 +101,23 @@ export function Screening() {
 
   if (phase === "bridge")
     return (
-      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-8">
-        {pool.length > 0
-          ? <Chip tone="ok" size="md" className="self-start">Quiz done · {total} questions</Chip>
-          : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>}
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{part.length ? "Pick up your screening" : pool.length ? "Now, a short call" : "Start with a short call"}</Text>
+      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-5">
+        <ScreenTop title={part.length ? "Pick up your screening" : pool.length ? "Now, a short call" : "Start with a short call"}
+          leading={pool.length > 0 ? undefined : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>}
+          eyebrow={pool.length > 0 ? <Chip tone="ok" size="md">Quiz done · {total} questions</Chip> : undefined} />
         {part.length > 0 && <span className="flex items-center gap-1.5 self-start rounded-chip bg-ok-bg px-2.5 py-1 text-caption font-bold text-ok">{part.length} of {screenAll.length} done · {screenRun.length} left</span>}
-        <Text size="subhead" tone="muted" className="leading-relaxed">{part.length ? `Next up: ${screenRun.map((x) => x.persona.name).join(" and ")}. What you've done is saved.` : screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back, about 3 minutes in all.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Handle it like a real first call. This is your baseline (call one), so nothing here counts against you.{pool.length ? "" : ` It decides which of the ${modulesOf(c).length} lessons you can skip; anything marked for everyone stays.`}</Text>
+        <Text size="subhead" tone="muted" className="leading-relaxed">{part.length ? `Next up: ${screenRun.map((x) => x.persona.name).join(" and ")}. What you've done is saved.` : screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Treat it like a real first call.</Text>
+        {/* What it does, as three short facts rather than a paragraph. */}
+        <ul className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
+          {[["Not graded", "Nothing here counts against you"], ...(pool.length ? [] : [["Shortens your path", "Skip the lessons you already know"]]), ["About 3 minutes", "Stop any time; it's saved"]].map(([t, d]) => (
+            <li key={t} className="flex flex-col px-4 py-3"><Text size="body-lg" weight="bold">{t}</Text><Text size="caption" tone="subtle">{d}</Text></li>
+          ))}
+        </ul>
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
-        <div className="mt-auto flex flex-col gap-2">
+        <BottomBar>
           <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume the call" : "Go to the call"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
           <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every lesson"}</Button>
-        </div>
+        </BottomBar>
       </div>
     );
 

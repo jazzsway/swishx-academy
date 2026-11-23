@@ -18,6 +18,10 @@ interface CopilotUi {
   /** A roleplay the agent is drafting right now, shown as a placeholder in the course rail. */
   drafting: string | null;
   setDrafting: (v: string | null) => void;
+  /** The rep agent can open straight into voice, or with a question already asked (Home's ask bar). */
+  intent: { mode: "chat" | "voice"; ask?: string } | null;
+  launch: (intent: { mode: "chat" | "voice"; ask?: string }) => void;
+  clearIntent: () => void;
 }
 
 export const useCopilot = create<CopilotUi>((set) => ({
@@ -35,4 +39,7 @@ export const useCopilot = create<CopilotUi>((set) => ({
   setDraft: (draft) => set({ draft }),
   drafting: null,
   setDrafting: (drafting) => set({ drafting }),
+  intent: null,
+  launch: (intent) => set({ open: true, intent }),
+  clearIntent: () => set({ intent: null }),
 }));

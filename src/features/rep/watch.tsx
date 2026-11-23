@@ -44,14 +44,16 @@ export function ClipCard({ clip, wide }: { clip: Clip; wide?: boolean }) {
   const s = useApp();
   const me = useMe();
   const done = s.progress.find((p) => p.userId === me.id && p.courseId === clip.course.id)?.completedBlocks.includes(clip.block.id);
-  const scene = clip.block.video!.scenes.find((x) => x.stat) ?? clip.block.video!.scenes[0];
+  /* An uploaded video has no scenes: fall back to its title. */
+  const scenes = clip.block.video?.scenes ?? [];
+  const scene = scenes.find((x) => x.stat) ?? scenes[0];
   return (
     <Link href={`/rep/watch/${clip.course.id}/${clip.block.id}`} className={`group flex shrink-0 flex-col gap-2 ${wide ? "w-full" : "w-[220px]"}`}>
       <div className="squircle relative aspect-video overflow-hidden rounded-panel bg-ink p-3 text-white">
         <div className="absolute inset-0 opacity-45" style={{ background: "radial-gradient(circle at 25% 30%, var(--color-brand) 0, transparent 50%), radial-gradient(circle at 85% 80%, var(--color-brand-2) 0, transparent 45%)" }} />
         <div className="relative flex h-full flex-col justify-end gap-0.5">
-          {scene.stat && <span className="text-title font-extrabold leading-none">{scene.stat}</span>}
-          <span className="line-clamp-2 text-body font-bold leading-tight">{scene.headline}</span>
+          {scene?.stat && <span className="text-title font-extrabold leading-none">{scene.stat}</span>}
+          <span className="line-clamp-2 text-body font-bold leading-tight">{scene?.headline ?? clip.block.title}</span>
         </div>
         <CirclePlay className="absolute right-2.5 top-2.5 size-6 text-white/90 transition-transform group-hover:scale-110" aria-hidden="true" />
         <span className="absolute bottom-2 right-2 rounded-glyph bg-black/55 px-1.5 text-micro font-semibold">{fmtTime(clip.block.video!.durationSec)}</span>

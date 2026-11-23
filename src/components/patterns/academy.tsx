@@ -76,13 +76,13 @@ export function Ring({ value, size = 44, stroke = 5, tone = "brand", children, l
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const color = { brand: "var(--color-brand)", ok: "var(--color-ok)", ink: "var(--color-ink)", white: "#fff" }[tone];
-  const track = tone === "white" ? "rgba(255,255,255,.15)" : "rgba(10,13,20,.08)";
+  const track = tone === "white" ? "rgba(255,255,255,.28)" : "color-mix(in srgb, var(--color-ink) 9%, transparent)";
   return (
     <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }} role="img" aria-label={label ?? `${value}%`}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={`${(circ * Math.max(0, Math.min(100, value))) / 100} ${circ}`} className="transition-[stroke-dasharray] duration-700" />
+        {value > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${(circ * Math.max(0, Math.min(100, value))) / 100} ${circ}`} className="transition-[stroke-dasharray] duration-700" />}
       </svg>
       {children && <div className="absolute inset-0 grid place-items-center">{children}</div>}
     </div>

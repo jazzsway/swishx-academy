@@ -12,16 +12,18 @@ import { cn } from "@/lib/cn";
  * corners match the rest of the radius scale rather than being a fifth value.
  */
 
-type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger" | "inverse";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 type ButtonShape = "control" | "chip";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "border-transparent bg-brand text-white hover:bg-brand-deep shadow-hair",
+  primary: "border-transparent bg-cta text-white hover:bg-cta-deep shadow-hair",
   secondary: "border-hair-2 bg-card text-ink hover:bg-subtle",
   soft: "border-tint-line bg-tint text-brand-deep hover:bg-tint-strong",
   ghost: "border-transparent bg-transparent text-ink-3 hover:bg-black/5 hover:text-ink",
   danger: "border-transparent bg-danger text-white hover:bg-danger-deep",
+  /* The primary action on a dark surface (call screens): a white pill, since the rep CTA colour is dark. */
+  inverse: "border-transparent bg-white text-ink hover:bg-white/90 shadow-float",
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -32,8 +34,8 @@ const sizes: Record<ButtonSize, string> = {
 };
 
 const shapes: Record<ButtonShape, string> = {
-  control: "rounded-control squircle",
-  chip: "rounded-chip squircle",
+  control: "rounded-button squircle",
+  chip: "rounded-tag squircle",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

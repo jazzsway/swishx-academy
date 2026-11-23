@@ -18,7 +18,8 @@ const nextConfig: NextConfig = {
         ["/trainer/settings/compliance", "/trainer/settings"],
         ["/trainer/courses/:id/preview", "/trainer/courses/:id"],
         ["/manager", "/trainer"], ["/manager/:path*", "/trainer"],
-        ["/rep/library", "/rep/learn"], ["/rep/library/:path*", "/rep/learn"], ["/rep/watch/:path*", "/rep/learn"],
+        /* The rep Library page is back (courses only, reached from Home); its material pages and the video player stay off. */
+        ["/rep/library/:path+", "/rep/library"], ["/rep/watch/:path*", "/rep/library"],
         ["/rep/practice/quiz", "/rep/practice"], ["/rep/practice/flashcards", "/rep/practice"],
       ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];

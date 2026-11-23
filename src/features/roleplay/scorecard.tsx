@@ -24,7 +24,7 @@ export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
   return (
     <div className="flex flex-col gap-4">
       {!compact && (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 rounded-card bg-card p-4 shadow-hair">
           <Ring value={result.score} size={72} stroke={7} tone={result.score >= 75 ? "ok" : "brand"} label={`Roleplay score ${result.score}%`}>
             <Text size="title" weight="extrabold" tabular>{result.score}</Text>
           </Ring>
@@ -60,14 +60,14 @@ export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
         {result.criteria.map((c) => (
-          <div key={c.id} className="flex items-start gap-3 rounded-control px-1 py-1.5">
-            <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", c.met ? "bg-ok text-white" : "bg-black/[0.08] text-ink-3")}>
-              {c.met ? <Check className="size-3" aria-hidden="true" /> : <X className="size-3" aria-hidden="true" />}
+          <div key={c.id} className="flex items-start gap-3 px-4 py-3">
+            <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full", c.met ? "bg-sage text-white" : "bg-peach-bg text-brand-deep")}>
+              {c.met ? <Check className="size-3.5" aria-hidden="true" /> : <X className="size-3.5" aria-hidden="true" />}
             </span>
             <div className="flex min-w-0 flex-1 flex-col">
-              <Text size="body-lg" weight="semibold" tone={c.met ? "default" : "subtle"}>{c.label}</Text>
+              <Text size="body-lg" weight="semibold" tone={c.met ? "default" : "muted"}>{c.label}</Text>
               {c.met && c.quote && <Text size="caption" tone="subtle" clamp={2}>“{c.quote}”</Text>}
             </div>
             {c.met && c.at !== undefined && (onSeek ? <button type="button" onClick={() => onSeek(c.at!)} className="text-caption font-semibold text-brand-deep underline">{mmss(c.at)}</button> : <Text size="caption" tone="faint">{mmss(c.at)}</Text>)}
@@ -76,9 +76,13 @@ export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
       </div>
 
       {mode !== "verify" && missed.length > 0 && (
-        <div className="squircle flex flex-col gap-1 rounded-panel bg-subtle px-4 py-3">
-          <Text size="caption" weight="bold" tone="subtle">TRY NEXT TIME</Text>
-          {missed.slice(0, 2).map((m) => <Text key={m.id} size="body-lg">· {m.label}</Text>)}
+        <div className="flex flex-col gap-2 rounded-card bg-tint p-4">
+          <Text size="body" weight="extrabold" tone="brand-deep">Try next time</Text>
+          <ol className="flex flex-col gap-1.5">
+            {missed.slice(0, 2).map((m, i) => (
+              <li key={m.id} className="flex items-start gap-2.5"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-micro font-extrabold text-brand-deep">{i + 1}</span><Text size="body-lg" weight="semibold">{m.label}</Text></li>
+            ))}
+          </ol>
         </div>
       )}
       {critical.length === 0 && mode === "assessment" && <Text size="body" tone="ok" weight="semibold">No compliance flags.</Text>}

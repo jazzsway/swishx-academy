@@ -8,6 +8,8 @@ import { DOC_PAGES, VA_PAGES, fmtTime } from "@/data/media";
 import { source } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { Portal, repOverlay } from "@/components/ui/portal";
+import { usePublishPager, nextUnseen } from "./pager";
 
 /* Approved PDFs are read in-app, view-only (PRD: internal training material stays internal). */
 export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentSpec; onAllViewed?: () => void; compact?: boolean }) {
@@ -23,12 +25,14 @@ export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentS
     if (!fired.current && spec.pages.every((p) => seen.includes(p))) { fired.current = true; onAllViewed?.(); }
   }, [seen, spec.pages, onAllViewed]);
   const go = (n: number) => { setI(n); setSeen((s) => (s.includes(spec.pages[n]) ? s : [...s, spec.pages[n]])); };
+  const hosted = usePublishPager({ page: i, total: spec.pages.length, seen: seen.length, unit: "page",
+    prev: () => i > 0 && go(i - 1), next: () => go(nextUnseen(i, spec.pages.length, (k) => seen.includes(spec.pages[k]))) });
 
   const reader = (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-caption text-ink-3">
-        <FileText className="size-4 shrink-0 text-brand" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate font-semibold text-ink-2">{src?.title}</span>
+        {/* In a lesson the title is already in the header; full screen shows it here. */}
+        {full || !hosted ? <><FileText className="size-4 shrink-0 text-brand" aria-hidden="true" /><span className="min-w-0 flex-1 truncate font-semibold text-ink-2">{src?.title}</span></> : <span className="flex-1" />}
         <span className="flex shrink-0 items-center gap-1"><Lock className="size-3" aria-hidden="true" />View only</span>
         {!compact && (
           <button type="button" onClick={() => setFull(!full)} aria-label={full ? "Exit full screen" : "Read full screen"} className="grid size-8 shrink-0 place-items-center rounded-full bg-card shadow-hair hover:bg-subtle">
@@ -55,19 +59,25 @@ export function DocumentViewer({ spec, onAllViewed, compact }: { spec: DocumentS
           ))}
         </div>
       )}
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
-        <Text size="caption" tone="subtle" tabular>{seen.length} of {spec.pages.length} read</Text>
-        <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
-      </div>
+      {/* Own controls unless a host (the lesson footer) shows them; always shown in full screen, where the footer is hidden. */}
+      {(!hosted || full) && (
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
+          <Text size="caption" tone="subtle" tabular>{seen.length} of {spec.pages.length} read</Text>
+          <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
+        </div>
+      )}
     </div>
   );
 
   if (!full) return reader;
+  /* Full screen fills the device's screen in the rep app (its overlay layer), the window elsewhere. */
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-canvas p-4 sm:p-8" role="dialog" aria-modal="true" aria-label={src?.title}>
-      <div className="mx-auto max-w-[720px]">{reader}</div>
-    </div>
+    <Portal>
+      <div className={cn("inset-0 z-[90] overflow-y-auto bg-canvas p-4 sm:p-8", repOverlay() ? "pointer-events-auto absolute" : "fixed")} role="dialog" aria-modal="true" aria-label={src?.title}>
+        <div className="mx-auto max-w-[720px]">{reader}</div>
+      </div>
+    </Portal>
   );
 }
 
@@ -106,6 +116,8 @@ export function VisualAidWalkthrough({ spec, onDone }: { spec: VisualAidSpec; on
   const Icon = page ? VA_ICON[page.visual] : Users;
   useEffect(() => { if (!fired.current && seen.length === spec.pages.length) { fired.current = true; onDone?.(); } }, [seen, spec.pages.length, onDone]);
   const go = (n: number) => { setI(n); setSeen((s) => (s.includes(n) ? s : [...s, n])); };
+  const hosted = usePublishPager({ page: i, total: spec.pages.length, seen: seen.length, unit: "page",
+    prev: () => i > 0 && go(i - 1), next: () => go(nextUnseen(i, spec.pages.length, (k) => seen.includes(k))) });
 
   return (
     <div className="flex flex-col gap-3">
@@ -141,11 +153,13 @@ export function VisualAidWalkthrough({ spec, onDone }: { spec: VisualAidSpec; on
           })}
         </div>
       )}
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
-        <Text size="caption" tone="subtle" className="flex items-center gap-1"><Presentation className="size-3.5" aria-hidden="true" />Page {i + 1} of {spec.pages.length}</Text>
-        <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
-      </div>
+      {!hosted && (
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft className="size-4" aria-hidden="true" />Previous</Button>
+          <Text size="caption" tone="subtle" className="flex items-center gap-1"><Presentation className="size-3.5" aria-hidden="true" />Page {i + 1} of {spec.pages.length}</Text>
+          <Button variant="secondary" size="sm" disabled={i === spec.pages.length - 1} onClick={() => go(i + 1)}>Next page<ChevronRight className="size-4" aria-hidden="true" /></Button>
+        </div>
+      )}
     </div>
   );
 }

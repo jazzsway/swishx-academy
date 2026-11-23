@@ -28,7 +28,7 @@ const FONT_SIZE = [
   "title", "display", "display-lg", "hero", "hero-lg",
 ];
 
-const RADIUS = ["glyph", "chip", "control", "panel", "card"];
+const RADIUS = ["glyph", "chip", "control", "panel", "card", "button", "tag"];
 
 const SHADOW = [
   "hair", "soft", "float", "modal",

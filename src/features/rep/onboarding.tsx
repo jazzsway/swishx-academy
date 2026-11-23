@@ -9,6 +9,7 @@ import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { BottomBar } from "@/features/shell/screen-chrome";
 import { BrandMark } from "@/features/shell/brand";
 import { ViewAs } from "@/features/shell/chrome";
 
@@ -50,18 +51,18 @@ export function RepOnboarding() {
   const screens = [
     {
       icon: <Route className="size-7" aria-hidden="true" />, title: `Welcome, ${me.first}`,
-      body: "Start with your foundation trainings. Then a short screening finds what you already know, so your path covers only your gaps, plus the safety content everyone takes.",
-      points: ["Foundations first: compliance and your therapy area", "Screening: ~10 min quiz + a 5 min call with an AI doctor", "Practise privately with an AI doctor any time. Nothing there is graded"], // v1-hidden: "Explore the Library any time. Nothing there is graded"
+      body: "Here’s how your training works.",
+      points: ["Foundations first: compliance and your therapy area", "A short screening skips what you already know", "Practise with an AI doctor any time, ungraded"], // v1-hidden: "Explore the Library any time. Nothing there is graded"
     },
     {
       icon: <Lock className="size-7" aria-hidden="true" />, title: "Practice is private",
-      body: "Rehearse any conversation as often as you like. Your trainer never sees your practice sessions, only anonymous team-wide trends.",
+      body: "Your trainer never sees your practice calls.",
       points: ["Unlimited, ungraded, never in your record", "Recordings delete after 30 days", "Prep for a real meeting the night before" /* v1-hidden: "You choose what to share" */],
     },
   ];
 
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-6 px-5 pb-8 pt-8">
+    <div className="flex min-h-full flex-1 flex-col gap-6 px-5 pt-8">
       <div className="flex items-center gap-2"><BrandMark size={30} /><Text size="body-lg" weight="extrabold">Academy</Text>
         <div className="ml-auto flex gap-1.5">{[0, 1, 2, 3].map((i) => <span key={i} className={cn("h-1.5 w-6 rounded-full", i <= step ? "bg-brand" : "bg-black/10")} />)}</div>
         {/* Onboarding hides the rep header, so the persona switcher lives here too: otherwise a presenter is stuck as the rep. */}
@@ -76,7 +77,7 @@ export function RepOnboarding() {
           <ul className="flex flex-col gap-2.5">
             {screens[step].points.map((p) => <li key={p} className="flex items-start gap-2.5"><Check className="mt-0.5 size-4.5 shrink-0 text-ok" aria-hidden="true" /><Text size="body-lg">{p}</Text></li>)}
           </ul>
-          <Button size="lg" fullWidth className="mt-auto" onClick={() => setStep(step + 1)}>Continue</Button>
+          <BottomBar><Button size="lg" fullWidth onClick={() => setStep(step + 1)}>Continue</Button></BottomBar>
         </div>
       )}
 
@@ -87,10 +88,10 @@ export function RepOnboarding() {
           <div className="squircle rounded-panel border border-hair bg-card p-4">
             <Text as="p" size="body-lg" tone="muted" className="leading-relaxed">{settings.consentText}</Text>
           </div>
-          <div className="mt-auto flex flex-col gap-2">
+          <BottomBar>
             <Button size="lg" fullWidth onClick={() => { setConsent(me.id, true); setStep(3); }}>I agree</Button>
             <Button size="lg" fullWidth variant="ghost" onClick={() => { setConsent(me.id, false); finish(); }}>Not now · I'll type instead</Button>
-          </div>
+          </BottomBar>
         </div>
       )}
 
@@ -105,11 +106,11 @@ export function RepOnboarding() {
             ))}
           </div>
           {micState === "blocked" && <Text tone="warn" weight="semibold">The browser blocked the microphone. You can still type in every call.</Text>}
-          <div className="mt-auto flex flex-col gap-2">
+          <BottomBar>
             {micState !== "on" ? <Button size="lg" fullWidth onClick={testMic}><Mic className="size-4" aria-hidden="true" />Test my microphone</Button>
               : <Button size="lg" fullWidth onClick={finish}><AgentIcon className="size-4" aria-hidden="true" />Sounds good, let&apos;s go</Button>}
             <Button size="lg" fullWidth variant="ghost" onClick={finish}>Skip</Button>
-          </div>
+          </BottomBar>
         </div>
       )}
     </div>

@@ -228,7 +228,7 @@ function ScenarioReport({ c, p, sc }: { c: Course; p: Progress; sc: Scenario }) 
       ) : null}
 
       {/* What's next, always in reach. */}
-      <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex flex-col gap-2 border-t border-hair bg-canvas/95 px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-3 backdrop-blur-xl">
+      <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex flex-col gap-2 border-t border-hair bg-canvas/95 px-5 pb-[max(env(safe-area-inset-bottom),26px)] pt-3 backdrop-blur-xl">
         {state === "retry" && retryCall && <Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}/assessment?call=${retryCall.key}${op?.ob ? `&ob=${op.ob.id}` : ""}`)}><RotateCcw className="size-4" aria-hidden="true" />Retry this objective · {triesLeft} {triesLeft === 1 ? "try" : "tries"} left</Button>}
         {state === "retry" && (c.settings.situationsPerObjective ?? "one") === "one" && op?.ob && op.bank.length > 1 && <Text size="caption" tone="subtle" className="-mt-1 text-center">Your retry draws a different situation from this objective.</Text>}
         {state === "waiting" && <Text size="body" tone="subtle" className="text-center">You can retry from {when}. Go back over the lessons first.</Text>}

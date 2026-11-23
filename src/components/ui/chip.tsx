@@ -71,7 +71,7 @@ export const Chip = forwardRef<HTMLElement, ChipProps>(function Chip(
       ref={ref as React.Ref<HTMLButtonElement>}
       {...(interactive ? { type: "button" as const, onClick, "aria-pressed": selected } : {})}
       className={cn(
-        "inline-flex shrink-0 items-center rounded-chip border font-semibold transition-colors",
+        "inline-flex shrink-0 items-center rounded-tag border font-semibold transition-colors",
         interactive && "focus-ring cursor-pointer",
         selected ? selectedTone[tone] : unselected[tone],
         sizes[size],

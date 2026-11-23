@@ -21,5 +21,16 @@ import { createPortal } from "react-dom";
  */
 export function Portal({ children }: { children: React.ReactNode }) {
   if (typeof document === "undefined") return null;
-  return createPortal(children, document.body);
+  return createPortal(children, repOverlay() ?? document.body);
+}
+
+/**
+ * The rep app's own overlay layer (#rep-overlay, inside its frame). In the
+ * desktop iPhone/iPad mock, dialogs, sheets and toasts belong on the device's
+ * screen, not over the whole desktop, so the rep app gives them a layer there.
+ * Overlays inside it position with `absolute`, not `fixed`: the mock is zoomed,
+ * and `fixed` would measure from the desktop window.
+ */
+export function repOverlay(): HTMLElement | null {
+  return typeof document === "undefined" ? null : document.getElementById("rep-overlay");
 }

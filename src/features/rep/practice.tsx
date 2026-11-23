@@ -13,6 +13,7 @@ import type { Item, PracticeSession } from "@/data/types";
 import { competency } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { ScreenTop, BottomBar } from "@/features/shell/screen-chrome";
 import { Chip } from "@/components/ui/chip";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState, Ring } from "@/components/patterns/academy";
@@ -55,37 +56,38 @@ export function PracticeHub() {
           <Text as="h1" size="hero" weight="extrabold" tracking="tight">Practice</Text>
           <Text size="body" tone="subtle">Rehearse with AI doctors before the real call.</Text>
         </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-chip bg-ink px-2.5 py-1 text-caption font-bold text-white"><Lock className="size-3" aria-hidden="true" />Private</span>
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-caption font-bold text-white"><Lock className="size-3" aria-hidden="true" />Private</span>
       </header>
 
       <Link href="/rep/practice/prep" className="squircle group relative overflow-hidden rounded-card bg-ink p-5 text-white shadow-float">
         <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 100% 0%, var(--color-brand) 0, transparent 55%), radial-gradient(circle at 0% 120%, var(--color-brand-2) 0, transparent 45%)" }} />
         <div className="relative flex flex-col gap-3">
-          <span className="grid size-12 place-items-center rounded-panel bg-white/15"><Mic className="size-6" aria-hidden="true" /></span>
+          <span className="grid size-12 place-items-center rounded-full bg-white/15"><Mic className="size-6" aria-hidden="true" /></span>
           <div className="flex flex-col gap-1">
             <Text size="display" weight="extrabold" tone="inverse" tracking="tight">Prep for a meeting</Text>
             <Text size="body" tone="inverse" className="opacity-80">Tell SwishX who you&apos;re seeing: their specialty, their mood, what they&apos;ll push back on. Then rehearse it.</Text>
           </div>
-          <span className="flex h-11 items-center justify-center gap-2 rounded-control bg-white text-body-lg font-bold text-ink transition-transform group-active:scale-[0.98]">Set up a rehearsal<ChevronRight className="size-4" aria-hidden="true" /></span>
+          <span className="flex h-14 items-center justify-center gap-2 rounded-full bg-white text-subhead font-bold text-ink transition-transform group-active:scale-[0.98]">Set up a rehearsal<ChevronRight className="size-4" aria-hidden="true" /></span>
         </div>
       </Link>
 
       <section aria-label="Your practice" className="grid grid-cols-3 gap-2.5">
         {[
-          { label: "This week", value: thisWeek, sub: thisWeek === 1 ? "session" : "sessions" },
-          { label: "Average", value: avg ?? "–", sub: avg !== undefined ? "score" : "no calls yet" },
-          { label: "Best", value: best ?? "–", sub: best !== undefined ? "score" : "no calls yet" },
+          { label: "This week", value: thisWeek, sub: thisWeek === 1 ? "session" : "sessions", tile: "bg-lilac" },
+          { label: "Average", value: avg ?? "–", sub: avg !== undefined ? "score" : "no calls yet", tile: "bg-sage" },
+          { label: "Best", value: best ?? "–", sub: best !== undefined ? "score" : "no calls yet", tile: "bg-peach" },
         ].map((t) => (
-          <div key={t.label} className="squircle flex flex-col gap-0.5 rounded-panel border border-hair bg-card px-3 py-3 shadow-hair">
-            <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider">{t.label}</Text>
-            <Text size="display" weight="extrabold" tabular>{t.value}</Text>
-            <Text size="caption" tone="subtle">{t.sub}</Text>
+          /* Whole-colour stat tiles, the freud way. */
+          <div key={t.label} className={cn("flex flex-col gap-1 rounded-panel px-3.5 py-3.5 text-white shadow-soft", t.tile)}>
+            <span className="text-caption font-bold text-white/90">{t.label}</span>
+            <span className="text-display-lg font-extrabold leading-none tabular-nums">{t.value}</span>
+            <span className="text-caption font-semibold text-white/85">{t.sub}</span>
           </div>
         ))}
       </section>
 
       {workOn.length > 0 && (
-        <section className="squircle flex flex-col gap-2.5 rounded-card border border-tint-line bg-tint p-4">
+        <section className="flex flex-col gap-2.5 rounded-card bg-tint p-4">
           <div className="flex items-center gap-2"><Flame className="size-4 text-brand-deep" aria-hidden="true" /><Text size="body-lg" weight="bold">Work on next</Text></div>
           <Text size="caption" tone="muted" className="-mt-1.5">What your recent calls missed most often.</Text>
           <ul className="flex flex-col gap-1.5">
@@ -205,13 +207,11 @@ export function PrepMeeting() {
       }} />;
 
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
-      <div className="flex items-center gap-3">
-        <Link href="/rep/practice" aria-label="Back" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
-        <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private practice</span>
-      </div>
-      <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">Who are you meeting?</Text>
-      <Text size="body" tone="subtle">Describe the type of doctor, not the person. No names or notes about real HCPs.</Text>
+    <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-5">
+      <ScreenTop title="Who are you meeting?"
+        leading={<Link href="/rep/practice" aria-label="Close" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>}
+        eyebrow={<span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private practice</span>}
+        sub={<Text size="body" tone="subtle" className="-mt-2">Describe the type of doctor, not the person. No names or notes about real HCPs.</Text>} />
       <Group label="Specialty">{PREP_SPECIALTIES.map((x) => <Chip key={x} size="lg" selected={specialty === x} onClick={() => setSpecialty(x)}>{x}</Chip>)}</Group>
       <Group label="What are they like?">{PREP_TRAITS.map((x) => <Chip key={x} size="lg" selected={traits.includes(x)} onClick={() => setTraits(traits.includes(x) ? traits.filter((t) => t !== x) : [...traits, x])}>{x}</Chip>)}</Group>
       <Group label="Call">{PREP_CALL_TYPES.map((x) => <Chip key={x} size="lg" selected={callType === x} onClick={() => setCallType(x)}>{x}</Chip>)}</Group>
@@ -236,7 +236,7 @@ export function PrepMeeting() {
           ))}
         </div>
       </div>
-      <Button size="lg" fullWidth className="mt-auto" disabled={!callObjs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start practice call</Button>
+      <BottomBar><Button size="lg" fullWidth disabled={!callObjs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start practice call</Button></BottomBar>
     </div>
   );
 }
@@ -269,16 +269,13 @@ export function PracticeSessionView() {
   const manager = s.users.find((u) => u.id === me.managerId);
   if (!x?.result) return <div className="p-4"><EmptyState title="Session not found" body="It may have been deleted." /></div>;
   return (
-    <div className="flex flex-col gap-5 px-4 pt-5">
+    <div className="flex min-h-full flex-1 flex-col gap-5 px-4 pt-5">
       <div className="flex flex-col gap-1">
         <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days</span>
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{x.title}</Text>
       </div>
       <Scorecard result={x.result} mode="practice" approvedHref={(m) => `/rep/course/c-lumora-launch/learn?module=${m}&optional=1`} />
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" size="lg" onClick={() => router.push(x.setup ? `/rep/practice/prep?from=${x.id}` : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
-        <Button variant="secondary" size="lg" disabled={!x.setup} onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>
-      </div>
+      {/* v1-hidden: the Try again / Make it harder pair here; they're the page's actions, pinned at the bottom below. */}
       {/* v1-hidden: sharing a session with your manager (no managers in v1).
       {x.shared ? (
         <div className="squircle flex items-center justify-between gap-3 rounded-panel bg-ok-bg px-4 py-3">
@@ -287,7 +284,11 @@ export function PracticeSessionView() {
         </div>
       ) : <Button variant="soft" size="lg" onClick={() => setShareOpen(true)}><Share2 className="size-4" aria-hidden="true" />Share with my manager</Button>}
       */}
-      <Button variant="ghost" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }}><Trash2 className="size-4" aria-hidden="true" />Delete now</Button>
+      <button type="button" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }} className="flex items-center gap-1.5 self-center text-body font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-4" aria-hidden="true" />Delete this session</button>
+      <BottomBar inset={4}>
+        <Button size="lg" fullWidth onClick={() => router.push(x.setup ? `/rep/practice/prep?from=${x.id}` : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
+        {x.setup && <Button variant="ghost" fullWidth onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>}
+      </BottomBar>
       {/* v1-hidden: share modal. */}
       <Modal open={false && shareOpen} onClose={() => setShareOpen(false)} title={`Share with ${manager?.name ?? "your manager"}?`} size="sm"
         footer={<><Button variant="secondary" onClick={() => setShareOpen(false)}>Cancel</Button><Button onClick={() => { s.setPracticeShared(x.id, true); setShareOpen(false); }}>Share this session</Button></>}>
@@ -318,14 +319,14 @@ export function QuickQuiz() {
   const q = pool[i];
   if (done)
     return (
-      <div className="flex min-h-full flex-1 flex-col items-center gap-4 px-6 pb-8 pt-16 text-center">
+      <div className="flex min-h-full flex-1 flex-col items-center gap-4 px-6 pt-16 text-center">
         <Ring value={(score / pool.length) * 100} size={96} stroke={9} label="Quiz score"><Text size="hero" weight="extrabold">{score}/{pool.length}</Text></Ring>
         <Text as="h1" size="hero" weight="extrabold">{score === pool.length ? "Perfect" : "Nice work"}</Text>
         <Text tone="muted" size="body-lg">Practice only. Nobody else sees this.</Text>
-        <div className="mt-auto flex w-full flex-col gap-2">
+        <BottomBar inset={6} className="self-stretch">
           <Button size="lg" fullWidth onClick={() => { setRound(round + 1); setI(0); setPicked(null); setScore(0); setDone(false); }}>Another 5</Button>
           <Link href="/rep/practice" className="py-2 text-center text-body-lg font-semibold text-ink-2">Back to practice</Link>
-        </div>
+        </BottomBar>
       </div>
     );
   return (

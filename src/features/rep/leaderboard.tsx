@@ -38,6 +38,31 @@ export function RankCard() {
   );
 }
 
+/** Home tile (freud-style whole-colour card): where the rep ranks on their team this month. */
+export function RankTile() {
+  const me = useMe();
+  const users = useApp((s) => s.users);
+  const points = useApp((s) => s.points);
+  const st = standingOf(users, points, me.id);
+  if (!st) return null;
+  /* Ten bars: where you sit among the team, from the bottom tenth to the top. */
+  const mine = Math.min(9, Math.floor((100 - st.top) / 10));
+  return (
+    <Link href="/rep/leaderboard" className="focus-ring relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-card bg-peach p-4 text-white shadow-soft transition-transform active:scale-[0.98]">
+      <span className="flex items-center gap-1.5 text-body font-bold"><Trophy className="size-4" aria-hidden="true" />Team rank</span>
+      <div className="flex items-end gap-[3px]" aria-hidden="true">
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className={cn("w-full rounded-full", i === mine ? "bg-white" : "bg-white/35")} style={{ height: 10 + i * 4 }} />
+        ))}
+      </div>
+      <span className="flex flex-col">
+        <span className="text-display-lg font-extrabold leading-none tabular-nums">Top {st.top}%</span>
+        <span className="mt-1 text-caption font-semibold text-white/90">#{st.rank} of {st.n} · {st.points} pts</span>
+      </span>
+    </Link>
+  );
+}
+
 /** The rep's leaderboard: their percentile, the top 10 of their team, and how to climb. */
 export function RepLeaderboard() {
   const me = useMe();

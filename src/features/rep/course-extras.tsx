@@ -1,7 +1,8 @@
 "use client";
 
+import { Children, useEffect, useState } from "react";
 import Link from "next/link";
-import { Award, Briefcase, Check, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
+import { Award, Briefcase, Check, ChevronDown, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { fileLength } from "@/features/media/file-view";
 import { modulesOf } from "./use-rep";
@@ -85,10 +86,12 @@ export function PracticeOnlyNote() {
   );
 }
 
-const KIND: Record<string, { label: string; icon: typeof Mic }> = {
-  video: { label: "Video", icon: Film }, audio: { label: "Audio", icon: Headphones }, image: { label: "Image", icon: ImageIcon },
-  slides: { label: "Slides", icon: Presentation }, pdf: { label: "PDF", icon: FileText }, doc: { label: "Document", icon: FileText },
-  data: { label: "File", icon: FileText }, other: { label: "File", icon: FileText },
+/* Each kind of file has its own tile colour, so a list of lessons reads at a glance. */
+const KIND: Record<string, { label: string; icon: typeof Mic; tile: string }> = {
+  video: { label: "Video", icon: Film, tile: "bg-peach-bg text-brand-deep" }, audio: { label: "Audio", icon: Headphones, tile: "bg-lilac-bg text-accent-violet" },
+  image: { label: "Image", icon: ImageIcon, tile: "bg-sage-bg text-ok" }, slides: { label: "Slides", icon: Presentation, tile: "bg-lilac-bg text-accent-violet" },
+  pdf: { label: "PDF", icon: FileText, tile: "bg-sun-bg text-warn" }, doc: { label: "Document", icon: FileText, tile: "bg-sun-bg text-warn" },
+  data: { label: "File", icon: FileText, tile: "bg-subtle text-ink-2" }, other: { label: "File", icon: FileText, tile: "bg-subtle text-ink-2" },
 };
 
 /** What a direct-course file is and how long it takes, in the rep's words. */
@@ -108,28 +111,35 @@ const ROLE: Record<Character, typeof Mic> = { doctor: Stethoscope, nurse: Syring
 
 /** A small status pill, the same everywhere on the journey. */
 function Pill_({ tone, children }: { tone: "ok" | "danger" | "warn" | "brand" | "muted"; children: React.ReactNode }) {
-  return <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-chip px-2 py-0.5 text-micro font-bold",
-    tone === "ok" ? "bg-ok-bg text-ok" : tone === "danger" ? "bg-danger-bg text-danger" : tone === "warn" ? "bg-warn-bg text-warn" : tone === "brand" ? "bg-tint text-brand-deep" : "bg-subtle text-ink-3")}>{children}</span>;
+  return <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-micro font-bold",
+    tone === "ok" ? "bg-sage-bg text-ok" : tone === "danger" ? "bg-danger-bg text-danger" : tone === "warn" ? "bg-sun-bg text-warn" : tone === "brand" ? "bg-tint text-brand-deep" : "bg-subtle text-ink-3")}>{children}</span>;
 }
 
 /** One stage of the journey: a numbered marker on the rail, its title and status, then its content. */
-function Stage({ n, title, status, done, current, locked, last, children }: { n: number; title: string; status?: React.ReactNode; done?: boolean; current?: boolean; locked?: boolean; last?: boolean; children?: React.ReactNode }) {
+/* Only the stage you're on is open; the others fold to one line with a short summary, and open on a tap. */
+function Stage({ n, title, status, done, current, locked, last, summary, children }: { n: number; title: string; status?: React.ReactNode; done?: boolean; current?: boolean; locked?: boolean; last?: boolean; summary?: string; children?: React.ReactNode }) {
+  const [open, setOpen] = useState(!!current);
+  useEffect(() => { if (current) setOpen(true); }, [current]);
+  /* false/null children (a stage with nothing to show yet) don't count. */
+  const hasBody = Children.toArray(children).length > 0;
+  const canFold = hasBody && !current;
   return (
-    <li className="relative flex gap-3">
-      <span className="relative flex flex-col items-center">
-        <span className={cn("relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 text-caption font-extrabold",
-          done ? "border-ok bg-ok text-white" : current ? "border-brand bg-brand text-white shadow-brand-lift" : locked ? "border-hair-2 bg-subtle text-ink-4" : "border-hair-2 bg-card text-ink-3")}>
-          {done ? <Check className="size-4" aria-hidden="true" /> : locked ? <Lock className="size-3.5" aria-hidden="true" /> : n}
+    <li className={cn("flex flex-col gap-3 rounded-card p-4 transition-shadow", current ? "bg-card shadow-soft ring-2 ring-tint-line" : locked ? "bg-card/55" : "bg-card shadow-hair")} data-last={last || undefined}>
+      <div className={cn("flex items-center gap-3", canFold && "cursor-pointer")} onClick={canFold ? () => setOpen(!open) : undefined}
+        role={canFold ? "button" : undefined} tabIndex={canFold ? 0 : undefined} aria-expanded={canFold ? open : undefined}
+        onKeyDown={canFold ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(!open); } } : undefined}>
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-body font-extrabold",
+          done ? "bg-sage text-white" : current ? "bg-cta text-white" : "bg-subtle text-ink-4")}>
+          {done ? <Check className="size-5" aria-hidden="true" /> : locked ? <Lock className="size-4" aria-hidden="true" /> : n}
         </span>
-        {!last && <span className={cn("w-0.5 flex-1", done ? "bg-ok/50" : "bg-hair-2")} aria-hidden="true" />}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5 pb-6">
-        <div className="flex min-h-8 items-center gap-2">
-          <Text as="h3" size="body-lg" weight="bold" className={cn("min-w-0 flex-1", locked && "text-ink-3")}>{title}</Text>
-          {status}
-        </div>
-        {children}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <Text as="h3" size="subhead" weight="extrabold" className={cn(locked && "text-ink-3")}>{title}</Text>
+          {summary && !open && <Text size="caption" tone="subtle" truncate>{summary}</Text>}
+        </span>
+        {status}
+        {canFold && <ChevronDown className={cn("size-4 shrink-0 text-ink-4 transition-transform", open && "rotate-180")} aria-hidden="true" />}
       </div>
+      {hasBody && open && <div className="flex flex-col gap-2.5">{children}</div>}
     </li>
   );
 }
@@ -166,32 +176,48 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const done = plan.allPassed;
   const callsLocked = !filesDone;
   let n = 0;
+  /* The stages in order, for the overview: which are done and which one you're on. */
+  const stages = [
+    ...(screens && screen.length > 0 ? [{ t: "Screening", done: screened }] : []),
+    ...(!practiceOnly && !optionalMaterial ? [{ t: "Lessons", done: filesDone && needed.length > 0 }] : []),
+    ...(plan.objectives.length > 0 ? [{ t: "Calls", done }] : []),
+    { t: "Certified", done: certified },
+  ];
+  const at = stages.findIndex((x) => !x.done);
 
   return (
     <section className="flex flex-col gap-3" aria-label="Your journey">
-      <div className="flex items-baseline justify-between gap-3">
-        <Text as="h2" size="subhead" weight="bold">Your journey</Text>
-        <span className="flex items-center gap-1 rounded-chip bg-info-bg px-2 py-0.5 text-caption font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Your team&apos;s material</span>
+      {/* Where you are, at a glance: one segment per stage. */}
+      <div className="flex flex-col gap-3 rounded-card bg-sage p-4 text-white shadow-soft">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-body font-bold text-white/90">{at < 0 ? "All done" : `Step ${at + 1} of ${stages.length} · ${stages[at].t}`}</span>
+          {/* v1-hidden: the "Your team's material" chip. */}
+        </div>
+        <span className="text-display font-extrabold leading-tight tracking-tight">{at < 0 ? "You're certified" : at === stages.length - 1 && done ? "Get your certificate" : stages[at].t === "Screening" ? "Start with a short call" : stages[at].t === "Lessons" ? "Work through the lessons" : stages[at].t === "Calls" ? "Take your calls" : "Get certified"}</span>
+        <div className="flex gap-1.5" aria-hidden="true">
+          {stages.map((x, i) => <span key={x.t} className={cn("h-2 flex-1 rounded-full", x.done ? "bg-white" : i === at ? "bg-white/55" : "bg-white/25")} />)}
+        </div>
+        {/* v1-hidden: the row of stage names under the bar; the line above names the one you're on. */}
       </div>
-      <ol className="flex flex-col">
+      <ol className="flex flex-col gap-3">
         {screens && screen.length > 0 && (
-          <Stage n={++n} title="Screening call" done={screened} current={!screened}
+          <Stage n={++n} title="Screening call" done={screened} current={!screened} summary={screened ? `Baseline ${p.screening!.overall}` : "3 min · not graded"}
             status={screened ? <Pill_ tone="ok">Baseline {p.screening!.overall}</Pill_> : part.length ? <Pill_ tone="warn">Paused · {part.length} of {screen.length}</Pill_> : <Pill_ tone="brand">Up next</Pill_>}>
-            <div className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card p-3">
-              <span className="flex -space-x-1.5">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-8 place-items-center rounded-full border-2 border-card bg-tint text-brand-deep"><I className="size-3.5" aria-hidden="true" /></span>; })}</span>
+            <div className="flex items-center gap-3 rounded-panel bg-subtle/70 p-3">
+              <span className="flex -space-x-2">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-10 place-items-center rounded-full border-2 border-card bg-peach text-white"><I className="size-4.5" aria-hidden="true" /></span>; })}</span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <Text size="body" weight="semibold" truncate>{screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
-                <Text size="caption" tone="subtle">{screened ? (optionalMaterial ? "Your baseline is set" : skipped.length ? `You skip ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you already know` : "Every lesson stays in your path") : part.length ? `${part.length} of ${screen.length} done · what you did is saved` : optionalMaterial ? "About 3 min · not graded · sets your baseline" : "About 3 min · not graded · decides which lessons you skip"}</Text>
+                <Text size="caption" tone="subtle">{screened ? (optionalMaterial ? "Baseline set" : skipped.length ? `Skips ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you know` : "Every lesson stays") : part.length ? `${part.length} of ${screen.length} done · saved` : "3 min · not graded"}</Text>
               </span>
               {screened
                 ? <Link href={`${base}/results`} className="shrink-0 text-caption font-bold text-brand-deep hover:underline">Results</Link>
-                : <Link href={`${base}/screening`} className="flex h-8 shrink-0 items-center gap-1 rounded-control bg-brand px-3 text-caption font-bold text-white"><Mic className="size-3.5" aria-hidden="true" />{part.length ? "Resume" : "Start"}</Link>}
+                : <Link href={`${base}/screening`} className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-cta px-4 text-body font-bold text-white"><Mic className="size-4" aria-hidden="true" />{part.length ? "Resume" : "Start"}</Link>}
             </div>
           </Stage>
         )}
 
         {!practiceOnly && !optionalMaterial && (
-          <Stage n={++n} title="Lessons" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen}
+          <Stage n={++n} title="Lessons" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen} summary={`${needed.length} lesson${needed.length === 1 ? "" : "s"}`}
             status={waitScreen ? <Pill_ tone="muted">After screening</Pill_> : <Pill_ tone={filesDone ? "ok" : "muted"}>{lessonsDone} of {needed.length} done</Pill_>}>
             <ul className="flex flex-col gap-1.5">
               {needed.map((m) => {
@@ -200,10 +226,10 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
                 const cur = !waitScreen && m.id === nextFile?.id;
                 const body = (
                   <>
-                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-control", done ? "bg-ok-bg text-ok" : cur ? "bg-tint text-brand-deep" : "bg-subtle text-ink-3")}>{done ? <Check className="size-4" aria-hidden="true" /> : <meta.icon className="size-4" aria-hidden="true" />}</span>
+                    <span className={cn("grid size-11 shrink-0 place-items-center rounded-[14px]", done ? "bg-sage text-white" : meta.tile)}>{done ? <Check className="size-5" aria-hidden="true" /> : <meta.icon className="size-5" aria-hidden="true" />}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <Text size="body" weight="semibold" truncate className={done ? "text-ink-2" : undefined}>{m.title}</Text>
-                      <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}{m.required ? " · for everyone" : ""}</Text>
+                      <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}</Text>
                     </span>
                     {cur ? <Pill_ tone="brand">{p.completedBlocks.some((b) => m.blocks.some((x) => x.id === b)) ? "Continue" : "Next"}</Pill_> : !waitScreen && <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
                   </>
@@ -211,8 +237,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
                 return (
                   <li key={m.id}>
                     {waitScreen
-                      ? <div className="flex items-center gap-3 rounded-panel px-1 py-1 opacity-70">{body}</div>
-                      : <Link href={`${base}/learn?module=${m.id}`} className={cn("squircle flex items-center gap-3 rounded-panel px-1 py-1 transition-colors hover:bg-subtle", cur && "bg-tint/40")}>{body}</Link>}
+                      ? <div className="flex items-center gap-3 rounded-panel p-1.5 opacity-70">{body}</div>
+                      : <Link href={`${base}/learn?module=${m.id}`} className={cn("flex items-center gap-3 rounded-panel p-1.5 transition-colors hover:bg-subtle", cur && "bg-tint/60")}>{body}</Link>}
                   </li>
                 );
               })}
@@ -222,11 +248,14 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         )}
 
         {plan.objectives.length > 0 && (
-          <Stage n={++n} title="The calls" done={done} current={!callsLocked && !done} locked={callsLocked}
+          <Stage n={++n} title="The calls" done={done} current={!callsLocked && !done} locked={callsLocked} summary={`${callsOf(plan).length} call${callsOf(plan).length === 1 ? "" : "s"} · ${plan.objectives.length} objective${plan.objectives.length === 1 ? "" : "s"}`}
             status={callsLocked ? <Pill_ tone="muted">{optionalMaterial ? "After screening" : "After the lessons"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} objectives</Pill_>}>
-            <Text size="caption" tone="subtle" className="-mt-1">
-              Scored · pass {c.settings.passRoleplay} · {(c.settings.situationsPerObjective ?? "one") === "one" ? "one situation per objective, drawn for you" : "every situation"} · {c.settings.attempts} {c.settings.attempts === 1 ? "try" : "tries"} per objective{c.settings.finalNoHints === false ? " · hints allowed" : ""}. One call per person; each objective is scored on its own.
-            </Text>
+            {/* The rules, as chips rather than a sentence. */}
+            <div className="flex flex-wrap gap-1.5">
+              {[`Pass ${c.settings.passRoleplay}`, `${c.settings.attempts} ${c.settings.attempts === 1 ? "try" : "tries"}`, ...(c.settings.finalNoHints === false ? ["Hints on"] : [])].map((x) => (
+                <span key={x} className="rounded-full bg-subtle px-2.5 py-1 text-micro font-bold text-ink-2">{x}</span>
+              ))}
+            </div>
             {/* The calls to take, from the start: one per person, each with its objectives and where they stand. Start opens after the lessons. */}
             <ul className="flex flex-col gap-2" aria-label="Your calls">
               {callsOf(plan).map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} locked={callsLocked} lockNote={optionalMaterial ? "Opens after screening" : "Opens after the lessons"} />)}
@@ -241,13 +270,13 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
 
         <Stage n={++n} title="Certified" last done={certified} current={done && !certified} locked={!done && !certified}
           status={certified ? <Pill_ tone="ok">Done</Pill_> : done ? <Pill_ tone="brand">Ready</Pill_> : undefined}>
-          <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : done ? "Every objective passed. Your certificate is ready." : "Pass every objective to get certified."}</Text>
-          {done && !certified && <Link href={`${base}/attest`} className="flex h-9 items-center justify-center gap-1.5 self-start rounded-control bg-brand px-4 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Get your certificate</Link>}
+          {(certified || done) && <Text size="caption" tone="subtle" className="-mt-1">{certified ? "It's on your record." : "Every objective passed. Your certificate is ready."}</Text>}
+          {done && !certified && <Link href={`${base}/attest`} className="flex h-11 items-center justify-center gap-1.5 self-start rounded-full bg-cta px-5 text-body font-bold text-white"><Award className="size-4" aria-hidden="true" />Get your certificate</Link>}
         </Stage>
       </ol>
 
       {optionalMaterial && mods.length > 0 && (
-        <section className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-4" aria-labelledby="material-h">
+        <section className="flex flex-col gap-2 rounded-card bg-card p-4 shadow-hair" aria-labelledby="material-h">
           <div className="flex items-baseline justify-between gap-3">
             <Text as="h3" id="material-h" size="body-lg" weight="bold">The material</Text>
             <Pill_ tone="muted">Optional</Pill_>
@@ -260,7 +289,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
               return (
                 <li key={m.id}>
                   <Link href={`${base}/learn?module=${m.id}`} className="squircle flex items-center gap-3 rounded-panel px-1 py-1 transition-colors hover:bg-subtle">
-                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-control", seen ? "bg-ok-bg text-ok" : "bg-subtle text-ink-3")}>{seen ? <Check className="size-4" aria-hidden="true" /> : <meta.icon className="size-4" aria-hidden="true" />}</span>
+                    <span className={cn("grid size-11 shrink-0 place-items-center rounded-[14px]", seen ? "bg-sage text-white" : meta.tile)}>{seen ? <Check className="size-5" aria-hidden="true" /> : <meta.icon className="size-5" aria-hidden="true" />}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <Text size="body" weight="semibold" truncate>{m.title}</Text>
                       <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}</Text>
@@ -310,25 +339,25 @@ function CallCard({ c, call, k, plan, locked, lockNote }: { c: Course; call: Jou
   const live = ready && !locked;
   const n = call.items.length;
   return (
-    <li className={cn("squircle flex flex-col gap-3 rounded-card border p-3.5", live ? "border-tint-line bg-tint/40" : passed ? "border-ok-line bg-ok-bg/40" : "border-hair bg-card")}>
+    <li className={cn("flex flex-col gap-3 rounded-panel p-3.5", live ? "bg-tint/70" : passed ? "bg-sage-bg" : "bg-subtle/70")}>
       <div className="flex items-center gap-3">
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-white", passed ? "bg-ok" : live ? "bg-gradient-to-br from-brand-2 to-brand" : "bg-ink-4")}>{passed ? <Check className="size-4.5" aria-hidden="true" /> : <I className="size-4.5" aria-hidden="true" />}</span>
+        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-white", passed ? "bg-sage" : live ? "bg-peach" : "bg-lilac")}>{passed ? <Check className="size-5" aria-hidden="true" /> : <I className="size-5" aria-hidden="true" />}</span>
         <span className="flex min-w-0 flex-1 flex-col">
           <Text size="body" weight="bold" truncate>Call {k + 1} · {host.persona.name.replace(/,.*$/, "")}</Text>
           <Text size="caption" tone="subtle">{CHARACTERS[call.key].label} · {n} objective{n === 1 ? "" : "s"} · about {call.minutes} min</Text>
         </span>
         {passed ? <Pill_ tone="ok">Passed</Pill_>
-          : live ? <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-brand px-3.5 text-caption font-bold text-white shadow-brand-lift"><Mic className="size-3.5" aria-hidden="true" />{retry ? "Retry" : "Start"}</Link>
-          : <span aria-disabled="true" title={locked ? lockNote : undefined} className="flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control bg-subtle px-3.5 text-caption font-bold text-ink-4">{locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Mic className="size-3.5" aria-hidden="true" />}Start</span>}
+          : live ? <Link href={`/rep/course/${c.id}/assessment?call=${call.key}`} className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-cta px-4 text-body font-bold text-white"><Mic className="size-4" aria-hidden="true" />{retry ? "Retry" : "Start"}</Link>
+          : <span aria-disabled="true" title={locked ? lockNote : undefined} className="flex h-10 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-full bg-card px-4 text-body font-bold text-ink-4">{locked ? <Lock className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}Start</span>}
       </div>
-      <ol className={cn("flex flex-col gap-1.5 border-t pt-2.5", live ? "border-tint-line" : "border-hair")}>
+      <ol className="flex flex-col gap-2 border-t border-hair pt-2.5">
         {call.items.map((x) => {
           const st = OB_STATUS[x.o.state];
           const when = x.o.retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
           const note = x.o.state === "waiting" ? `Retry from ${when}. Go back over the lessons first.` : x.o.state === "out" ? "No tries left. Your manager can reset it." : x.o.state === "retry" ? `${x.o.triesLeft} ${x.o.triesLeft === 1 ? "try" : "tries"} left` : undefined;
           return (
             <li key={x.sc.id} className="flex items-baseline gap-2 text-caption">
-              <span className="w-5 shrink-0 font-extrabold tabular-nums text-brand-deep">{String(x.n + 1).padStart(2, "0")}</span>
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-card text-micro font-extrabold tabular-nums text-brand-deep">{x.n + 1}</span>
               <span className="flex min-w-0 flex-1 flex-col"><span className="text-ink-2">{x.o.ob?.title ?? x.sc.title}</span>{note && <span className="text-ink-3">{note}</span>}</span>
               {x.o.state !== "todo" && <Pill_ tone={st.tone}>{st.label}</Pill_>}
             </li>

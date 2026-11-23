@@ -13,6 +13,7 @@ import type { Attempt, Item, Scenario } from "@/data/types";
 import { blendScores, coveredPoints, scoreItems } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { ScreenTop, BottomBar } from "@/features/shell/screen-chrome";
 import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Meter, EmptyState } from "@/components/patterns/academy";
@@ -139,30 +140,34 @@ export function Assessment() {
 
   if (phase === "bridge")
     return (
-      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-8">
+      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-8">
         {items.length > 0 && <Chip tone="ok" size="md" className="self-start">Quiz done</Chip>}
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{items.length ? "Last part: the call" : `Your call with ${sc?.persona.name ?? "the doctor"}`}</Text>
         <Text size="subhead" tone="muted" className="leading-relaxed">{sc?.persona.name} is {sc?.persona.traits.slice(0, 2).join(" and ").toLowerCase() ?? "sceptical"}. This call is recorded{st.verify === "manager" ? " and your manager will review it" : ""}. An off-label or risk-minimising statement fails the assessment.</Text>
-        <Button size="lg" fullWidth className="mt-auto" onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button>
+        <BottomBar><Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button></BottomBar>
       </div>
     );
 
   if (phase === "intro")
     return (
-      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
-        <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
-        <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{resubmit ? "Resubmit your roleplay" : "Final assessment"}</Text>
-        <div className="squircle flex flex-col gap-2.5 rounded-panel border border-hair bg-card p-4">
-          {!resubmit && items.length > 0 && <Text size="body-lg">· {items.length} questions{nWritten ? `, ${nWritten} of them written in your own words` : ""}, no feedback until the end</Text>}
-          {st.finalNoHints && <Text size="body-lg">· No hints and no prompts: this is the real thing</Text>}
-          {st.assessmentCall && <Text size="body-lg">· A ~{sc?.durationMin}-minute call with {sc?.persona.name}, recorded</Text>}
-          <Text size="body-lg">· Pass: {items.length ? `${st.passOverall}% overall, ${st.passCritical}% on ${st.criticalCompetencies.map((x) => competency(x)?.name.toLowerCase()).join(" and ")}${st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}` : `${st.passRoleplay}% on the call`}</Text>
-          <Text size="body-lg">· Any critical compliance flag is an automatic fail</Text>
-          <Text size="body-lg">· Attempt {attemptNo} of {st.attempts}</Text>
-        </div>
+      <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-5">
+        <ScreenTop title={resubmit ? "Resubmit your roleplay" : "Final assessment"}
+          leading={<Link href={`/rep/course/${c.id}`} aria-label="Exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>} />
+        {/* The rules, one fact per row. */}
+        <ul className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
+          {([
+            ...(!resubmit && items.length > 0 ? [[`${items.length} questions`, nWritten ? `${nWritten} in your own words · no feedback until the end` : "No feedback until the end"]] : []),
+            ...(st.assessmentCall ? [[`A ${sc?.durationMin ?? 5}-minute call`, `With ${sc?.persona.name ?? "an AI doctor"}, recorded${st.finalNoHints ? " · no hints" : ""}`]] : []),
+            ["Pass mark", items.length ? `${st.passOverall}% overall${st.assessmentCall ? `, ${st.passRoleplay}% on the call` : ""}` : `${st.passRoleplay}% on the call`],
+            ["Compliance", "A critical flag is an automatic fail"],
+            ["Attempt", `${attemptNo} of ${st.attempts}`],
+          ] as [string, string][]).map(([t, d]) => (
+            <li key={t} className="flex items-baseline justify-between gap-3 px-4 py-3"><Text size="body-lg" weight="bold">{t}</Text><Text size="body" tone="subtle" className="text-right">{d}</Text></li>
+          ))}
+        </ul>
         {resubmit && <Text size="body" tone="muted">Your quiz score carries over. Only the call is redone, with your manager&apos;s focus areas in mind.</Text>}
         {coolingDown && retakeAt && <Text size="body" tone="muted">You can retake from {retakeAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}, {st.cooldownHours} hours after your last attempt.</Text>}
-        <Button size="lg" fullWidth className="mt-auto" disabled={coolingDown} onClick={() => setPhase(resubmit || !items.length ? "bridge" : "quiz")}>Begin</Button>
+        <BottomBar><Button size="lg" fullWidth disabled={coolingDown} onClick={() => setPhase(resubmit || !items.length ? "bridge" : "quiz")}>Begin</Button></BottomBar>
       </div>
     );
 
@@ -175,9 +180,9 @@ export function Assessment() {
     else grade(undefined, next);
   }
   return (
-    <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
+    <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-6 pt-5">
       <div className="flex items-center gap-3">
-        <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
+        <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>
         <div className="flex flex-1 flex-col gap-1">
           <div className="flex justify-between text-caption text-ink-3"><span>Final assessment</span><span>{qi + 1} of {items.length}</span></div>
           <Meter value={(qi / items.length) * 100} height={6} label="Assessment progress" />
@@ -189,9 +194,11 @@ export function Assessment() {
           <div className="flex flex-1 flex-col gap-3">
             <Text size="body-lg" tone="muted">Answer in your own words, as you would say it to the HCP. SwishX marks it against what a good answer covers.</Text>
             <Field multiline aria-label="Your answer" value={draft} onChange={(e) => setDraft(e.target.value)} rows={6} placeholder="Type your answer…" />
-            <Button size="lg" fullWidth className="mt-auto" disabled={draft.trim().length < 15} onClick={() => { answer(draft.trim()); setDraft(""); }}>
-              {qi < items.length - 1 ? "Next question" : "Submit"}<ArrowRight className="size-4" aria-hidden="true" />
-            </Button>
+            <BottomBar className="-mb-6">
+              <Button size="lg" fullWidth disabled={draft.trim().length < 15} onClick={() => { answer(draft.trim()); setDraft(""); }}>
+                {qi < items.length - 1 ? "Next question" : "Submit"}<ArrowRight className="size-4" aria-hidden="true" />
+              </Button>
+            </BottomBar>
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -233,7 +240,7 @@ export function Attestation() {
   // v1-hidden (doc number): const ver = c.versions.find((v) => v.version === p.version);
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pb-8 pt-5">
-      <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
+      <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>
       <Text as="h1" size="hero" weight="extrabold" tracking="tight">Attestation</Text>
       <Text size="body" tone="subtle">{c.title} · v{p.version}</Text>
       <div className="squircle rounded-panel border border-hair bg-card p-5"><Text as="p" size="subhead" className="leading-relaxed">{c.settings.attestation}</Text></div>
@@ -271,7 +278,7 @@ function ResultView({ result, sc, pass, base, callOnly, attemptNo, attempts, lef
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-4 pb-8 pt-5">
-      <Link href={`/rep/course/${courseId}`} aria-label="Back to the training" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
+      <Link href={`/rep/course/${courseId}`} aria-label="Back to the training" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>
 
       {/* The verdict, on one scale with the pass mark. */}
       <section className={cn("squircle relative overflow-hidden rounded-card p-5", result.passed ? "bg-ok text-white" : "bg-ink text-white")}>

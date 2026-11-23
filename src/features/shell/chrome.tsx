@@ -8,7 +8,8 @@ import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { Avatar } from "@/components/patterns/academy";
-import { Portal } from "@/components/ui/portal";
+import { Portal, repOverlay } from "@/components/ui/portal";
+import { Sheet } from "@/components/ui/sheet";
 
 export const PERSONAS = [
   { userId: "u-maya", role: "Trainer", href: "/trainer", blurb: "Builds and publishes trainings, proves progress" },
@@ -125,23 +126,10 @@ export function Notifications() {
     return () => { window.removeEventListener("resize", place); document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
   }, [open]);
 
-  return (
+  const markAll = unread > 0 && <button type="button" className="text-body font-semibold text-brand-deep hover:underline" onClick={() => markRead(me.id)}>Mark all read</button>;
+  const list = (
     <>
-      <button ref={btn} type="button" aria-label={`Notifications, ${unread} unread`} aria-expanded={open} onClick={() => setOpen(!open)}
-        className={cn("focus-ring relative grid size-10 place-items-center rounded-control border border-hair-2 bg-card text-ink-2 hover:bg-subtle", open && "bg-subtle")}>
-        <Bell className="size-4.5" aria-hidden="true" />
-        {unread > 0 && <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-brand px-1 text-micro font-bold text-white">{unread}</span>}
-      </button>
-      {open && pos && (
-        <Portal>
-          <div ref={panel} role="dialog" aria-label="Notifications" style={{ top: pos.top, left: pos.left, width: pos.width }}
-            className="select-pop fixed z-[60] overflow-hidden rounded-panel border border-hair bg-card shadow-float">
-            <div className="flex items-center justify-between border-b border-hair px-4 py-3">
-              <Text size="body-lg" weight="bold">Notifications{unread > 0 && <span className="ml-1.5 text-ink-3">· {unread} new</span>}</Text>
-              {unread > 0 && <button type="button" className="text-body font-semibold text-brand-deep hover:underline" onClick={() => markRead(me.id)}>Mark all read</button>}
-            </div>
-            <div className="max-h-[min(60vh,480px)] overflow-y-auto">
-              {mine.length === 0 && (
+      {mine.length === 0 && (
                 <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
                   <Bell className="size-6 text-ink-4" aria-hidden="true" />
                   <Text size="body" tone="subtle">You&apos;re all caught up.</Text>
@@ -158,7 +146,29 @@ export function Notifications() {
                   </span>
                 </button>
               ))}
+      {repOverlay() && unread > 0 && <div className="px-5 pt-3">{markAll}</div>}
+    </>
+  );
+
+  return (
+    <>
+      <button ref={btn} type="button" aria-label={`Notifications, ${unread} unread`} aria-expanded={open} onClick={() => setOpen(!open)}
+        className={cn("focus-ring relative grid size-10 place-items-center rounded-control border border-hair-2 bg-card text-ink-2 hover:bg-subtle", open && "bg-subtle")}>
+        <Bell className="size-4.5" aria-hidden="true" />
+        {unread > 0 && <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-brand px-1 text-micro font-bold text-white">{unread}</span>}
+      </button>
+      {/* In the rep app it is a sheet on the device's screen; elsewhere a popover under the bell. */}
+      {open && repOverlay() ? (
+        <Sheet open onClose={() => setOpen(false)} title="Notifications" label="Notifications" bodyClassName="px-0 pb-2 pt-0">{list}</Sheet>
+      ) : open && pos && (
+        <Portal>
+          <div ref={panel} role="dialog" aria-label="Notifications" style={{ top: pos.top, left: pos.left, width: pos.width }}
+            className="select-pop fixed z-[60] overflow-hidden rounded-panel border border-hair bg-card shadow-float">
+            <div className="flex items-center justify-between border-b border-hair px-4 py-3">
+              <Text size="body-lg" weight="bold">Notifications{unread > 0 && <span className="ml-1.5 text-ink-3">· {unread} new</span>}</Text>
+              {markAll}
             </div>
+            <div className="max-h-[min(60vh,480px)] overflow-y-auto">{list}</div>
           </div>
         </Portal>
       )}

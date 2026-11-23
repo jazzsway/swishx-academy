@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { Portal } from "@/components/ui/portal";
+import { Portal, repOverlay } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
 
 /**
@@ -93,7 +93,9 @@ export function Toast({
         /* Clear of the header rather than over it: a confirmation that covers
            the title bar is a confirmation that hides where you are. */
         className={cn(
-          "pointer-events-none fixed inset-x-0 top-16 z-[10000] flex justify-center px-4",
+          "pointer-events-none inset-x-0 top-16 z-[10000] flex justify-center px-4",
+          /* On the rep device mock the layer is zoomed, so it measures from there, not the window. */
+          repOverlay() ? "absolute" : "fixed",
           "transition-all ease-entrance",
           open ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"
         )}
