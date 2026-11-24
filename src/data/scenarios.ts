@@ -47,10 +47,13 @@ let CUSTOM: Scenario[] = [];
 let EXTRA: Objection[] = [];
 export function registerExtraObjections(list: Objection[]) { EXTRA = list; }
 export function registerScenarios(list: Scenario[]) { CUSTOM = list; }
-/** Every scenario: the approved ones we ship, then the ones trainers built. */
-export const allScenarios = (): Scenario[] => [...SCENARIOS, ...CUSTOM];
+/* The call an objective gets when it has no situations of its own: made from the objective, never saved. */
+const OBJECTIVE_CALLS = new Map<string, Scenario>();
+export function registerObjectiveCall(sc: Scenario) { OBJECTIVE_CALLS.set(sc.id, sc); }
+/** Every scenario: the approved ones we ship, then the ones trainers built, then objectives' own calls. */
+export const allScenarios = (): Scenario[] => [...SCENARIOS, ...CUSTOM, ...OBJECTIVE_CALLS.values()];
 
-export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id) ?? EXTRA.find((o) => o.id === id) ?? CUSTOM.flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id)!;
+export const objection = (id: string) => OBJECTIONS.find((o) => o.id === id) ?? EXTRA.find((o) => o.id === id) ?? CUSTOM.flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id) ?? [...OBJECTIVE_CALLS.values()].flatMap((s) => s.custom?.objections ?? []).find((o) => o.id === id)!;
 
 export const PROHIBITED: ProhibitedRule[] = [
   {

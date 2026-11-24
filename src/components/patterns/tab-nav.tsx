@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { nestedRadius } from "./segmented";
 
 /**
  * A segmented tab row. The first tab component in the repo — nothing rendered
@@ -41,7 +42,7 @@ export function TabNav({ items, activeId, onSelect, ariaLabel, className }: TabN
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "flex items-center gap-1 overflow-x-auto rounded-panel border border-hair bg-subtle p-1",
+        "squircle flex items-center gap-1 overflow-x-auto rounded-panel border border-hair bg-subtle p-1",
         "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
@@ -65,7 +66,7 @@ export function TabNav({ items, activeId, onSelect, ariaLabel, className }: TabN
           </>
         );
         const shared = cn(
-          "flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-control px-3 py-2 transition-colors",
+          "squircle flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap px-3 py-2 transition-colors",
           active ? "bg-tint text-brand" : "text-ink-3 hover:bg-card hover:text-ink",
         );
 
@@ -75,7 +76,7 @@ export function TabNav({ items, activeId, onSelect, ariaLabel, className }: TabN
             href={item.href}
             role="tab"
             aria-selected={active}
-            className={shared}
+            className={shared} style={{ borderRadius: nestedRadius("var(--radius-panel)", 5) }}
           >
             {inner}
           </Link>
@@ -86,7 +87,7 @@ export function TabNav({ items, activeId, onSelect, ariaLabel, className }: TabN
             role="tab"
             aria-selected={active}
             onClick={() => onSelect?.(item.id)}
-            className={shared}
+            className={shared} style={{ borderRadius: nestedRadius("var(--radius-panel)", 5) }}
           >
             {inner}
           </button>

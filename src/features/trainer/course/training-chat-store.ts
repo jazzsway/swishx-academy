@@ -79,20 +79,26 @@ export const useTrainingChat = create<TrainingChat>()(persist((set) => ({
   partialize: (s) => ({ threads: Object.fromEntries(Object.entries(s.threads).map(([k, ts]) => [k, ts.map(({ undo: _u, ...t }) => t)])) }),
 }));
 
-/** The four stages of building a training with the trainer's own material, and where each lives. */
+/** The stages of building a training with the trainer's own material, and where each lives. */
 export const STAGES = [
-  { n: 1, label: "Objectives", short: "Objectives", path: "/roleplay" },
-  { n: 2, label: "Situations", short: "Situations", path: "/situations" },
-  { n: 3, label: "Settings", short: "Settings", path: "/settings" },
-  { n: 4, label: "Publish & assign", short: "Publish", path: "/assign" },
+  { n: 1, key: "material", label: "Material", short: "Material", path: "/material" },
+  { n: 2, key: "objectives", label: "Objectives", short: "Objectives", path: "/roleplay" },
+  { n: 3, key: "situations", label: "Situations", short: "Situations", path: "/situations" },
+  { n: 4, key: "settings", label: "Settings", short: "Settings", path: "/settings" },
+  { n: 5, key: "test", label: "Test the calls", short: "Test", path: "/test" },
+  { n: 6, key: "publish", label: "Publish", short: "Publish", path: "/publish" },
 ] as const;
+export type StageKey = (typeof STAGES)[number]["key"];
+export const stageNo = (key: StageKey) => STAGES.find((x) => x.key === key)!.n;
 
-/** Which stage a page belongs to. */
-export function stepOf(pathname: string, base: string): 1 | 2 | 3 | 4 {
-  if (pathname.startsWith(`${base}/situations`) || pathname.startsWith(`${base}/roleplay/test`)) return 2;
-  if (pathname.startsWith(`${base}/settings`)) return 3;
-  if (pathname.startsWith(`${base}/assign`) || pathname.startsWith(`${base}/people`) || pathname.startsWith(`${base}/review`)) return 4;
-  return 1;
+/** Which stage a page belongs to, by number (1 is Material). A test call belongs to Test. */
+export function stepOf(pathname: string, base: string): number {
+  if (pathname.startsWith(`${base}/material`)) return 1;
+  if (pathname.startsWith(`${base}/situations`)) return 3;
+  if (pathname.startsWith(`${base}/settings`)) return 4;
+  if (pathname.startsWith(`${base}/test`) || pathname.startsWith(`${base}/roleplay/test`)) return 5;
+  if (pathname.startsWith(`${base}/publish`) || pathname.startsWith(`${base}/assign`) || pathname.startsWith(`${base}/people`) || pathname.startsWith(`${base}/review`)) return 6;
+  return 2;
 }
 
 /** The agent is still drafting what setup handed over: the chat waits, and the objectives show placeholders. */

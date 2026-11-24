@@ -1,5 +1,7 @@
 "use client";
 
+import { materialOptional, noMaterial } from "@/lib/direct-material";
+
 import { useApp, live, current } from "@/store/app-store";
 import { useMe, daysFromToday, opensLater } from "@/store/selectors";
 import type { Course, Module, Progress } from "@/data/types";
@@ -9,7 +11,7 @@ import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { product } from "@/data/org";
 import { blockCards } from "@/lib/short-form";
 import { allScenarios } from "@/data/scenarios";
-import { screeningOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
 import { callPlan } from "./situations";
 
 /** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
@@ -21,6 +23,8 @@ export const modulesOf = (c: Course) => (live(c) ?? current(c)).modules;
 export function pathModules(p: Progress, c: Course): Module[] {
   /* Practice only: experienced reps skip the modules and go straight to the calls and the final test. */
   if (p.mode === "practice") return [];
+  /* No material for reps: every file is context only, there only to build the calls. */
+  if (noMaterial(c)) return [];
   const mods = modulesOf(c);
   if (!p.path) return mods;
   return p.path.moduleIds.map((id) => mods.find((m) => m.id === id)).filter(Boolean) as Module[];
@@ -45,7 +49,26 @@ export function pathProgress(p: Progress, c: Course) {
   const modulesDone = mods.filter((m) => m.blocks.every((b) => p.completedBlocks.includes(b.id))).length;
   const minutesLeft = Math.round(mods.reduce((a, m) => a + m.blocks.filter((b) => !p.completedBlocks.includes(b.id)).reduce((x, b) => x + blockMinutes(c, b), 0), 0));
   const fullMinutes = c.format === "short" ? modulesOf(c).reduce((a, m) => a + moduleMinutes(c, m), 0) : pathMinutes(modulesOf(c), modulesOf(c).map((m) => m.id));
-  return { total, done, pct: total ? Math.round((done / total) * 100) : 0, modulesDone, modules: mods.length, minutesLeft, fullMinutes };
+  return { total, done, pct: total ? Math.round((done / total) * 100) : 0, modulesDone, modules: mods.length, minutesLeft, fullMinutes, overall: overallPct(p, c, modulesDone) };
+}
+
+/**
+ * How far through the whole training a rep is, for the progress rings. A training with the trainer's own
+ * material counts its steps: the screening call, each mandatory file, each objective passed. One SwishX
+ * writes counts its lessons.
+ */
+function overallPct(p: Progress, c: Course, filesDone: number): number {
+  if (p.state === "certified") return 100;
+  if (c.origin !== "direct") {
+    const mods = pathModules(p, c);
+    const total = mods.reduce((a, m) => a + m.blocks.length, 0);
+    return total ? Math.round((mods.reduce((a, m) => a + m.blocks.filter((b) => p.completedBlocks.includes(b.id)).length, 0) / total) * 100) : 0;
+  }
+  const files = materialOptional(c, p) ? 0 : pathModules(p, c).length;
+  const plan = callPlan(c, p);
+  const steps = (c.settings.screening ? 1 : 0) + files + plan.objectives.length;
+  const done = (p.screening ? 1 : 0) + Math.min(files, filesDone) + plan.objectives.filter((o) => o.state === "passed").length;
+  return steps ? Math.round((done / steps) * 100) : 0;
 }
 
 export interface NextStep {
@@ -81,22 +104,23 @@ export function directNext(p: Progress, c: Course): NextStep | null {
     const done = p.screeningPart?.length ?? 0;
     if (all.length) return done
       ? step("Resume your screening", `${done} of ${all.length} done. What you've done is saved.`, `Resume screening · ${all.length - done} left`, `${base}/screening`, 3)
-      : step("Start with a screening call", "About 3 minutes, not graded. It decides which lessons you can skip.", "Start with screening", `${base}/screening`, 3);
+      : step("Start with a screening call", pathModules(p, c).length ? "About 3 minutes, not graded. It decides which lessons you can skip." : "About 3 minutes, not graded. It sets your baseline.", "Start with screening", `${base}/screening`, 3);
   }
   /* Optional material is there to look through, not a step: the calls come next. */
-  const nb = p.mode === "optional" ? null : nextBlock(p, c);
+  const nb = materialOptional(c, p) ? null : nextBlock(p, c);
   if (nb) {
     const pr = pathProgress(p, c);
     return step(nb.module.title, `Lesson ${pr.modulesDone + 1} of ${pr.modules}`, `${pr.modulesDone ? "Continue" : "Start"}: ${nb.module.title}`, `${base}/learn?module=${nb.module.id}`, pr.minutesLeft);
   }
-  /* The calls: one per person, covering every objective drawn for them; retries ride along. */
+  /* The assessments: one per objective, in order; a retry is the same objective again. */
   const plan = callPlan(c, p, useApp.getState().presenter);
-  const call = plan.calls[0];
-  if (call) {
-    const host = call.items[0].sc.persona.name.replace(/,.*$/, "");
-    const retry = call.items.every((x) => plan.objectives.find((o) => o.ob?.id === x.ob?.id)?.state === "retry");
-    const n = call.items.length;
-    return step(`Call with ${host}`, `${n} objective${n === 1 ? "" : "s"} · about ${call.minutes} min · scored`, `${retry ? "Retry" : "Start"} call ${plan.calls.length > 1 ? "1 " : ""}· ${host} · ${n} objective${n === 1 ? "" : "s"}`, `${base}/assessment?call=${call.key}`, call.minutes);
+  const k = plan.objectives.findIndex((o) => ["todo", "started", "retry"].includes(o.state) && o.next.length > 0);
+  if (k >= 0) {
+    const o = plan.objectives[k];
+    const sc = o.next[0];
+    const min = Math.max(3, sc.durationMin);
+    const who = CHARACTERS[characterOf(sc)].label.toLowerCase();
+    return step(o.ob?.title ?? sc.title, `Assessment ${k + 1} of ${plan.objectives.length} · a ${min}-minute call with a ${who} · scored`, `${o.state === "retry" ? "Retry" : "Start"} assessment ${k + 1} · ${o.ob?.title ?? sc.title}`, `${base}/assessment?call=${characterOf(sc)}${o.ob ? `&ob=${o.ob.id}` : ""}`, min);
   }
   if (plan.allPassed) return step("Get your certificate", "Every objective passed. Your certificate is ready.", "Get your certificate", `${base}/attest`);
   return null;

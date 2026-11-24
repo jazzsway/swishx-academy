@@ -2,6 +2,7 @@ import { nowIso } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import type { Character, Course, Objective, Progress, Scenario } from "@/data/types";
 import { characterOf } from "@/lib/scenario-set";
+import { objectiveBank } from "@/lib/objective-call";
 
 /** A training's scenarios, in order, and where this rep stands on each. */
 export function scenarioStatus(c: Course, p: Progress) {
@@ -63,10 +64,12 @@ export function drawSituation(p: Progress, obId: string, bank: Scenario[], avoid
 }
 
 export function callPlan(c: Course, p: Progress, presenter = false) {
-  const { scs } = scenarioStatus(c, p);
+  /* The screening call's own situations set the baseline; they're never drawn for an assessment. */
+  const scs = scenarioStatus(c, p).scs.filter((x) => !x.use.includes("screening") || x.use.includes("assessment"));
   const all = (c.settings.situationsPerObjective ?? "one") === "all";
   const obs = c.objectives ?? [];
-  const groups: { ob?: Objective; bank: Scenario[] }[] = obs.map((ob) => ({ ob, bank: scs.filter((x) => x.objectiveId === ob.id) })).filter((g) => g.bank.length);
+  /* Every objective has a call: on one of its situations, or (with none) on the objective itself. */
+  const groups: { ob?: Objective; bank: Scenario[] }[] = obs.map((ob) => ({ ob, bank: objectiveBank(c, ob, scs) }));
   const loose = scs.filter((x) => !obs.some((o) => o.id === x.objectiveId));
   if (loose.length) groups.push({ bank: loose });
   const now = new Date(nowIso()).getTime();

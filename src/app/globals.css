@@ -981,3 +981,15 @@ mark.cite-missing { background: transparent; color: inherit; text-decoration: un
   background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.35));
   box-shadow: inset 0 1px 1px rgba(255,255,255,1), inset 0 -1px 2px rgba(79,52,34,.12), 0 4px 12px -4px rgba(40,25,15,.22);
 }
+
+/* ── Rep hero cards: a live call and a journey, drawn and moving ─────────── */
+.voice-wave > span { transform-origin: center; animation: bar-dance 1.1s ease-in-out infinite; }
+@keyframes ring-draw { from { stroke-dashoffset: var(--ring-full); } }
+.ring-draw { animation: ring-draw 1.2s var(--ease-entrance) both; }
+@keyframes bubble-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+.bubble-in { animation: bubble-in 460ms var(--ease-entrance) both; }
+@keyframes now-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 60% { box-shadow: 0 0 0 7px rgba(255,255,255,0); } }
+.now-glow { animation: now-glow 1.8s ease-out infinite; }
+@keyframes drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-14px, 12px) scale(1.06); } }
+.drift { animation: drift 10s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .voice-wave > span, .ring-draw, .bubble-in, .now-glow, .drift { animation: none; } }

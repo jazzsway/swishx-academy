@@ -4,6 +4,9 @@ import { Children, useEffect, useState } from "react";
 import Link from "next/link";
 import { Award, Briefcase, Check, ChevronDown, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
+import { Sheet } from "@/components/ui/sheet";
+import { lookForsOf } from "@/lib/objectives";
+import { materialOptional, noMaterial } from "@/lib/direct-material";
 import { fileLength } from "@/features/media/file-view";
 import { modulesOf } from "./use-rep";
 import { cn } from "@/lib/cn";
@@ -155,8 +158,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const mods = modulesOf(c);
   const base = `/rep/course/${c.id}`;
   const practiceOnly = p.mode === "practice";
-  /* Optional material: on hand to look through, but not a step, and it doesn't hold the calls back. */
-  const optionalMaterial = p.mode === "optional";
+  /* Optional material (set in the training's settings): on hand to look through, not a step, and it doesn't hold the assessments back. */
+  const optionalMaterial = materialOptional(c, p);
   const certified = p.state === "certified";
   const screens = c.settings.screening && !practiceOnly;
   const run = scenarioStatus(c, p);
@@ -164,8 +167,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const part = p.screeningPart ?? [];
   const screened = !!p.screening;
   const pathIds = p.path?.moduleIds;
-  const needed = practiceOnly ? [] : screened && pathIds ? mods.filter((m) => pathIds.includes(m.id)) : mods;
-  const skipped = screened && pathIds ? mods.filter((m) => !pathIds.includes(m.id)) : [];
+  const needed = practiceOnly || noMaterial(c) ? [] : screened && pathIds ? mods.filter((m) => pathIds.includes(m.id)) : mods;
+  const skipped = screened && pathIds && !noMaterial(c) ? mods.filter((m) => !pathIds.includes(m.id)) : [];
   const isDone = (m: Module) => m.blocks.every((b) => p.completedBlocks.includes(b.id));
   const lessonsDone = needed.filter(isDone).length;
   const waitScreen = screens && !screened;
@@ -179,8 +182,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   /* The stages in order, for the overview: which are done and which one you're on. */
   const stages = [
     ...(screens && screen.length > 0 ? [{ t: "Screening", done: screened }] : []),
-    ...(!practiceOnly && !optionalMaterial ? [{ t: "Lessons", done: filesDone && needed.length > 0 }] : []),
-    ...(plan.objectives.length > 0 ? [{ t: "Calls", done }] : []),
+    ...(!practiceOnly && !optionalMaterial && needed.length > 0 ? [{ t: "Materials", done: filesDone }] : []),
+    ...(plan.objectives.length > 0 ? [{ t: "Assessments", done }] : []),
     { t: "Certified", done: certified },
   ];
   const at = stages.findIndex((x) => !x.done);
@@ -193,7 +196,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
           <span className="text-body font-bold text-white/90">{at < 0 ? "All done" : `Step ${at + 1} of ${stages.length} · ${stages[at].t}`}</span>
           {/* v1-hidden: the "Your team's material" chip. */}
         </div>
-        <span className="text-display font-extrabold leading-tight tracking-tight">{at < 0 ? "You're certified" : at === stages.length - 1 && done ? "Get your certificate" : stages[at].t === "Screening" ? "Start with a short call" : stages[at].t === "Lessons" ? "Work through the lessons" : stages[at].t === "Calls" ? "Take your calls" : "Get certified"}</span>
+        <span className="text-display font-extrabold leading-tight tracking-tight">{at < 0 ? "You're certified" : at === stages.length - 1 && done ? "Get your certificate" : stages[at].t === "Screening" ? "Start with a short call" : stages[at].t === "Materials" ? "Go through the materials" : stages[at].t === "Assessments" ? "Take your assessments" : "Get certified"}</span>
         <div className="flex gap-1.5" aria-hidden="true">
           {stages.map((x, i) => <span key={x.t} className={cn("h-2 flex-1 rounded-full", x.done ? "bg-white" : i === at ? "bg-white/55" : "bg-white/25")} />)}
         </div>
@@ -207,7 +210,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
               <span className="flex -space-x-2">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-10 place-items-center rounded-full border-2 border-card bg-peach text-white"><I className="size-4.5" aria-hidden="true" /></span>; })}</span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <Text size="body" weight="semibold" truncate>{screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
-                <Text size="caption" tone="subtle">{screened ? (optionalMaterial ? "Baseline set" : skipped.length ? `Skips ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you know` : "Every lesson stays") : part.length ? `${part.length} of ${screen.length} done · saved` : "3 min · not graded"}</Text>
+                <Text size="caption" tone="subtle">{screened ? (optionalMaterial || !needed.length && !skipped.length ? "Baseline set" : skipped.length ? `Skips ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you know` : "Every lesson stays") : part.length ? `${part.length} of ${screen.length} done · saved` : "3 min · not graded"}</Text>
               </span>
               {screened
                 ? <Link href={`${base}/results`} className="shrink-0 text-caption font-bold text-brand-deep hover:underline">Results</Link>
@@ -216,8 +219,9 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
           </Stage>
         )}
 
-        {!practiceOnly && !optionalMaterial && (
-          <Stage n={++n} title="Lessons" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen} summary={`${needed.length} lesson${needed.length === 1 ? "" : "s"}`}
+        {/* Mandatory material is a step between screening and the assessments. None, or optional: no step here. */}
+        {!practiceOnly && !optionalMaterial && needed.length > 0 && (
+          <Stage n={++n} title="Materials" done={filesDone && needed.length > 0} current={!waitScreen && !filesDone} locked={waitScreen} summary={`${needed.length} file${needed.length === 1 ? "" : "s"} to go through`}
             status={waitScreen ? <Pill_ tone="muted">After screening</Pill_> : <Pill_ tone={filesDone ? "ok" : "muted"}>{lessonsDone} of {needed.length} done</Pill_>}>
             <ul className="flex flex-col gap-1.5">
               {needed.map((m) => {
@@ -248,23 +252,44 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         )}
 
         {plan.objectives.length > 0 && (
-          <Stage n={++n} title="The calls" done={done} current={!callsLocked && !done} locked={callsLocked} summary={`${callsOf(plan).length} call${callsOf(plan).length === 1 ? "" : "s"} · ${plan.objectives.length} objective${plan.objectives.length === 1 ? "" : "s"}`}
-            status={callsLocked ? <Pill_ tone="muted">{optionalMaterial ? "After screening" : "After the lessons"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} objectives</Pill_>}>
+          <Stage n={++n} title="Assessments" done={done} current={!callsLocked && !done} locked={callsLocked} summary={`${plan.objectives.length} objective${plan.objectives.length === 1 ? "" : "s"} · one call each`}
+            status={callsLocked ? <Pill_ tone="muted">{optionalMaterial || !needed.length ? "After screening" : "After the materials"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} passed</Pill_>}>
             {/* The rules, as chips rather than a sentence. */}
             <div className="flex flex-wrap gap-1.5">
-              {[`Pass ${c.settings.passRoleplay}`, `${c.settings.attempts} ${c.settings.attempts === 1 ? "try" : "tries"}`, ...(c.settings.finalNoHints === false ? ["Hints on"] : [])].map((x) => (
+              {[`Pass ${c.settings.passRoleplay}`, `${c.settings.attempts} ${c.settings.attempts === 1 ? "try" : "tries"} each`, ...(c.settings.finalNoHints === false ? ["Hints on"] : [])].map((x) => (
                 <span key={x} className="rounded-full bg-subtle px-2.5 py-1 text-micro font-bold text-ink-2">{x}</span>
               ))}
             </div>
-            {/* The calls to take, from the start: one per person, each with its objectives and where they stand. Start opens after the lessons. */}
-            <ul className="flex flex-col gap-2" aria-label="Your calls">
-              {callsOf(plan).map((call, k) => <CallCard key={call.key} c={c} call={call} k={k} plan={plan} locked={callsLocked} lockNote={optionalMaterial ? "Opens after screening" : "Opens after the lessons"} />)}
+            {/* One assessment per objective. A tap shows what to expect: the objective, who you'll meet, what counts, and its situations. */}
+            <ul className="flex flex-col gap-2" aria-label="Your assessments">
+              {plan.objectives.map((o, i) => <AssessmentTile key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} total={plan.objectives.length} locked={callsLocked} lockNote={optionalMaterial || !needed.length ? "Opens after your screening call" : "Opens after the materials"} />)}
             </ul>
-            {/* v1-hidden: the separate objectives list. Each call now shows its objectives' status.
-            <ul className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card" aria-label="Objectives">
-              {plan.objectives.map((o, i) => <ObjectiveRow key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} plan={plan} locked={callsLocked} />)}
+            {/* v1-hidden: one call per person, covering several objectives (CallCard, callsOf). Each objective is now its own assessment. */}
+          </Stage>
+        )}
+
+        {/* Optional material: not a step. It sits just above the certificate, to look through any time. */}
+        {!practiceOnly && optionalMaterial && mods.length > 0 && (
+          <Stage n={++n} title="Materials" summary={`${mods.length} file${mods.length === 1 ? "" : "s"} · any time`} status={<Pill_ tone="muted">Optional</Pill_>}>
+            <Text size="caption" tone="subtle" className="-mt-1">Look through any of it, any time. It isn&apos;t a step, and the assessments don&apos;t wait for it.</Text>
+            <ul className="flex flex-col gap-1.5">
+              {mods.map((m) => {
+                const meta = fileMeta(m);
+                const seen = isDone(m);
+                return (
+                  <li key={m.id}>
+                    <Link href={`${base}/learn?module=${m.id}`} className="squircle flex items-center gap-3 rounded-panel p-1.5 transition-colors hover:bg-subtle">
+                      <span className={cn("grid size-11 shrink-0 place-items-center rounded-[14px]", seen ? "bg-sage text-white" : meta.tile)}>{seen ? <Check className="size-5" aria-hidden="true" /> : <meta.icon className="size-5" aria-hidden="true" />}</span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <Text size="body" weight="semibold" truncate>{m.title}</Text>
+                        <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}</Text>
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
-            */}
           </Stage>
         )}
 
@@ -275,33 +300,6 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         </Stage>
       </ol>
 
-      {optionalMaterial && mods.length > 0 && (
-        <section className="flex flex-col gap-2 rounded-card bg-card p-4 shadow-hair" aria-labelledby="material-h">
-          <div className="flex items-baseline justify-between gap-3">
-            <Text as="h3" id="material-h" size="body-lg" weight="bold">The material</Text>
-            <Pill_ tone="muted">Optional</Pill_>
-          </div>
-          <Text size="caption" tone="subtle" className="-mt-1">Look through any of it, any time. It isn&apos;t a step, and the calls don&apos;t wait for it.</Text>
-          <ul className="flex flex-col gap-1.5">
-            {mods.map((m) => {
-              const meta = fileMeta(m);
-              const seen = isDone(m);
-              return (
-                <li key={m.id}>
-                  <Link href={`${base}/learn?module=${m.id}`} className="squircle flex items-center gap-3 rounded-panel px-1 py-1 transition-colors hover:bg-subtle">
-                    <span className={cn("grid size-11 shrink-0 place-items-center rounded-[14px]", seen ? "bg-sage text-white" : meta.tile)}>{seen ? <Check className="size-5" aria-hidden="true" /> : <meta.icon className="size-5" aria-hidden="true" />}</span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <Text size="body" weight="semibold" truncate>{m.title}</Text>
-                      <Text size="caption" tone="subtle" truncate>{meta.label} · {meta.len}</Text>
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
     </section>
   );
 }
@@ -311,6 +309,107 @@ const OB_STATUS: Record<ObjectivePlanState, { label: string; tone: "ok" | "dange
   retry: { label: "Retry", tone: "danger" }, waiting: { label: "Retry later", tone: "warn" }, out: { label: "No tries left", tone: "danger" },
 };
 type Plan = ReturnType<typeof callPlan>;
+
+/**
+ * One objective's assessment: a call with one person, on one of the objective's situations (drawn for the
+ * rep), or on each of them when the training scores them all. The tile says where it stands; a tap opens
+ * a sheet with what to expect before starting: the objective, who they'll meet, what counts, and the
+ * situations it can be.
+ */
+function AssessmentTile({ c, p, o, i, total, locked, lockNote }: { c: Course; p: Progress; o: Plan["objectives"][number]; i: number; total: number; locked: boolean; lockNote: string }) {
+  const [open, setOpen] = useState(false);
+  const base = `/rep/course/${c.id}`;
+  const st = c.settings;
+  const all = (st.situationsPerObjective ?? "one") === "all" || !o.ob;
+  const sc = o.next[0] ?? o.tested ?? o.bank[0];
+  const people = [...new Set(o.bank.map(characterOf))];
+  const I = ROLE[characterOf(sc)];
+  const passed = o.state === "passed";
+  const live = !locked && ["todo", "started", "retry"].includes(o.state) && o.next.length > 0;
+  const min = all ? o.bank.reduce((a, x) => a + x.durationMin, 0) : Math.max(3, sc.durationMin);
+  const status = OB_STATUS[o.state];
+  const when = o.retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const note = o.state === "waiting" ? `You can retry from ${when}. Go back over the material first.` : o.state === "out" ? "No tries left. Your manager can reset it." : o.state === "retry" ? `${o.triesLeft} ${o.triesLeft === 1 ? "try" : "tries"} left${all || o.bank.length < 2 ? "" : ". Your retry is a different situation"}` : undefined;
+  const start = `${base}/assessment?call=${characterOf(o.next[0] ?? sc)}${o.ob ? `&ob=${o.ob.id}` : ""}`;
+  const title = o.ob?.title ?? "More situations";
+  const looks = o.ob ? lookForsOf(o.ob) : [];
+  return (
+    <li>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog"
+        className={cn("flex w-full items-center gap-3 rounded-panel p-3.5 text-left transition-colors", live ? "bg-tint/70 hover:bg-tint" : passed ? "bg-sage-bg" : "bg-subtle/70 hover:bg-subtle")}>
+        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-white", passed ? "bg-sage" : live ? "bg-peach" : "bg-lilac")}>
+          {passed ? <Check className="size-5" aria-hidden="true" /> : <I className="size-5" aria-hidden="true" />}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-micro font-bold uppercase tracking-wider text-ink-3">Assessment {i + 1}</span>
+          <Text size="body" weight="bold" className="leading-snug">{title}</Text>
+          <Text size="caption" tone="subtle">{people.map((k) => CHARACTERS[k].label).join(" or ")} · about {min} min{note ? ` · ${note}` : ""}</Text>
+        </span>
+        {o.state !== "todo" ? <Pill_ tone={status.tone}>{status.label}</Pill_> : locked ? <Lock className="size-4 shrink-0 text-ink-4" aria-hidden="true" /> : <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
+      </button>
+
+      <Sheet open={open} onClose={() => setOpen(false)} label={title}
+        title={<span className="flex flex-col gap-1"><span className="text-micro font-bold uppercase tracking-wider text-ink-3">Assessment {i + 1} of {total}</span><span className="text-title font-extrabold leading-snug text-ink">{title}</span></span>}
+        footer={passed
+          ? (o.tested && <Link href={`${base}/assessment?report=${o.tested.id}`} className="flex h-12 w-full items-center justify-center rounded-full bg-cta text-body-lg font-bold text-white">See your report</Link>)
+          : live
+            ? <Link href={start} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-cta text-body-lg font-bold text-white"><Mic className="size-4.5" aria-hidden="true" />{o.state === "retry" ? "Retry the call" : "Start the call"}</Link>
+            : <span aria-disabled="true" className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-subtle text-body-lg font-bold text-ink-4"><Lock className="size-4" aria-hidden="true" />{locked ? lockNote : note ?? "Not open yet"}</span>}>
+        <div className="flex flex-col gap-5 pb-2">
+          {o.ob?.description && <Text size="body" tone="muted" className="leading-relaxed">{o.ob.description}</Text>}
+          <div className="flex flex-wrap gap-1.5">
+            {[`About ${min} min`, `Pass ${st.passRoleplay}`, `${st.attempts} ${st.attempts === 1 ? "try" : "tries"}`, st.finalNoHints === false ? "Hints on" : "No hints"].map((x) => (
+              <span key={x} className="rounded-full bg-subtle px-2.5 py-1 text-micro font-bold text-ink-2">{x}</span>
+            ))}
+          </div>
+          {passed && <div className="rounded-panel bg-sage-bg px-3.5 py-3 text-body font-semibold text-ok">Passed{o.tested ? ` with “${o.tested.title}”` : ""}.</div>}
+          {note && !passed && <div className="rounded-panel bg-sun-bg px-3.5 py-3 text-body font-semibold text-warn">{note}.</div>}
+
+          <section className="flex flex-col gap-2">
+            <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">Who you&apos;ll meet</Text>
+            <div className="flex flex-wrap gap-2">
+              {people.map((k) => { const R = ROLE[k]; return <span key={k} className="flex items-center gap-2 rounded-full bg-subtle py-1 pl-1 pr-3 text-body font-semibold text-ink-2"><span className="grid size-7 place-items-center rounded-full bg-peach text-white"><R className="size-3.5" aria-hidden="true" /></span>{CHARACTERS[k].label}</span>; })}
+            </div>
+          </section>
+
+          {looks.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">What counts</Text>
+              <ul className="flex flex-col gap-1.5">
+                {looks.map((x) => <li key={x} className="flex items-start gap-2 text-body text-ink-2"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />{x}</li>)}
+              </ul>
+            </section>
+          )}
+
+          <section className="flex flex-col gap-2">
+            <div className="flex flex-col gap-0.5">
+              <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">The situations</Text>
+              <Text size="caption" tone="subtle">{all ? `You'll take each of these ${o.bank.length}.` : o.bank.length > 1 ? `You'll get one of these ${o.bank.length}, picked for you.` : "This is the one you'll take."}</Text>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {o.bank.map((x) => {
+                const R = ROLE[characterOf(x)];
+                const run = p.scenarioRuns?.[x.id];
+                return (
+                  <li key={x.id} className="flex gap-3 rounded-panel bg-subtle/70 p-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-card text-ink-3"><R className="size-4" aria-hidden="true" /></span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="flex items-start gap-2">
+                        <Text size="body" weight="semibold" className="min-w-0 flex-1 leading-snug">{x.title}</Text>
+                        {run && <span className={cn("shrink-0 rounded-chip px-1.5 py-0.5 text-micro font-bold tabular-nums", run.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{run.score}</span>}
+                      </span>
+                      {x.description && <Text size="caption" tone="subtle" className="leading-relaxed">{x.description}</Text>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+      </Sheet>
+    </li>
+  );
+}
 
 type JourneyCall = { key: Character; items: { o: Plan["objectives"][number]; sc: PlannedCall["items"][number]["sc"]; n: number }[]; minutes: number };
 

@@ -345,6 +345,11 @@ export interface CourseSettings {
   baseline?: boolean;
   /** The final test gives no hints and no prompts. */
   finalNoHints?: boolean;
+  /** Direct trainings: nothing for reps to see. The files are context only (they build the calls), so the
+   *  training is the screening call, the scored calls and the certificate. No lessons, nothing to publish them for. */
+  callsOnly?: boolean;
+  /** Direct trainings: the files reps see are optional, to look through any time, rather than a step before the assessments. Set in Settings. */
+  materialOptional?: boolean;
   /** Direct trainings: how many of an objective's situations a rep is scored on. One, drawn per rep (default), or all. */
   situationsPerObjective?: "one" | "all";
   verify: "auto" | "manager";
@@ -535,7 +540,13 @@ export interface PracticeSession {
   at: string;
   kind: "roleplay" | "quiz";
   title: string;
-  setup?: { specialty: string; traits: string[]; objectionIds: string[]; callType: string; assisted?: boolean; situation?: string };
+  setup?: {
+    specialty: string; traits: string[]; objectionIds: string[]; callType: string; assisted?: boolean; situation?: string;
+    /** Who the rep rehearsed with, the product, and how long the call was set for. */
+    role?: Character; productId?: string; minutes?: number; persona?: string;
+    /** A rehearsal the rep set up, or a situation from one of their trainings (practised, not scored for the record). */
+    source?: "rehearsal" | "training"; courseId?: string; scenarioId?: string;
+  };
   result?: RoleplayResult;
   quizScore?: number;
   shared?: { at: string; seen: boolean };

@@ -3,7 +3,7 @@
 import { Fragment, Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, UserRound, ChevronLeft, BookOpen, Bell } from "lucide-react";
+import { Home, UserRound, ChevronLeft, BookOpen, Bell, MessageCircle, AudioLines, type LucideIcon } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -15,25 +15,29 @@ import { DeviceFrame } from "./device-frame";
 import { useOffscreen } from "./screen-chrome";
 import { useCopilot } from "@/features/copilot/copilot-store";
 
-/* Three tabs: Home (everything to do and browse), SwishX in the middle (ask, talk, practise a call), Profile (progress and settings).
-   My learning, Library and Practice are pages reached from these. */
+/* Five tabs, all alike: Home, Trainings, Practice in the middle, Chat with SwishX (marked with its emblem), Profile.
+   Voice lives inside the chat; alerts sit behind the bell at the top right. The Library is reached from Trainings. */
 const TABS = [
   { label: "Home", href: "/rep", icon: Home, exact: true },
   { label: "Trainings", href: "/rep/learn", icon: BookOpen },
-  // v1-hidden: { label: "Practice", href: "/rep/practice", icon: Mic },
-  { label: "Alerts", href: "/rep/notifications", icon: Bell },
+  { label: "Practice", href: "/rep/practice", icon: AudioLines },
+  // v1-hidden: { label: "Alerts", href: "/rep/notifications", icon: Bell }, (the bell at the top right instead)
   { label: "Profile", href: "/rep/me", icon: UserRound },
 ];
 
-/** SwishX in the middle of the tab bar, the freud way: a raised dark circle that rises out of the glass, no label. */
-function SwishXTab({ onOpen, disabled, open }: { onOpen: () => void; disabled: boolean; open: boolean }) {
+/* v1-hidden: SwishX as a raised dark circle in the middle, no label. Chat and Voice are ordinary tabs now. */
+
+/** SwishX as a tab like the others: its icon (chat or voice) with the SwishX emblem on the corner, and a one-word label. */
+function AgentTab({ label, icon: Icon, onOpen, disabled, open }: { label: string; icon: LucideIcon; onOpen: () => void; disabled: boolean; open: boolean }) {
   return (
-    <button type="button" onClick={onOpen} disabled={disabled} aria-label="Ask SwishX" title="Ask SwishX" aria-expanded={open}
-      className="focus-ring group grid h-full flex-1 place-items-center rounded-full disabled:opacity-40">
-      <span className={cn("-mt-7 grid size-[62px] place-items-center rounded-full bg-cta text-white ring-[5px] ring-white/85",
-        "shadow-[inset_0_1px_1px_rgba(255,255,255,.35),0_12px_24px_-8px_rgba(40,25,15,.55)] transition-transform duration-200 group-hover:-translate-y-0.5 group-active:scale-95", open && "scale-95")}>
-        <AgentIcon className="size-7" />
+    <button type="button" onClick={onOpen} disabled={disabled} aria-label={`${label} with SwishX`} title={`${label} with SwishX`} aria-expanded={open}
+      className={cn("focus-ring flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-[3px] rounded-full text-[11px] font-bold tracking-[0.01em] transition-colors duration-200 disabled:opacity-40",
+        open ? "bg-white/70 text-brand-deep shadow-[inset_0_1px_1px_#fff,0_2px_6px_-2px_rgba(40,25,15,.18)]" : "text-ink hover:bg-white/40")}>
+      <span className="relative">
+        <Icon size={23} strokeWidth={open ? 2.1 : 1.9} aria-hidden="true" />
+        <span className="absolute -bottom-0.5 -right-2 grid size-[13px] place-items-center rounded-full bg-cta text-white ring-2 ring-[#f6f1ec]" aria-hidden="true"><AgentIcon className="size-[8px]" /></span>
       </span>
+      <span className="leading-none">{label}</span>
     </button>
   );
 }
@@ -57,7 +61,7 @@ function Tab({ t, active, mini, badge }: { t: (typeof TABS)[number]; active: boo
 /** Screens that take the whole phone: no tab bar, their own exit. */
 const IMMERSIVE = [/\/rep\/onboarding/, /\/rep\/course\/[^/]+\/(screening|call|learn|assessment|attest)/, /\/rep\/practice\/(call|prep)/];
 /** The tab screens: the only ones with the tab bar. Everything below them is a detail screen. */
-const TAB_ROOTS = ["/rep", "/rep/learn", "/rep/notifications", "/rep/me"];
+const TAB_ROOTS = ["/rep", "/rep/learn", "/rep/practice", "/rep/me"];
 
 /** A detail screen's way back up, named after where it goes (the page keeps its own title). */
 function detailOf(pathname: string) {
@@ -65,8 +69,8 @@ function detailOf(pathname: string) {
   if (course?.[2]) return { back: `/rep/course/${course[1]}`, label: "Training" };
   if (course) return { back: "/rep/learn", label: "Trainings" };
   if (pathname.startsWith("/rep/me/")) return { back: "/rep/me", label: "Profile" };
-  if (pathname === "/rep/leaderboard" || pathname === "/rep/practice") return { back: "/rep/me", label: "Profile" };
-  if (pathname.startsWith("/rep/practice/")) return { back: "/rep/practice", label: "Practice calls" };
+  if (pathname === "/rep/leaderboard") return { back: "/rep/me", label: "Profile" };
+  if (pathname.startsWith("/rep/practice/")) return { back: "/rep/practice", label: "Practice" };
   if (/^\/rep\/library\/.+/.test(pathname)) return { back: "/rep/library", label: "Library" };
   return { back: "/rep", label: "Home" };
 }
@@ -106,6 +110,8 @@ export function RepShell({ children }: { children: ReactNode }) {
   const copilot = !NO_COPILOT.some((r) => r.test(pathname));
   const openCopilot = useCopilot((s) => s.setOpen);
   const copilotOpen = useCopilot((s) => s.open);
+  const launchAgent = useCopilot((s) => s.launch);
+  const launch = (intent: { mode: "chat" | "voice" }) => launchAgent(intent);
   useEffect(() => { if (!copilot) openCopilot(false); }, [copilot, openCopilot]);
   /* iOS large titles: once the page's big heading scrolls under the header, its name takes the header's place. Not on Home, whose heading is a greeting. */
   const heading = usePageHeading(pathname, (tabs && pathname !== "/rep") || !!detail);
@@ -158,7 +164,11 @@ export function RepShell({ children }: { children: ReactNode }) {
             <BrandMark size={32} />
             <SwapTitle from="" to={pageTitle} show={collapsed} /> {/* Just the mark: no "Academy" name; the page title still slides in on scroll. */}
             <div className="ml-auto flex items-center gap-2">
-              {/* v1-hidden: <Notifications /> — the Alerts tab replaces the bell. */}
+              {/* Alerts: a bell with the unread count, now that the tab bar is Home, Trainings, Chat, Voice and Profile. */}
+              <Link href="/rep/notifications" aria-label={unread ? `Alerts, ${unread} new` : "Alerts"} className="focus-ring relative grid size-10 place-items-center rounded-full border border-hair-2 bg-card/70 text-ink transition-colors hover:bg-card">
+                <Bell className="size-[18px]" aria-hidden="true" />
+                {!!unread && <span className="absolute -right-1 -top-1 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-canvas">{unread}</span>}
+              </Link>
               <ViewAs currentRole="Rep" compact />
             </div>
           </header>
@@ -195,8 +205,9 @@ export function RepShell({ children }: { children: ReactNode }) {
                   const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
                   return (
                     <Fragment key={t.href}>
-                      {i === 2 && !mini && <SwishXTab onOpen={() => openCopilot(true)} disabled={!copilot} open={copilotOpen} />}
-                      {(!mini || active) && <Tab t={t} active={active} mini={mini} badge={t.href === "/rep/notifications" ? unread : undefined} />}
+                      {/* Chat with SwishX, fourth. v1-hidden: a Voice tab beside it (<AgentTab label="Voice" icon={AudioLines} … />); voice is a button inside the chat. */}
+                      {i === 3 && !mini && <AgentTab label="Chat" icon={MessageCircle} onOpen={() => launch({ mode: "chat" })} disabled={!copilot} open={copilotOpen} />}
+                      {(!mini || active) && <Tab t={t} active={active} mini={mini} />}
                     </Fragment>
                   );
                 })}

@@ -11,13 +11,18 @@ import { seed } from "@/data/seed";
 import { TODAY, product, registerUploads } from "@/data/org";
 import { registerScenarios } from "@/data/scenarios";
 import { FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, FIELD_KIT_OBJECTIVES, FIELD_KIT_SCENARIO, FIELD_KIT_SCREENER, FIELD_KIT_ID } from "@/data/courses/field-kit";
+import { CALL_CHECK_ID, CALL_CHECK_SCENARIOS } from "@/data/courses/call-check";
+import { SWITCH_ID, SWITCH_SCENARIOS } from "@/data/courses/switch-talk";
+import { SWISHX_WRITTEN, defaultSettings } from "@/data/courses";
+import { DIRECT_DEMO_SCENARIOS } from "@/data/courses/direct-demo";
+import { PRIYA_PRACTICE } from "@/data/practice-seed";
 import { buildPath } from "@/lib/learning";
 import { AE_LINE } from "@/lib/roleplay-draft";
 import { openingFor, spoken } from "@/lib/scenario-set";
 import { POINTS, seedPoints } from "@/lib/points";
 
 /* Seeded roleplays are findable before saved state loads. */
-registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY]);
+registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, ...CALL_CHECK_SCENARIOS, ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS]);
 
 /** The field structure is set up by the SwishX team; clients ask for changes rather than edit it. */
 export interface StructureRequest {
@@ -102,7 +107,8 @@ export interface AppState extends Seeded {
   recordChanges: (courseId: string, comments: string[]) => void;
   resolveComment: (courseId: string, commentId: string, resolved: boolean) => void;
   recordApproval: (courseId: string, d: { docNumber: string; approvedAt: string; expiresAt: string }) => void;
-  publish: (courseId: string, transition: Transition) => void;
+  /** Publish the draft. With a plan, the people on the old version are handled group by group; otherwise by the transition. */
+  publish: (courseId: string, transition: Transition, plan?: RolloutPlan) => void;
   withdraw: (courseId: string, reason: string) => void;
   assign: (courseId: string, rules: AudienceRules, type: Progress["assignType"], dueAt: string | undefined, campaignId?: string, startsAt?: string, mode?: Progress["mode"]) => number;
   /** Creates the campaign as scheduled; startCampaign assigns it. */
@@ -155,6 +161,13 @@ export const nowIso = () => {
   return d.toISOString();
 };
 /** How each kind of new version reads in the history. */
+/**
+ * What happens to the people on the live version when a new one is published, group by group. Not started
+ * always move to the new version. In progress carry on where they are, or start over. Completed stay
+ * certified, or recertify on the new version by a due date.
+ */
+export interface RolloutPlan { inProgress: "keep" | "restart"; completed: "keep" | "recertify"; recertifyDays: number }
+
 export const TRANSITION_LABEL: Record<Transition, string> = {
   minor: "Progress carries over", restart_open: "Anyone not finished restarts", restart: "Everyone restarts", recertify: "Everyone recertifies",
 };
@@ -179,7 +192,8 @@ function initial() {
     points: seedPoints(s.users),
     settings: DEFAULT_SETTINGS,
     nudges: {} as Record<string, string>,
-    materials: SEED_MATERIALS,
+    /* v1-hidden: the Library's playlists are cut from SwishX-written lessons, so they go with them. */
+    materials: SWISHX_WRITTEN ? SEED_MATERIALS : [],
     /* Priya opened a few Lumora blocks from the Library while AD 101 keeps screening locked. */
     explored: { "u-priya": ["lm3-b1", "lm3-b2", "lm4-b1"] } as Record<string, string[]>,
     libraryViews: SEED_LIBRARY_VIEWS,
@@ -188,7 +202,7 @@ function initial() {
     structureRequests: [] as StructureRequest[],
     uploads: [] as Source[],
     /* The direct course's roleplay ships in the demo; trainers' own join it. */
-    scenarios: [FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY] as Scenario[],
+    scenarios: [FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, ...CALL_CHECK_SCENARIOS, ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS] as Scenario[],
   };
 }
 
@@ -245,7 +259,7 @@ export const useApp = create<AppState>()(
       updateUser: (userId, patch) => set((s) => ({ users: s.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
       setPresenter: (v) => set({ presenter: v }),
       requestStructureChange: (r) => set((s) => ({ structureRequests: [{ ...r, id: uid("sr"), at: nowIso() }, ...s.structureRequests] })),
-      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
+      resetDemo: () => set((s) => { registerUploads([]); registerScenarios([FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY, ...CALL_CHECK_SCENARIOS, ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS]); return { ...initial(), hydrated: true, presenter: s.presenter }; }),
       completeOnboarding: (userId) => set((s) => ({ onboarded: { ...s.onboarded, [userId]: true } })),
       setVoiceConsent: (userId, v) => set((s) => ({ voiceConsent: { ...s.voiceConsent, [userId]: v } })),
 
@@ -285,7 +299,8 @@ export const useApp = create<AppState>()(
           // Roleplay doctors are product-specific; only Lumora has an approved one today. Direct courses build their own.
           ...rest, id, modules: [], items: [], scenarioIds: !direct && c.type === "personalised" && c.productId === "p-lumora" ? ["sc-kim"] : [],
           settings: {
-            ...get().courses.find((x) => x.id === "c-lumora-launch")!.settings,
+            /* The house defaults (the demo no longer has the SwishX-written course these used to be copied from). */
+            ...defaultSettings(c.type),
             /* Direct courses screen with the roleplay call alone: there are no questions to screen with. */
             screening: screens,
             screeningCall: screens && (direct || c.productId === "p-lumora"),
@@ -401,7 +416,7 @@ export const useApp = create<AppState>()(
       recordApproval: (courseId, d) =>
         set((s) => mapCourse(s, courseId, (c) => mapCurrent(c, (v) => hist({ ...v, state: "approved", docNumber: d.docNumber, approvedAt: d.approvedAt, expiresAt: d.expiresAt }, "Recorded approval", d.docNumber)))),
 
-      publish: (courseId, transition) => {
+      publish: (courseId, transition, plan) => {
         const s = get();
         const course = s.courses.find((c) => c.id === courseId)!;
         const cur = current(course);
@@ -417,11 +432,35 @@ export const useApp = create<AppState>()(
           })),
         );
         if (!prevLive) return;
+        if (plan) {
+          const due = addDays(TODAY.toISOString(), plan.recertifyDays);
+          const day = (d: string) => new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+          const notes: Notification[] = [];
+          const tell = (p: Progress, title: string, body: string) => notes.push({ id: uid("n"), userId: p.userId, at: nowIso(), read: false, title, body, href: `/rep/course/${courseId}` });
+          const reset = { completedBlocks: [], path: undefined, screening: undefined, screeningPart: undefined, attempts: [], scenarioRuns: undefined, draws: undefined, verify: undefined };
+          set((st) => ({
+            progress: st.progress.map((p) => {
+              if (p.courseId !== courseId || p.version !== prevLive.version) return p;
+              const next = { ...p, version: cur.version };
+              if (p.state === "not_started") return next;
+              if (p.state === "certified") {
+                if (plan.completed === "keep") return next;
+                tell(p, "Recertify", `${course.title} has a new version. Take its assessments again by ${day(due)} to stay certified.`);
+                return { ...next, ...reset, state: "not_started" as const, startedAt: undefined, dueAt: due, assignType: "required" as const };
+              }
+              if (plan.inProgress === "keep") { tell(p, "Training updated", `${course.title} has a new version. Your progress carries over.`); return next; }
+              tell(p, "Start again", `${course.title} has a new version. Start it again from the beginning.`);
+              return { ...next, ...reset, state: "not_started" as const, startedAt: undefined, certifiedAt: undefined, certExpiresAt: undefined };
+            }),
+          }));
+          set((st) => ({ notifications: [...notes.slice(0, 400), ...st.notifications] }));
+          return;
+        }
         set((st) => ({
           progress: st.progress.map((p) => {
             if (p.courseId !== courseId || p.version !== prevLive.version) return p;
             if (transition === "minor") return { ...p, version: cur.version };
-            const fresh = { ...p, version: cur.version, state: "not_started" as const, completedBlocks: [], path: undefined, screening: undefined, screeningPart: undefined, attempts: [], scenarioRuns: undefined, draws: undefined, startedAt: undefined, verify: undefined, certifiedAt: undefined };
+            const fresh = { ...p, version: cur.version, state: "not_started" as const, completedBlocks: [], path: undefined, screening: undefined, screeningPart: undefined, attempts: [], scenarioRuns: undefined, draws: undefined, startedAt: undefined, verify: undefined, certifiedAt: undefined, certExpiresAt: undefined };
             if (transition === "restart") return fresh;
             if (transition === "restart_open") return p.state === "certified" ? { ...p, version: cur.version } : fresh;
             return { ...p, version: cur.version, state: p.state === "certified" ? "learning" : p.state, completedBlocks: [], certifiedAt: undefined, verify: undefined, attempts: [], dueAt: addDays(TODAY.toISOString(), 14), assignType: "required" };
@@ -697,17 +736,67 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 35,
+      version: 43,
       /* From v29: keep everything a trainer made. To v33: give the field kit its objectives, the practice manager and assisted mode.
          To v35: the people in situations speak in their own voice: an opening written for the situation, a patient's own side-effect line, no "our product". */
       migrate: (persisted, from) => {
-        if (from < 29 || from > 34) return initial() as unknown as AppState;
+        if (from < 29 || from > 42) return initial() as unknown as AppState;
         let st = persisted as AppState;
         if (from <= 32) {
           const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
           const courses = st.courses.map((c) => (c.id === FIELD_KIT_ID ? { ...c, settings: { ...c.settings, finalNoHints: false }, objectives: FIELD_KIT_OBJECTIVES, scenarioIds: [...new Set([...c.scenarioIds, FIELD_KIT_MANAGER.id, FIELD_KIT_SAFETY.id])] } : c));
           st = { ...st, scenarios, courses };
         }
+        /* v36: the calls-only demo training (no material for reps), its scenarios and Priya's assignment. */
+        if (from <= 35 && !st.courses.some((c) => c.id === CALL_CHECK_ID)) {
+          const seed = initial() as unknown as AppState;
+          const course = seed.courses.find((c) => c.id === CALL_CHECK_ID);
+          if (course) st = {
+            ...st,
+            courses: [...st.courses, course],
+            scenarios: [...st.scenarios.filter((x) => x.courseId !== CALL_CHECK_ID), ...CALL_CHECK_SCENARIOS, ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS],
+            progress: [...st.progress, ...seed.progress.filter((p) => p.courseId === CALL_CHECK_ID && !st.progress.some((q) => q.id === p.id))],
+          };
+        }
+        /* v37: a full training from the trainer's own material, first in the Trainings list and on Priya's. */
+        if (from <= 36 && !st.courses.some((c) => c.id === SWITCH_ID)) {
+          const seed = initial() as unknown as AppState;
+          const course = seed.courses.find((c) => c.id === SWITCH_ID);
+          if (course) st = {
+            ...st,
+            courses: [course, ...st.courses],
+            scenarios: [...st.scenarios.filter((x) => x.courseId !== SWITCH_ID), ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS],
+            progress: [...st.progress, ...seed.progress.filter((p) => p.courseId === SWITCH_ID && !st.progress.some((q) => q.id === p.id))],
+          };
+        }
+        /* v38: that training rebuilt with no material for reps, six objectives and three or four situations each.
+           v39: its screening call is one of those situations, not one of its own. */
+        if (from === 37 || from === 38) {
+          const seed = initial() as unknown as AppState;
+          const course = seed.courses.find((c) => c.id === SWITCH_ID);
+          if (course) st = {
+            ...st,
+            courses: st.courses.map((c) => (c.id === SWITCH_ID ? course : c)),
+            scenarios: [...st.scenarios.filter((x) => x.courseId !== SWITCH_ID), ...SWITCH_SCENARIOS, ...DIRECT_DEMO_SCENARIOS],
+            progress: [...st.progress.filter((p) => p.courseId !== SWITCH_ID), ...seed.progress.filter((p) => p.courseId === SWITCH_ID)],
+          };
+        }
+        /* v40: the demo is only trainings built from the trainer's own material. A fresh seed, keeping the
+           trainings the trainer made themselves, with their situations and whoever was assigned them. */
+        if (from <= 40) {
+          const seed = initial() as unknown as AppState;
+          const OLD_SEED = /^c-(compliance|ad101|lumora-launch|lumora-np|cardexa|skills|lumora-short|lib-.+|fieldkit|callcheck|switch)$/;
+          const mine = st.courses.filter((c) => !OLD_SEED.test(c.id) && !seed.courses.some((x) => x.id === c.id));
+          const ids = new Set(mine.map((c) => c.id));
+          st = {
+            ...seed, presenter: st.presenter, uploads: st.uploads, voiceConsent: st.voiceConsent, onboarded: st.onboarded,
+            courses: [...seed.courses, ...mine],
+            scenarios: [...seed.scenarios, ...st.scenarios.filter((x) => ids.has(x.courseId))],
+            progress: [...seed.progress, ...st.progress.filter((p) => ids.has(p.courseId))],
+          };
+        }
+        /* v42–43: Priya's past practice calls, with transcripts, for the Practice tab (replaced, so they're current). */
+        if (from <= 42) st = { ...st, practice: [...st.practice.filter((p) => !PRIYA_PRACTICE.some((x) => x.id === p.id)), ...PRIYA_PRACTICE] };
         return { ...st, scenarios: st.scenarios.map((sc) => ownVoice(sc, st.courses)) };
       },
       storage: createJSONStorage(() => localStorage),

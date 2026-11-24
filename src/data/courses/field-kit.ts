@@ -1,5 +1,5 @@
 import type { Course, Objective, Scenario, Source } from "../types";
-import { SOURCES } from "../org";
+import { SOURCES, registerSeedFiles } from "../org";
 import { directModules } from "@/features/trainer/materials";
 import { draftScenario } from "@/lib/roleplay-draft";
 import { withWeights } from "@/lib/scenario-set";
@@ -24,6 +24,7 @@ const MOA_VIDEO: Source = {
 
 const src = (id: string) => SOURCES.find((s) => s.id === id)!;
 const REP_FILES = [MOA_VIDEO, src("src-lum-va"), src("src-lum-pi"), src("src-lum-payer")];
+registerSeedFiles([MOA_VIDEO]);
 const ROLEPLAY_DOCS = ["src-lum-obj", "src-selling"];
 
 export const FIELD_KIT_MODULES = directModules(REP_FILES, "fk");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -13,6 +13,8 @@ import { Modal } from "@/components/ui/modal";
 import { directModules } from "../materials";
 import { FORMAT_ICON, FORMAT_LABEL, SourcePreview } from "../source-preview";
 import { THUMB, kindOf, lengthOf, useUpload } from "../direct-course";
+import { useCourse } from "./use-course";
+import { StageHeader } from "./stage-ui";
 
 const sourceOf = (b?: Block) => b?.file?.sourceId ?? b?.visualaid?.sourceId ?? b?.document?.sourceId;
 
@@ -22,6 +24,21 @@ const sourceOf = (b?: Block) => b?.file?.sourceId ?? b?.visualaid?.sourceId ?? b
  * situations but reps never see. Chosen first when the files are added; changed here later.
  */
 export function MaterialsDialog({ course, editable, onClose }: { course: Course; editable: boolean; onClose: () => void }) {
+  const files = course.modules.length + (course.roleplaySourceIds?.length ?? 0);
+  return (
+    <Modal open onClose={onClose} size="lg" title="Files" description={`${course.modules.length} visible to reps · ${files - course.modules.length} information only`}
+      footer={<Button onClick={onClose}>Done</Button>}>
+      <MaterialManager course={course} editable={editable} />
+    </Modal>
+  );
+}
+
+/**
+ * The training's files, wherever they're managed (the Material stage, or the Files dialog): the ones reps
+ * see, in order, and the ones that only build the calls. Add more any time, as either kind; switch a file
+ * between them, reorder, preview or remove.
+ */
+export function MaterialManager({ course, editable }: { course: Course; editable: boolean }) {
   const router = useRouter();
   const updateCourse = useApp((s) => s.updateCourse);
   const setModules = useApp((s) => s.setModules);
@@ -48,44 +65,72 @@ export function MaterialsDialog({ course, editable, onClose }: { course: Course;
     updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) });
     setModules(course.id, [...course.modules, ...directModules([src], `d${Date.now().toString(36).slice(-4)}`)]);
   }
-  function addFiles(files: File[]) {
-    const added = upload(files, "f");
-    setModules(course.id, [...course.modules, ...directModules(added, `d${Date.now().toString(36).slice(-4)}`)]);
+  function addFiles(files: File[], visible: boolean) {
+    if (!files.length) return;
+    const added = upload(files, visible ? "f" : "rp");
+    if (visible) setModules(course.id, [...course.modules, ...directModules(added, `d${Date.now().toString(36).slice(-4)}`)]);
+    else updateCourse(course.id, { roleplaySourceIds: [...(course.roleplaySourceIds ?? []), ...added.map((a) => a.id)] });
     updateCourse(course.id, { sourceIds: [...new Set([...course.sourceIds, ...added.map((a) => a.id)])] });
   }
+  const adder = (visible: boolean) => editable && (
+    <label className="flex cursor-pointer items-center gap-1.5 rounded-control px-2 py-1 text-caption font-semibold text-brand-deep transition-colors hover:bg-tint">
+      <Plus className="size-3.5" aria-hidden="true" />Add files
+      <input type="file" multiple className="sr-only" onChange={(e) => { addFiles(Array.from(e.target.files ?? []), visible); e.target.value = ""; }} />
+    </label>
+  );
 
   return (
-    <>
-      <Modal open onClose={onClose} size="lg" title="Files" description={`${lessons.length} visible to reps as lessons · ${info.length} information only`}
-        footer={<>
-          {editable && (
-            <label className="mr-auto flex cursor-pointer items-center gap-1.5 text-body font-semibold text-brand-deep hover:underline">
-              <Plus className="size-4" aria-hidden="true" />Add files
-              <input type="file" multiple className="sr-only" onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-            </label>
-          )}
-          <Button onClick={onClose}>Done</Button>
-        </>}>
-        <div className="flex flex-col gap-3">
-          <ul className="flex flex-col gap-1.5">
-            {lessons.map(({ m, src }, i) => (
-              <Row key={m.id} title={m.title} src={src} visible sub={`Lesson ${i + 1} · ${src ? `${FORMAT_LABEL[kindOf(src)]} · ${lengthOf(src)}` : `${m.minutes} min`}`}
-                onToggle={editable ? () => hide(m.id, src) : undefined} onPreview={() => (src ? setPreview(src) : router.push(`${base}?module=${m.id}`))}
-                onRemove={editable ? () => setModules(course.id, course.modules.filter((x) => x.id !== m.id)) : undefined}
-                order={editable ? <><IconButton aria-label={`Move ${m.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp className="size-4" /></IconButton><IconButton aria-label={`Move ${m.title} down`} disabled={i === lessons.length - 1} onClick={() => move(i, i + 1)}><ChevronDown className="size-4" /></IconButton></> : undefined} />
-            ))}
-            {info.map((src) => (
-              <Row key={src.id} title={src.title} src={src} visible={false} sub="Information only. Used for the training, not visible to reps."
-                onToggle={editable ? () => show(src) : undefined} onPreview={() => setPreview(src)}
-                onRemove={editable ? () => updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) }) : undefined} />
-            ))}
-            {!lessons.length && !info.length && <li className="rounded-panel border border-dashed border-hair-3 px-4 py-6 text-center text-body text-ink-3">No files yet.</li>}
-          </ul>
-          <Text size="caption" tone="subtle">Files reps don&apos;t see are still used for the training: the agent, the objectives and the situations draw on them.</Text>
+    <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Eye className="size-4 text-ok" aria-hidden="true" />
+          <Text size="body" weight="bold" className="flex-1">Reps see · {lessons.length}</Text>
+          {adder(true)}
         </div>
-      </Modal>
+        <ul className="flex flex-col gap-1.5">
+          {lessons.map(({ m, src }, i) => (
+            <Row key={m.id} title={m.title} src={src} visible sub={`${i + 1} · ${src ? `${FORMAT_LABEL[kindOf(src)]} · ${lengthOf(src)}` : `${m.minutes} min`}`}
+              onToggle={editable ? () => hide(m.id, src) : undefined} onPreview={() => (src ? setPreview(src) : router.push(`${base}?module=${m.id}`))}
+              onRemove={editable ? () => setModules(course.id, course.modules.filter((x) => x.id !== m.id)) : undefined}
+              order={editable ? <><IconButton aria-label={`Move ${m.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><ChevronUp className="size-4" /></IconButton><IconButton aria-label={`Move ${m.title} down`} disabled={i === lessons.length - 1} onClick={() => move(i, i + 1)}><ChevronDown className="size-4" /></IconButton></> : undefined} />
+          ))}
+          {!lessons.length && <li className="rounded-panel border border-dashed border-hair-3 px-4 py-4 text-center text-caption text-ink-3">None. Reps go from screening straight to the assessments.</li>}
+        </ul>
+      </section>
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <EyeOff className="size-4 text-ink-4" aria-hidden="true" />
+          <Text size="body" weight="bold" className="flex-1">Context only · {info.length}</Text>
+          {adder(false)}
+        </div>
+        <ul className="flex flex-col gap-1.5">
+          {info.map((src) => (
+            <Row key={src.id} title={src.title} src={src} visible={false} sub="Builds the objectives and the calls. Reps don't see it."
+              onToggle={editable ? () => show(src) : undefined} onPreview={() => setPreview(src)}
+              onRemove={editable ? () => updateCourse(course.id, { roleplaySourceIds: (course.roleplaySourceIds ?? []).filter((x) => x !== src.id) }) : undefined} />
+          ))}
+          {!info.length && <li className="rounded-panel border border-dashed border-hair-3 px-4 py-4 text-center text-caption text-ink-3">None.</li>}
+        </ul>
+      </section>
       {preview && <SourcePreview s={preview} onClose={() => setPreview(null)} />}
-    </>
+    </div>
+  );
+}
+
+/** The Material stage: the training's files, first in the flow and there to come back to any time. */
+export function MaterialStage() {
+  const { id } = useParams<{ id: string }>();
+  const data = useCourse(id);
+  if (!data) return null;
+  const { course, editable } = data;
+  return (
+    <div className="flex flex-col gap-4">
+      <StageHeader n={1} sub="Files reps see, and files that only build the calls. Add more any time." />
+      <section className="squircle rounded-card border border-hair bg-card p-5">
+        <MaterialManager course={course} editable={editable} />
+      </section>
+      {course.modules.length > 0 && <Text size="caption" tone="subtle">Whether reps must go through their files or can skip them is set in Settings.</Text>}
+    </div>
   );
 }
 

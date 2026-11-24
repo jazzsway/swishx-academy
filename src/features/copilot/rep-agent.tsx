@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, AudioLines, ChevronRight, MessageCircle, Mic, MicOff, Stethoscope, X, SquarePen } from "lucide-react";
+import { ArrowUp, AudioLines, ChevronLeft, ChevronRight, History, MessageCircle, Mic, MicOff, Trash2, X, SquarePen } from "lucide-react";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -11,12 +11,13 @@ import { useMe } from "@/store/selectors";
 import { Text } from "@/components/ui/text";
 import { BRAINS, type CoItem, type CoReply, type Ctx, type Tone } from "./brains";
 import { useCopilot } from "./copilot-store";
+import { useChatHistory, type SavedChat } from "./chat-history";
+import { VoiceWave } from "@/features/rep/hero-visuals";
 
 /**
- * The rep's SwishX, behind the middle tab: one place to ask (chat), talk it
- * through (voice) or rehearse a call. Chat-first, the way ChatGPT works, so a
- * first-timer already knows it: a greeting, three starters, then a composer
- * with a mic and a voice button.
+ * The rep's SwishX, behind the Chat tab: ask (type) or talk it through (voice). Chat-first, the way
+ * ChatGPT works: a greeting, the two ways in, suggestions from the rep's own trainings and progress,
+ * their recent chats, then a composer with a mic and a voice button. Rehearsing calls is Practice's.
  */
 
 const DOT: Record<Tone, string> = { danger: "bg-danger", warn: "bg-warn", ok: "bg-ok", faint: "bg-hair-3" };
@@ -39,6 +40,11 @@ export function RepAgent({ onClose, onGo }: { onClose: () => void; onGo: () => v
   const clearIntent = useCopilot((x) => x.clearIntent);
   const brief = brain.briefing(ctx);
   const prompts = brain.prompts(ctx);
+  const suggestions = brain.suggestions(ctx);
+  const history = useChatHistory();
+  const mine = history.chats.filter((c) => c.userId === ctx.me.id);
+  const [chatId, setChatId] = useState(() => `chat-${Date.now().toString(36)}`);
+  const [view, setView] = useState<"chat" | "history">("chat");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -58,6 +64,7 @@ export function RepAgent({ onClose, onGo }: { onClose: () => void; onGo: () => v
 
   function send(prompt: string) {
     if (!prompt.trim() || thinking) return;
+    history.ask(ctx.me.id, chatId, prompt.trim());
     setTurns((t) => [...t, { id: `u${Date.now()}`, from: "you", text: prompt }]);
     setText("");
     setThinking(true);
@@ -74,7 +81,14 @@ export function RepAgent({ onClose, onGo }: { onClose: () => void; onGo: () => v
     window.setTimeout(() => { setText(prompts[0] ?? ""); setDictating(false); inputRef.current?.focus(); }, 1600);
   }
 
-  const practise = () => { router.push("/rep/practice/prep"); onGo(); };
+  const newChat = () => { setTurns([]); setChatId(`chat-${Date.now().toString(36)}`); setView("chat"); };
+  /* An earlier chat, asked again: the answers come from today's content and progress. */
+  const openChat = (c: SavedChat) => {
+    setTurns(c.asks.flatMap((a, i) => [{ id: `u${i}`, from: "you" as const, text: a.text, voice: a.voice }, { id: `a${i}`, from: "ai" as const, reply: brain.answer(a.text, ctx) }]));
+    setChatId(c.id);
+    setView("chat");
+  };
+  const when = (iso: string) => { const d = new Date(iso); return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); };
   const empty = turns.length === 0;
 
   return (
@@ -83,47 +97,92 @@ export function RepAgent({ onClose, onGo }: { onClose: () => void; onGo: () => v
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-2 pt-1">
         <span className="grid size-9 place-items-center rounded-full bg-brand text-white"><AgentIcon className="size-4.5" aria-hidden="true" /></span>
         <span className="flex flex-1 flex-col leading-tight"><span className="text-subhead font-extrabold text-ink">SwishX</span><span className="text-caption text-ink-3">Approved content only</span></span>
-        {!empty && (
-          <button type="button" onClick={() => setTurns([])} aria-label="New chat" title="New chat"
+        {view === "chat" && mine.length > 0 && (
+          <button type="button" onClick={() => setView("history")} aria-label="Past chats" title="Past chats"
+            className="focus-ring grid size-10 place-items-center rounded-full bg-subtle text-ink-2 hover:text-ink"><History className="size-4.5" aria-hidden="true" /></button>
+        )}
+        {(!empty || view === "history") && (
+          <button type="button" onClick={newChat} aria-label="New chat" title="New chat"
             className="focus-ring grid size-10 place-items-center rounded-full bg-subtle text-ink-2 hover:text-ink"><SquarePen className="size-4.5" aria-hidden="true" /></button>
         )}
         <button type="button" onClick={onClose} aria-label="Close SwishX" className="focus-ring grid size-10 place-items-center rounded-full bg-subtle text-ink-2 hover:text-ink"><X className="size-5" aria-hidden="true" /></button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4 pt-2 [scrollbar-width:none]">
-        {empty ? (
+        {view === "history" ? (
+          /* Every past chat, newest first. Open one to ask it again, or delete it. */
+          <div className="flex flex-col gap-3">
+            <button type="button" onClick={() => setView("chat")} className="flex items-center gap-1 self-start text-body font-semibold text-ink-3 hover:text-ink"><ChevronLeft className="size-4" aria-hidden="true" />Back</button>
+            <Text as="h2" size="display" weight="extrabold" tracking="tight">Past chats</Text>
+            <ul className="flex flex-col gap-2">
+              {mine.map((c) => (
+                <li key={c.id} className="flex items-center gap-2 rounded-panel bg-card p-1.5 pr-2 shadow-hair">
+                  <button type="button" onClick={() => openChat(c)} className="flex min-w-0 flex-1 items-center gap-3 rounded-[16px] px-2 py-1.5 text-left hover:bg-subtle">
+                    <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-white", c.asks.some((x) => x.voice) ? "bg-peach" : "bg-sage")}>{c.asks.some((x) => x.voice) ? <AudioLines className="size-4.5" aria-hidden="true" /> : <MessageCircle className="size-4.5" aria-hidden="true" />}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-body font-bold text-ink">{c.asks[0]?.text}</span>
+                      <span className="truncate text-caption text-ink-3">{when(c.at)} · {c.asks.length} question{c.asks.length === 1 ? "" : "s"}{c.asks.some((x) => x.voice) ? " · voice" : ""}</span>
+                    </span>
+                  </button>
+                  <button type="button" onClick={() => history.remove(c.id)} aria-label="Delete this chat" className="grid size-9 shrink-0 place-items-center rounded-full text-ink-4 hover:bg-subtle hover:text-danger"><Trash2 className="size-4" aria-hidden="true" /></button>
+                </li>
+              ))}
+            </ul>
+            {!mine.length && <Text size="body" tone="subtle">No chats yet.</Text>}
+          </div>
+        ) : empty ? (
           <>
-            <div className="flex flex-col items-center gap-3 pt-4 text-center">
-              <span className="relative grid size-16 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-white shadow-brand-lift">
-                <span className="absolute inset-0 animate-ping rounded-full bg-brand/20 [animation-duration:2.4s]" aria-hidden="true" />
-                <AgentIcon className="relative size-8" aria-hidden="true" />
-              </span>
-              <Text as="h2" size="display-lg" weight="extrabold" tracking="tight">{brief.title}, how can I help?</Text>
-              <Text size="body" tone="subtle" className="max-w-[300px]">Ask about your trainings, talk something through out loud, or rehearse a call with an AI doctor.</Text>
+            <div className="flex flex-col gap-1 pt-2">
+              <Text as="h2" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{brief.title},<br />how can I help?</Text>
+              <Text size="body" tone="subtle">Answers come only from your approved training content.</Text>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
-              <Starter icon={MessageCircle} tone="bg-sage" label="Ask a question" onClick={() => inputRef.current?.focus()} />
-              <Starter icon={AudioLines} tone="bg-peach" label="Talk it through" onClick={() => setVoice(true)} />
-              <Starter icon={Stethoscope} tone="bg-lilac" label="Practise a call" onClick={practise} />
+            {/* Two ways in: type it, or say it. */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button type="button" onClick={() => inputRef.current?.focus()}
+                className="flex min-h-[128px] flex-col justify-between rounded-[24px] bg-sage p-3.5 text-left text-white shadow-soft transition-transform active:scale-[0.97]">
+                <span className="grid size-10 place-items-center rounded-full bg-white/25"><MessageCircle className="size-5" aria-hidden="true" /></span>
+                <span className="flex flex-col"><span className="text-body-lg font-extrabold leading-tight">Chat</span><span className="text-caption text-white/80">Type a question</span></span>
+              </button>
+              <button type="button" onClick={() => setVoice(true)}
+                className="flex min-h-[128px] flex-col justify-between rounded-[24px] bg-cta p-3.5 text-left text-white shadow-soft transition-transform active:scale-[0.97]">
+                <span className="flex items-center gap-2"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/20"><AudioLines className="size-5" aria-hidden="true" /></span><VoiceWave bars={9} className="h-7 flex-1" barClass="bg-white/70" /></span>
+                <span className="flex flex-col"><span className="text-body-lg font-extrabold leading-tight">Talk it through</span><span className="text-caption text-white/80">Out loud, hands free</span></span>
+              </button>
             </div>
 
-            {brief.items.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <Text size="caption" weight="bold" tone="subtle" className="px-1">For you</Text>
-                <Items items={brief.items} onGo={onGo} />
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <Text size="caption" weight="bold" tone="subtle" className="px-1">Try asking</Text>
-              {prompts.map((p) => (
-                <button key={p} type="button" onClick={() => send(p)}
-                  className="flex items-center gap-3 rounded-panel bg-subtle/70 px-3.5 py-3 text-left text-body font-semibold text-ink transition-colors hover:bg-subtle">
-                  <span className="min-w-0 flex-1">{p}</span><ArrowUp className="size-4 shrink-0 rotate-45 text-ink-4" aria-hidden="true" />
+            {/* Suggestions from the rep's own trainings and progress. */}
+            <div className="flex flex-col gap-2">
+              <Text size="caption" weight="bold" tone="subtle" className="px-1">Suggested for you</Text>
+              {suggestions.map((x) => (
+                <button key={x.text} type="button" onClick={() => send(x.text)}
+                  className="flex items-center gap-3 rounded-[20px] bg-card px-3.5 py-3 text-left shadow-hair transition-colors hover:bg-subtle">
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="self-start rounded-full bg-tint px-2 py-0.5 text-[11px] font-bold text-brand-deep">{x.tag}</span>
+                    <span className="text-body font-semibold leading-snug text-ink">{x.text}</span>
+                  </span>
+                  <ArrowUp className="size-4 shrink-0 rotate-45 text-ink-4" aria-hidden="true" />
                 </button>
               ))}
             </div>
+
+            {mine.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between px-1">
+                  <Text size="caption" weight="bold" tone="subtle">Recent chats</Text>
+                  <button type="button" onClick={() => setView("history")} className="flex items-center gap-0.5 text-caption font-bold text-brand-deep">See all<ChevronRight className="size-3.5" aria-hidden="true" /></button>
+                </div>
+                {mine.slice(0, 2).map((c) => (
+                  <button key={c.id} type="button" onClick={() => openChat(c)} className="flex items-center gap-2.5 rounded-[16px] px-2 py-2 text-left hover:bg-subtle">
+                    {c.asks.some((x) => x.voice) ? <AudioLines className="size-4 shrink-0 text-ink-4" aria-hidden="true" /> : <MessageCircle className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
+                    <span className="min-w-0 flex-1 truncate text-body text-ink-2">{c.asks[0]?.text}</span>
+                    <span className="shrink-0 text-caption text-ink-4">{when(c.at)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* v1-hidden: "Practise a call" as a starter, and the "For you" list (the suggestions cover it). */}
+            {false && brief.items.length > 0 && <Items items={brief.items} onGo={onGo} />}
           </>
         ) : turns.map((t) => (
           <div key={t.id} className={cn("flex flex-col gap-2", t.from === "you" && "items-end")}>
@@ -176,21 +235,18 @@ export function RepAgent({ onClose, onGo }: { onClose: () => void; onGo: () => v
         <Text size="micro" tone="faint" className="mt-1.5 block text-center">{brain.scope}</Text>
       </form>
 
-      {voice && <VoiceMode ctx={ctx} prompts={prompts} onPractise={practise}
-        onEnd={(said) => { setVoice(false); if (said.length) setTurns((t) => [...t, ...said]); }} />}
+      {voice && <VoiceMode ctx={ctx} prompts={prompts}
+        onEnd={(said) => {
+          setVoice(false);
+          if (!said.length) return;
+          for (const x of said) if (x.from === "you" && x.text) history.ask(ctx.me.id, chatId, x.text, true);
+          setTurns((t) => [...t, ...said]);
+          setView("chat");
+        }} />}
     </div>
   );
 }
 
-function Starter({ icon: Icon, tone, label, onClick }: { icon: typeof Mic; tone: string; label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={cn("flex aspect-[0.95] flex-col justify-between rounded-panel p-3 text-left text-white shadow-soft transition-transform active:scale-[0.97]", tone)}>
-      <span className="grid size-9 place-items-center rounded-full bg-white/25"><Icon className="size-4.5" aria-hidden="true" /></span>
-      <span className="text-body font-extrabold leading-tight">{label}</span>
-    </button>
-  );
-}
 
 function Items({ items, onGo }: { items: CoItem[]; onGo: () => void }) {
   if (!items.length) return null;
@@ -226,7 +282,7 @@ type Phase = "consent" | "listening" | "thinking" | "speaking";
  * aloud (speech synthesis, where the browser has it) with live captions.
  * Ending it drops the exchange into the chat as a transcript.
  */
-function VoiceMode({ ctx, prompts, onEnd, onPractise }: { ctx: Ctx; prompts: string[]; onEnd: (said: Turn[]) => void; onPractise: () => void }) {
+function VoiceMode({ ctx, prompts, onEnd }: { ctx: Ctx; prompts: string[]; onEnd: (said: Turn[]) => void }) {
   const me = useMe();
   const consent = useApp((s) => !!s.voiceConsent[me.id]);
   const setConsent = useApp((s) => s.setVoiceConsent);
@@ -317,7 +373,7 @@ function VoiceMode({ ctx, prompts, onEnd, onPractise }: { ctx: Ctx; prompts: str
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-center gap-4 px-6 pb-8">
-            <button type="button" onClick={onPractise} className="flex items-center gap-2 rounded-full bg-lilac px-4 py-2 text-body font-bold text-white shadow-soft"><Stethoscope className="size-4" aria-hidden="true" />Practise it as a call</button>
+            {/* v1-hidden: "Practise it as a call". Rehearsing calls lives in Practice. */}
             <div className="flex items-center gap-6">
               <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} aria-label={muted ? "Unmute" : "Mute"}
                 className={cn("grid size-16 place-items-center rounded-full transition-colors", muted ? "bg-ink text-white" : "bg-card text-ink shadow-soft")}>

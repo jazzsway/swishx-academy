@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Briefcase, Check, ChevronDown, Target, Pill, Plus, Search, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { Briefcase, Check, ChevronDown, Mic, Target, Pill, Plus, Search, Stethoscope, Syringe, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios, objection } from "@/data/scenarios";
@@ -18,6 +19,8 @@ import { StageHeader } from "./stage-ui";
 import { CitationPill } from "@/features/shared/citation-pill";
 import { AgentIcon } from "@/components/ui/logo-mark";
 import { askFor, turnId, useSetupDrafting, useTrainingChat } from "./training-chat-store";
+import { ObjectiveFlow } from "./roleplay";
+import { objectiveBank } from "@/lib/objective-call";
 
 /** One colour per criterion, the same wherever it's shown. */
 const chip = (on: boolean) => cn("inline-flex h-9 items-center gap-1.5 rounded-control border px-2.5 text-caption font-semibold transition-colors", on ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-2 hover:border-hair-3");
@@ -109,7 +112,7 @@ export function ObjectiveList({ course, editable }: { course: Course; editable: 
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      <StageHeader n={1} sub="What reps should be able to do, drawn from your brief and files. Sharpen, add or remove any in the chat." />
+      <StageHeader n={2} sub="What reps should be able to do. Change them in the chat." />
 
       {/* The training's goal: the brief it was made from, which every objective serves. */}
       <section className="squircle flex items-start gap-3 rounded-panel border border-hair bg-card px-4 py-3">
@@ -212,6 +215,15 @@ export function ObjectiveList({ course, editable }: { course: Course; editable: 
                       ))}
                     </ul>
                   </Block>
+                  {/* The objective's call, as a flow: only when viewing a live training, not while building or editing. */}
+                  {!editable && (() => {
+                    const bank = objectiveBank(course, ob, scs);
+                    return (
+                      <Block label="Call flow" action={<Link href={`${base}/roleplay/test?run=objective&obj=${ob.id}`} className="inline-flex items-center gap-1 text-caption font-semibold text-brand-deep hover:underline"><Mic className="size-3.5" aria-hidden="true" />Test the call</Link>}>
+                        <div className="squircle overflow-hidden rounded-panel border border-hair bg-card"><ObjectiveFlow scs={bank} passMark={course.settings.passRoleplay} /></div>
+                      </Block>
+                    );
+                  })()}
                   {editable && <button type="button" onClick={() => removeObjective(ob)} className="flex items-center gap-1.5 self-end text-caption font-semibold text-ink-4 transition-colors hover:text-danger"><Trash2 className="size-3.5" aria-hidden="true" />Delete objective</button>}
                 </div>
               )}

@@ -16,6 +16,7 @@ import { directModules } from "./materials";
 import { FOR_ROLEPLAY, kindOf, useUpload } from "./direct-course";
 import { useTrainingChat } from "./course/training-chat-store";
 import { draftObjectives } from "@/lib/objectives";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 
 /* Sample briefs; picking one fills in the box. */
 const SAMPLES: [string, string][] = [
@@ -76,6 +77,11 @@ export function DirectSetup() {
     });
     const obs = draftObjectives({ brief: brief.trim(), productId, materials: items.map((f) => f.src) });
     s.updateCourse(id, { brief: brief.trim(), objectives: [] });
+    /* Every file kept as context: nothing for reps to see, so it's a calls-only training (screening, scored calls, certificate). */
+    if (!shown.length) {
+      const made = useApp.getState().courses.find((x) => x.id === id);
+      if (made) s.updateCourse(id, { settings: { ...made.settings, callsOnly: true } });
+    }
     s.setModules(id, mods);
     useTrainingChat.getState().push(id,
       { id: "s-brief", from: "you", text: brief.trim() + (items.length ? `\n📎 ${items.length} file${items.length === 1 ? "" : "s"}` : "") },
@@ -173,7 +179,9 @@ export function DirectSetup() {
                     {items.map((f) => <FileRow key={f.id} s={f.src} visible={f.visible} onPreview={() => setPreview(f.src)}
                       onSet={(v) => setFiles(files.map((x) => (x.id === f.id ? { ...x, visible: v } : x)))} onRemove={() => setFiles(files.filter((x) => x.id !== f.id))} />)}
                   </ul>
-                  <Text size="caption" tone="subtle">Reps see {seen} as lessons, in this order. {items.length - seen ? `${items.length - seen} ${items.length - seen === 1 ? "is" : "are"} context only: SwishX reads ${items.length - seen === 1 ? "it" : "them"} to write the objectives and calls; reps don't see ${items.length - seen === 1 ? "it" : "them"}.` : ""}</Text>
+                  {seen === 0
+                    ? <Text size="caption" tone="subtle"><strong className="text-ink-2">Calls only.</strong> Reps see no material: {items.length === 1 ? "this file builds" : "these files build"} the calls, and the training is a screening call, the scored calls and the certificate.</Text>
+                    : <Text size="caption" tone="subtle">Reps see {seen} as lessons, in this order. {items.length - seen ? `${items.length - seen} ${items.length - seen === 1 ? "is" : "are"} context only: SwishX reads ${items.length - seen === 1 ? "it" : "them"} to write the objectives and calls; reps don't see ${items.length - seen === 1 ? "it" : "them"}.` : ""}</Text>}
                 </>
               )}
             </section>
@@ -213,16 +221,15 @@ function FileRow({ s, visible, onPreview, onSet, onRemove }: { s: Source; visibl
         </span>
       </button>
       <span className="flex shrink-0 items-center gap-1.5">
-        <span role="radiogroup" aria-label={`Who sees ${s.title}`} className="inline-flex rounded-control border border-hair-2 bg-subtle p-0.5">
+        <Segmented role="radiogroup" aria-label={`Who sees ${s.title}`}>
           {[{ v: true, label: "Show to reps", icon: Eye }, { v: false, label: "Context only", icon: EyeOff }].map((o) => (
-            <button key={o.label} type="button" role="radio" aria-checked={visible === o.v} onClick={() => onSet(o.v)}
+            <SegmentedButton key={o.label} active={visible === o.v} role="radio" aria-pressed={undefined} aria-checked={visible === o.v} onClick={() => onSet(o.v)}
               title={o.v ? "Reps study it as a lesson" : "SwishX reads it; reps don't see it"}
-              className={cn("flex items-center gap-1 rounded-[8px] px-2.5 py-1 text-caption font-bold transition-colors",
-                visible === o.v ? (o.v ? "bg-card text-ok shadow-hair" : "bg-card text-info shadow-hair") : "text-ink-4 hover:text-ink-2")}>
+              className={cn("gap-1 px-2.5 py-1 text-caption", visible === o.v && (o.v ? "text-ok" : "text-info"))}>
               <o.icon className="size-3.5" aria-hidden="true" />{o.label}
-            </button>
+            </SegmentedButton>
           ))}
-        </span>
+        </Segmented>
         <button type="button" onClick={onRemove} aria-label={`Remove ${s.title}`} title="Remove" className="grid size-8 place-items-center rounded-control text-ink-4 transition-colors hover:bg-subtle hover:text-danger"><X className="size-4" /></button>
       </span>
     </li>

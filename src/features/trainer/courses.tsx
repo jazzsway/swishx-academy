@@ -65,7 +65,7 @@ export function CourseCatalogue() {
           { key: "title", header: "Training", cell: (c) => (
             <div className="flex flex-col gap-0.5 py-1">
               <Text size="body-lg" weight="semibold">{c.title}</Text>
-              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.format === "short" ? `Short form · ${courseCardCount(c.modules)} cards` : `Long form · ${c.type === "personalised" ? "Personalised" : "Same for everyone"} · ${courseMinutes(c)} min`}</Text>
+              <Text size="caption" tone="subtle">{product(c.productId)?.brand ?? "Company"} · {c.origin === "direct" ? `${c.objectives?.length ?? 0} objective${c.objectives?.length === 1 ? "" : "s"} · ${c.modules.length ? `${c.modules.length} file${c.modules.length === 1 ? "" : "s"} for reps, ${c.settings.materialOptional ? "optional" : "mandatory"}` : "no material for reps"}` : c.format === "short" ? `Short form · ${courseCardCount(c.modules)} cards` : `Long form · ${c.type === "personalised" ? "Personalised" : "Same for everyone"} · ${courseMinutes(c)} min`}</Text>
             </div>) },
           { key: "state", header: "Current version", cell: (c) => {
             const v = current(c);

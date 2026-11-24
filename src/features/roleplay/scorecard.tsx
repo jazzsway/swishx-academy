@@ -12,9 +12,11 @@ import { Ring } from "@/components/patterns/academy";
 const mmss = (n?: number) => (n === undefined ? "" : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`);
 
 /** One scorecard for practice (coaching), assessment (pass/fail) and manager verify (PRD PR-3, FA-1, FA-3). */
-export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
+export function Scorecard({ result, mode, approvedHref, onSeek, compact, noTranscript }: {
   result: RoleplayResult; mode: "practice" | "assessment" | "verify" | "screening";
   approvedHref?: (moduleId: string) => string; onSeek?: (sec: number) => void; compact?: boolean;
+  /** The transcript has its own place on the page (a practice session), so the scorecard leaves it out. */
+  noTranscript?: boolean;
 }) {
   const [showTranscript, setShowTranscript] = useState(mode === "verify");
   const met = result.criteria.filter((c) => c.met);
@@ -87,10 +89,10 @@ export function Scorecard({ result, mode, approvedHref, onSeek, compact }: {
       )}
       {critical.length === 0 && mode === "assessment" && <Text size="body" tone="ok" weight="semibold">No compliance flags.</Text>}
 
-      <button type="button" onClick={() => setShowTranscript(!showTranscript)} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-2">
+      {!noTranscript && <button type="button" onClick={() => setShowTranscript(!showTranscript)} className="flex items-center gap-1.5 self-start text-body font-semibold text-ink-2">
         <ChevronDown className={cn("size-4 transition-transform", showTranscript && "rotate-180")} aria-hidden="true" />Transcript
-      </button>
-      {showTranscript && (
+      </button>}
+      {showTranscript && !noTranscript && (
         <ol className="flex flex-col gap-2">
           {result.transcript.map((t, i) => {
             const flagged = t.speaker === "rep" && result.flags.some((f) => f.quote === t.text);

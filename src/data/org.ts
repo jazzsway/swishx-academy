@@ -99,7 +99,12 @@ export function registerUploads(list: Source[]) {
   UPLOADS.splice(0, UPLOADS.length, ...list);
 }
 
-export const source = (id: string) => SOURCES.find((s) => s.id === id) ?? UPLOADS.find((s) => s.id === id);
+/* Files the demo trainings ship with, as if a trainer had uploaded them. Their courses register them here. */
+const SEEDED: Source[] = [];
+export function registerSeedFiles(list: Source[]) {
+  for (const f of list) if (!SEEDED.some((x) => x.id === f.id)) SEEDED.push(f);
+}
+export const source = (id: string) => SOURCES.find((s) => s.id === id) ?? UPLOADS.find((s) => s.id === id) ?? SEEDED.find((s) => s.id === id);
 
 /** Approved means it carries an MLR document number. Uploads don't, until MLR approves them. */
 export const isApproved = (s?: Source) => !!s?.docNumber && !s.uploaded;

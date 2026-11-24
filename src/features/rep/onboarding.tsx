@@ -52,7 +52,7 @@ export function RepOnboarding() {
     {
       icon: <Route className="size-7" aria-hidden="true" />, title: `Welcome, ${me.first}`,
       body: "Here’s how your training works.",
-      points: ["Foundations first: compliance and your therapy area", "A short screening skips what you already know", "Practise with an AI doctor any time, ungraded"], // v1-hidden: "Explore the Library any time. Nothing there is graded"
+      points: ["A short screening call sets your baseline", "Your team's material, then one scored call per objective", "Practise with an AI doctor any time, ungraded"], // v1-hidden: "Explore the Library any time. Nothing there is graded"
     },
     {
       icon: <Lock className="size-7" aria-hidden="true" />, title: "Practice is private",

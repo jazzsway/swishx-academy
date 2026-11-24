@@ -24,6 +24,7 @@ import { ScenarioRun, combineOutcomes } from "@/features/roleplay/scenario-run";
 import { allScenarios } from "@/data/scenarios";
 import { CRITERIA, screeningOf } from "@/lib/scenario-set";
 import { modulesOf } from "./use-rep";
+import { materialOptional, noMaterial } from "@/lib/direct-material";
 
 /** SC-1: adaptive pick. Fewest-asked competency first, closest to the target difficulty. */
 function pickNext(pool: Item[], asked: string[], target: number) {
@@ -109,14 +110,14 @@ export function Screening() {
         <Text size="subhead" tone="muted" className="leading-relaxed">{part.length ? `Next up: ${screenRun.map((x) => x.persona.name).join(" and ")}. What you've done is saved.` : screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Treat it like a real first call.</Text>
         {/* What it does, as three short facts rather than a paragraph. */}
         <ul className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
-          {[["Not graded", "Nothing here counts against you"], ...(pool.length ? [] : [["Shortens your path", "Skip the lessons you already know"]]), ["About 3 minutes", "Stop any time; it's saved"]].map(([t, d]) => (
+          {[["Not graded", "Nothing here counts against you"], ...(pool.length || noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? [] : [["Shortens your path", "Skip the lessons you already know"]]), ["About 3 minutes", "Stop any time; it's saved"]].map(([t, d]) => (
             <li key={t} className="flex flex-col px-4 py-3"><Text size="body-lg" weight="bold">{t}</Text><Text size="caption" tone="subtle">{d}</Text></li>
           ))}
         </ul>
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
         <BottomBar>
           <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume the call" : "Go to the call"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : "Skip it and take every lesson"}</Button>
+          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? "Skip it and go to the assessments" : "Skip it and take every lesson"}</Button>
         </BottomBar>
       </div>
     );
@@ -192,9 +193,13 @@ export function ScreeningResults() {
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="flex items-center gap-1.5 text-caption font-bold text-[#7ee2b0]"><Check className="size-3.5" aria-hidden="true" />Screening done</span>
             <Text size="title" weight="extrabold" tone="inverse" className="leading-tight">Your baseline</Text>
-            <Text size="caption" tone="inverse" className="opacity-60">Where you start. Your scored calls show how far you&apos;ve come.</Text>
+            <Text size="caption" tone="inverse" className="opacity-60">Where you start. Your assessments show how far you&apos;ve come.</Text>
           </div>
         </div>
+        {/* No material, or optional material: no path to show; the assessments come next. */}
+        {(noMaterial(c) || materialOptional(c, p) || !mods.length) ? (
+          <Text size="body" tone="inverse" className="border-t border-white/10 pt-4 opacity-80">Next: your assessments, one call per objective.</Text>
+        ) : (
         <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
           <div className="flex items-baseline justify-between gap-3">
             <Text size="body-lg" weight="bold" tone="inverse">Your path</Text>
@@ -215,12 +220,13 @@ export function ScreeningResults() {
             {required.length ? ` ${required.length === 1 ? "The locked one stays" : "Locked ones stay"} for everyone.` : ""}
           </Text>
         </div>
+        )}
       </div>
 
       <section className="flex flex-col gap-2.5" aria-labelledby="tips-h">
         <div className="flex flex-col gap-0.5">
           <Text as="h2" id="tips-h" size="subhead" weight="bold">{tips.length ? `${tips.length === 1 ? "One thing" : `${tips.length} things`} to work on` : "You're in good shape"}</Text>
-          <Text size="caption" tone="subtle">{tips.length ? "From your screening call, most important first." : "Every criterion is at 80 or more. The lessons will keep it sharp."}</Text>
+          <Text size="caption" tone="subtle">{tips.length ? "From your screening call, most important first." : (noMaterial(c) || materialOptional(c, p) || !mods.length) ? "Every criterion is at 80 or more. Take that into your calls." : "Every criterion is at 80 or more. The lessons will keep it sharp."}</Text>
         </div>
         {tips.length > 0 && (
           <ol className="squircle flex flex-col divide-y divide-hair overflow-hidden rounded-card border border-hair bg-card">
@@ -274,7 +280,7 @@ export function ScreeningResults() {
         </section>
       )}
       <Text size="caption" tone="subtle" className="text-center">Your trainer sees these scores, not your call recording.</Text>
-      <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />Start my path</Button></BottomActions>
+      <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />{noMaterial(c) || materialOptional(c, p) || !mods.length ? "On to the assessments" : "Start my path"}</Button></BottomActions>
     </div>
   );
 }

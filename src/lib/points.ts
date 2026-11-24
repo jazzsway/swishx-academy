@@ -71,19 +71,14 @@ function rng(seed: string) {
 
 const PRIYA: Omit<PointEvent, "id" | "userId">[] = [
   { at: "2026-11-01T08:12:00", kind: "streak", points: 5, label: "Day 2 of your streak" },
-  { at: "2026-11-01T08:30:00", kind: "module", points: 20, label: "Finished Compliance essentials · Off-label requests" },
-  { at: "2026-11-01T08:31:00", kind: "check", points: 15, label: "Passed the quick check, first try" },
+  { at: "2026-11-01T08:30:00", kind: "practice", points: 15, label: "Practice call · Lumora call check" },
   { at: "2026-11-02T18:12:00", kind: "streak", points: 5, label: "Day 3 of your streak" },
-  { at: "2026-11-02T18:40:00", kind: "practice", points: 10, label: "Practice quiz · Lumora" },
   { at: "2026-11-03T07:50:00", kind: "streak", points: 5, label: "Day 4 of your streak" },
-  { at: "2026-11-03T08:05:00", kind: "practice", points: 15, label: "Practice call · Dr. Ruiz" },
-  { at: "2026-11-03T08:20:00", kind: "module", points: 20, label: "Finished AD 101 · Measuring severity" },
-  { at: "2026-11-03T08:21:00", kind: "check", points: 10, label: "Passed the quick check" },
+  { at: "2026-11-03T08:05:00", kind: "module", points: 20, label: "Watched How Colivant works" },
   { at: "2026-11-04T12:30:00", kind: "streak", points: 5, label: "Day 5 of your streak" },
-  { at: "2026-11-04T12:44:00", kind: "practice", points: 15, label: "Practice call · Dr. Kim" },
+  { at: "2026-11-04T12:44:00", kind: "module", points: 20, label: "Finished Lumora field kit · Lumora mechanism explainer" },
   { at: "2026-11-05T19:02:00", kind: "streak", points: 5, label: "Day 6 of your streak" },
-  { at: "2026-11-05T19:20:00", kind: "module", points: 20, label: "Finished AD 101 · Today's care pathway" },
-  { at: "2026-11-05T19:21:00", kind: "check", points: 15, label: "Passed the quick check, first try" },
+  { at: "2026-11-05T19:20:00", kind: "practice", points: 15, label: "Practice call · Dr. Lena Kim" },
 ];
 
 const SEED_DAYS = 5; // November 1st to 5th; today (the 6th) is still open.

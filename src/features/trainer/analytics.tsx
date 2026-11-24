@@ -17,6 +17,7 @@ import { Avatar, Card, Dot, Meter, Stat, bandCellClass } from "@/components/patt
 import { useToast, Toast } from "@/components/patterns/toast";
 import { COMPARATIVE_HINTS, OFF_LABEL_HINTS } from "@/features/library/library-data";
 import { LeaderboardSection } from "./leaderboard";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 
 const finalScore = (p: Progress) => p.attempts.filter((a) => a.passed).at(-1)?.overall ?? p.attempts.at(-1)?.overall;
 const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
@@ -169,11 +170,9 @@ export function TrainerAnalytics() {
           )}
         </Card>
         <Card title="By region" eyebrow="Average score per area" actions={
-          <span className="flex rounded-control border border-hair-2 bg-subtle p-0.5 text-caption font-semibold">
-            {(["assessment", "screening"] as const).map((src) => (
-              <button key={src} type="button" onClick={() => setHmSource(src)} className={cn("rounded-[8px] px-2.5 py-1", hmSource === src ? "bg-card text-brand-deep shadow-hair" : "text-ink-3")}>{src === "assessment" ? "Latest" : "Screening"}</button>
-            ))}
-          </span>}>
+          <Segmented aria-label="Scores from">
+            {(["assessment", "screening"] as const).map((src) => <SegmentedButton key={src} active={hmSource === src} onClick={() => setHmSource(src)} className="px-2.5 py-1 text-caption">{src === "assessment" ? "Latest" : "Screening"}</SegmentedButton>)}
+          </Segmented>}>
           {rows.length === 0 ? <Text tone="subtle">No screened reps in this view.</Text> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] border-separate border-spacing-1 text-body">
@@ -266,14 +265,14 @@ export function TrainerAnalytics() {
       {/* 7 · Content */}
       <div className="grid gap-5 lg:grid-cols-3">
         <Card title="Content signals" eyebrow="Worth a look this week">
-          <Link href="/trainer/courses/c-lumora-launch?module=lm4" className="group flex items-start gap-3">
+          <Link href="/trainer/courses/c-switch/situations?obj=ob-sw-push" className="group flex items-start gap-3">
             <Dot tone="danger" />
-            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">Reps stop the LUMEN results video at 1:40</Text><Text size="caption" tone="subtle">62% of the last 120 viewers. Consider splitting it.</Text></span>
+            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">“My patients are fine” trips reps up</Text><Text size="caption" tone="subtle">41% pass it first try on Psorivex switch conversations.</Text></span>
             <ChevronRight className="mt-1 size-4 text-ink-4 group-hover:text-ink" aria-hidden="true" />
           </Link>
-          <Link href="/trainer/courses/c-lumora-launch/questions" className="group flex items-start gap-3">
+          <Link href="/trainer/courses/c-callcheck/people" className="group flex items-start gap-3">
             <Dot tone="danger" />
-            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">A dosing question only 31% get right</Text><Text size="caption" tone="subtle">Hepatic impairment. The wording may be unclear.</Text></span>
+            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="semibold">Lumora call check is overdue for a quarter of reps</Text><Text size="caption" tone="subtle">Most are stuck on the access objective.</Text></span>
             <ChevronRight className="mt-1 size-4 text-ink-4 group-hover:text-ink" aria-hidden="true" />
           </Link>
         </Card>

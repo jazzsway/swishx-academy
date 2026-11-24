@@ -22,18 +22,22 @@ import { STAGES, runSetupDrafting, stepOf, turnId, useSetupDrafting, useTraining
 
 const EMPTY: TrainingTurn[] = [];
 const SUGGEST = {
+  material: ["Next"],
+  test: ["Next"],
   objectives: ["Add an objective: reps explain the missed-dose guidance to nurses", "Remove objective 3", "Next"],
   objective: ["Good looks like: quotes the label word for word", "Put 40% on objection handling", "Rename this objective to “Quote the label exactly”"],
   situations: ["Add a situation: a patient asks if it's safe long term", "Write situations for the rest", "Next"],
   settings: ["Turn on hints for the scored call", "Recertify every 6 months", "Next"],
-  assign: ["Publish", "Who should take it?"],
+  assign: ["Publish", "What happens to people on the old version?"],
 };
 const HELP = {
+  material: "Add files on this page: each one either shows to reps or only builds the calls. Whether the ones reps see are mandatory is set in Settings. Say “next” for the objectives.",
+  test: "Start any call here and take it as a rep would, or open its flow to see how it goes. Nothing is saved. Say “next” to publish.",
   objectives: "Describe an objective and I'll add it, drawn from your material: what reps should be able to do, and who it involves. Say “remove objective 2” to drop one, or open one to sharpen it. Attach a file to use it as information for the training.",
   objective: "Tell me what good looks like (“good looks like: …”), who it involves, a new name, or how much a criterion counts, like “put 40% on objection handling”.",
   situations: "Describe a situation and I'll add it to the open objective's tab: who the rep meets (one person) and what happens. Switch tabs to pick the objective. Say “next” for the settings.",
   settings: "Here I can turn hints on the scored call on or off, turn the screening call on or off, and set how often reps recertify. Say “next” to publish and assign.",
-  assign: "Here you publish and assign in one go: check what goes live, choose what happens to anyone on the old version (keep their progress, restart who hasn't finished, or restart everyone), and who else gets it.",
+  assign: "Here you publish: check what goes live and, from the second version on, what happens to people already on it (in progress carry on or start over; completed stay certified or recertify). Choosing who takes it comes right after, on Assign.",
 };
 
 /**
@@ -64,10 +68,16 @@ export function TrainingChat({ course }: { course: Course }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   const base = `/trainer/courses/${course.id}`;
-  const step = stepOf(pathname, base);
-  const ob = step <= 2 && search.get("obj") ? course.objectives?.find((x) => x.id === search.get("obj")) : undefined;
-  const ctx = step === 1 ? (ob ? "objective" : "objectives") : step === 2 ? "situations" : step === 3 ? "settings" : "assign";
-  const where = step === 1 && ob ? `Objective · ${ob.title}` : STAGES[step - 1].label;
+  /* The stage by number (1 Material … 6 Publish) and key; "step" is the chat's own sense of where it is:
+     1 objectives, 2 situations, 3 settings (and testing), 4 publishing; 0 on the material. */
+  const idx = stepOf(pathname, base);
+  const key = STAGES[idx - 1].key;
+  const step = ({ material: 0, objectives: 1, situations: 2, settings: 3, test: 3, publish: 4 } as const)[key];
+  const ob = step >= 1 && step <= 2 && search.get("obj") ? course.objectives?.find((x) => x.id === search.get("obj")) : undefined;
+  const ctx = key === "material" ? "material" : key === "test" ? "test" : step === 1 ? (ob ? "objective" : "objectives") : step === 2 ? "situations" : step === 3 ? "settings" : "assign";
+  /* The overview is the training's base page with no lesson open. */
+  const overview = pathname === base && !search.get("module");
+  const where = overview ? "Overview" : step === 1 && ob ? `Objective · ${ob.title}` : STAGES[idx - 1].label;
   const editable = !!data?.editable;
   const say = (t: string, extra?: Partial<TrainingTurn>) => chat.push(course.id, { id: turnId("a"), from: "ai", text: t, ...extra });
 
@@ -76,7 +86,7 @@ export function TrainingChat({ course }: { course: Course }) {
     const s = useTrainingChat.getState();
     if (!s.threads[course.id]?.length)
       s.push(course.id, { id: turnId("a"), from: "ai", text: data?.editable
-        ? `I'm with you on all four stages of ${course.title}: objectives, situations, settings, and assigning. Tell me what to change, or pick a suggestion.`
+        ? `I'm with you on every stage of ${course.title}: material, objectives, situations, settings, testing the calls, and publishing. Tell me what to change, or pick a suggestion.`
         : `${course.title} v${data?.cur.version} is live and locked. Use “Edit as v${(data?.cur.version ?? 0) + 1}” in the top bar and I'll make changes there.` });
   }, [course.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -87,7 +97,7 @@ export function TrainingChat({ course }: { course: Course }) {
     if (last?.from === "divider") { if (last.text !== where) s.patch(course.id, last.id, { text: where }); }
     else if ([...t].reverse().find((x) => x.from === "divider")?.text !== where) s.push(course.id, { id: turnId("d"), from: "divider", text: where });
     /* The first time at each stage, the agent says what it's for and what comes next. */
-    if (editable && !(s.threads[course.id] ?? []).some((x) => x.id === `stage-${course.id}-${step}`) && !(step === 1 && t.some((x) => x.id === "s-set"))) s.push(course.id, { id: `stage-${course.id}-${step}`, from: "ai", text: intro(step) });
+    if (editable && !overview && !(s.threads[course.id] ?? []).some((x) => x.id === `stage-${course.id}-${key}`) && !(key === "objectives" && t.some((x) => x.id === "s-set"))) s.push(course.id, { id: `stage-${course.id}-${key}`, from: "ai", text: intro(idx) });
   }, [where, course.id]); // eslint-disable-line react-hooks/exhaustive-deps
   /* "Add objective" or "Add a situation" on the page: the agent asks for it here, and takes the next message as it. */
   const asked = useRef(chat.asked?.n ?? 0);
@@ -103,15 +113,21 @@ export function TrainingChat({ course }: { course: Course }) {
   if (!data) return null;
 
   const cur = () => useApp.getState().courses.find((c) => c.id === course.id) ?? course;
-  const go = (n: number) => router.push(`${base}${STAGES[Math.max(0, Math.min(3, n - 1))].path}`);
+  const go = (n: number) => router.push(`${base}${STAGES[Math.max(0, Math.min(STAGES.length - 1, n - 1))].path}`);
+  const goKey = (k: (typeof STAGES)[number]["key"]) => go(STAGES.findIndex((x) => x.key === k) + 1);
   function intro(n: number) {
     const c = cur();
     const situations = c.scenarioIds.length, obs = c.objectives?.length ?? 0;
-    if (n === 1) return obs ? `Stage 1 of 4 · Objectives. ${obs} objective${obs === 1 ? "" : "s"}. Tell me what to add, change or remove, or open one to sharpen it. Say “next” for the situations.` : "Stage 1 of 4 · Objectives. Describe what reps should be able to do and I'll add it, tied to your files.";
-    if (n === 2) return situations ? `Stage 2 of 4 · Situations. ${situations} situation${situations === 1 ? "" : "s"} across ${obs} objective${obs === 1 ? "" : "s"}, one tab each. Describe another to add it, or say “next”.`
-      : `Stage 2 of 4 · Situations. I'm writing a few for each of the ${obs} objectives now, one tab each: the moments on a call where each is tested. Add your own any time.`;
-    if (n === 3) return `Stage 3 of 4 · Settings. Hints on the scored call ${c.settings.finalNoHints === false ? "on" : "off"}, screening ${c.settings.screening ? "on" : "off"}, recertify every ${c.settings.recertMonths} months. Change anything, or say “next”.`;
-    return data?.cur.state === "published" ? "Stage 4 of 4 · Publish & assign. It's live: choose who else takes it, and by when." : data?.lv ? `Stage 4 of 4 · Publish & assign. v${data.cur.version} replaces v${data.lv.version}: check it, choose what happens to the people on v${data.lv.version}, and publish.` : "Stage 4 of 4 · Publish & assign. Check what goes live, choose who takes it, and publish both in one go.";
+    const files = c.modules.length + (c.roleplaySourceIds?.length ?? 0);
+    const of = `Stage ${n} of ${STAGES.length}`;
+    if (n === 1) return `${of} · Material. ${files} file${files === 1 ? "" : "s"}: ${c.modules.length} reps see, ${files - c.modules.length} only build the calls. Add more any time, or say “next”.`;
+    if (n === 5) return `${of} · Test the calls. Take any call as a rep would, or open its flow to see how it goes. Nothing is saved. Say “next” to publish.`;
+    n -= 1;
+    if (n === 1) return obs ? `${of} · Objectives. ${obs} objective${obs === 1 ? "" : "s"}. Tell me what to add, change or remove, or open one to sharpen it. Say “next” for the situations.` : `${of} · Objectives. Describe what reps should be able to do and I'll add it, tied to your files.`;
+    if (n === 2) return situations ? `${of} · Situations. ${situations} situation${situations === 1 ? "" : "s"} across ${obs} objective${obs === 1 ? "" : "s"}, one tab each. Describe another to add it, or say “next”.`
+      : `${of} · Situations. I'm writing a few for each of the ${obs} objectives now, one tab each: the moments on a call where each is tested. Add your own any time.`;
+    if (n === 3) return `${of} · Settings. Hints on the scored call ${c.settings.finalNoHints === false ? "on" : "off"}, screening ${c.settings.screening ? "on" : "off"}, recertify every ${c.settings.recertMonths} months. Change anything, or say “next”.`;
+    return data?.lv ? `${of} · Publish. v${data.cur.version} replaces v${data.lv.version}: check it, choose what happens to the people on v${data.lv.version}, and publish.` : `${of} · Publish. Check what goes live and publish. You choose who takes it right after.`;
   }
 
   /** A situation under an objective (the open one, or the first), drafted in steps the trainer watches. */
@@ -155,19 +171,19 @@ export function TrainingChat({ course }: { course: Course }) {
     const open = ob ? c.objectives?.find((x) => x.id === ob.id) : undefined;
 
     /* Moving between the stages. */
-    if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (step === 4) return say(HELP.assign); say(`On to ${STAGES[step].label.toLowerCase()}.`); return go(step + 1); }
-    if (/^(back|previous|go back)\b/.test(l)) { if (step === 1) return say("This is the first stage."); say(`Back to ${STAGES[step - 2].label.toLowerCase()}.`); return go(step - 1); }
-    if (/draft (the )?objectives|suggest objectives/.test(l)) { if (step !== 1) go(1); draftObjectivesFor(c); return; }
+    if (/^(next|continue|go on|looks good|done|ok(ay)?|move on)\b/.test(l)) { if (idx === STAGES.length) return say(HELP.assign); say(`On to ${STAGES[idx].label.toLowerCase()}.`); return go(idx + 1); }
+    if (/^(back|previous|go back)\b/.test(l)) { if (idx === 1) return say("This is the first stage."); say(`Back to ${STAGES[idx - 2].label.toLowerCase()}.`); return go(idx - 1); }
+    if (/draft (the )?objectives|suggest objectives/.test(l)) { if (key !== "objectives") goKey("objectives"); draftObjectivesFor(c); return; }
     if (/^generate|example situations|write (the )?(examples|situations)|situations for the rest/.test(l)) {
       if (!(c.objectives ?? []).length) return say("There are no objectives yet. Describe one first.");
       if (!(c.objectives ?? []).some((o) => !scs.some((x) => x.objectiveId === o.id))) return say("Every objective has situations already. Describe another and I'll add it.");
-      if (step !== 2) go(2);
+      if (key !== "situations") goKey("situations");
       say("Writing situations for the objectives that have none. You can skip ahead on the page.");
       return useTrainingChat.getState().generate();
     }
     if (/^(save and publish|publish( it)?)$/.test(l)) {
       if (data!.cur.state === "published") return say("It's already published. Choose who else takes it on this page.", { link: { href: `${base}/assign`, label: "Assign" } });
-      if (step !== 4) go(4);
+      if (key !== "publish") goKey("publish");
       return say("Here's what goes live, and who gets it. Check both, then publish from the bar at the bottom.");
     }
     if (pending === "objective" || /\b(add|create|new|another)\b.{0,12}\bobjective\b/.test(l)) return addObjective(prompt);
@@ -220,7 +236,7 @@ export function TrainingChat({ course }: { course: Course }) {
       updateSettings(c.id, { screeningIds: pick.map((x) => x.id) });
       return say(`Screening now uses ${pick.map((x) => `“${x.title}”`).join(" and ")}.`, { undo: () => updateSettings(c.id, { screeningIds: prev }) });
     }
-    if (/publish|\bassign\b|who takes/.test(l)) return say("Publishing and assigning happen together on the last stage: what goes live, what happens to anyone on the old version, and who else gets it.", { link: { href: `${base}/assign`, label: "Publish & assign" } });
+    if (/publish|\bassign\b|who takes/.test(l)) return say("Publish is the last stage: what goes live, and what happens to anyone on the old version. Once it's live, you choose who takes it on Assign.", { link: { href: data!.cur.state === "published" ? `${base}/assign` : `${base}/publish`, label: data!.cur.state === "published" ? "Assign" : "Publish" } });
 
     /* The open objective: its name and what it's scored on. */
     if (open) {
@@ -361,7 +377,7 @@ export function TrainingChat({ course }: { course: Course }) {
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         {started && editable && !drafting && <Suggestions items={suggestions} onPick={send} variant="row" />}
         <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} locked={drafting} onAttach={attach}
-          placeholder={drafting ? "Drafting your objectives…" : chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : "Turn hints on or off, or set how often reps recertify"}
+          placeholder={drafting ? "Drafting your objectives…" : chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : ctx === "material" ? "Attach a file, or ask about your material" : ctx === "test" ? "Ask about a call, or say next" : "Turn hints on or off, or set how often reps recertify"}
           hint={drafting ? "You can talk to the agent as soon as it's done." : `On ${where}. Every change can be undone.`} />
       </div>
     </div>

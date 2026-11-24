@@ -20,6 +20,7 @@ import { useCourse } from "./use-course";
 import { SourcePreview } from "../source-preview";
 import { ObjectiveList, useAddScenario } from "./scenarios";
 import { useTrainingChat } from "./training-chat-store";
+import { Segmented, SegmentedButton, nestedRadius } from "@/components/patterns/segmented";
 
 type Role = "screening" | "final";
 const keyOf = (f: CallFocus) => (f.kind === "objection" ? `objection:${f.id}` : f.kind === "rule" ? `rule:${f.id}` : f.kind === "config" ? "config" : f.kind);
@@ -241,12 +242,9 @@ type ViewProps = { sc: Scenario; obs: Objection[]; rules: ProhibitedRule[]; inCa
 
 function Seg({ value, onChange, items, label }: { value: string; onChange: (v: string) => void; items: [string, string][]; label: string }) {
   return (
-    <span role="group" aria-label={label} className="inline-flex gap-0.5 rounded-control border border-hair-2 bg-subtle p-0.5">
-      {items.map(([v, l]) => (
-        <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}
-          className={cn("rounded-[8px] px-2.5 py-1 text-caption font-bold transition-colors", value === v ? "bg-ink text-white" : "text-ink-3 hover:text-ink")}>{l}</button>
-      ))}
-    </span>
+    <Segmented role="group" aria-label={label}>
+      {items.map(([v, l]) => <SegmentedButton key={v} active={value === v} onClick={() => onChange(v)} className="px-2.5 py-1 text-caption">{l}</SegmentedButton>)}
+    </Segmented>
   );
 }
 
@@ -318,10 +316,10 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
 
   return (
     <div className="relative">
-      <div className="absolute bottom-3 right-5 z-10 flex items-center gap-1 rounded-control border border-hair bg-card p-1 shadow-float">
-        <button type="button" aria-label="Zoom out" onClick={() => setZoom(Math.max(0.5, +(zoom - 0.1).toFixed(2)))} className="grid size-7 place-items-center rounded-[6px] text-ink-3 hover:bg-subtle"><Minus className="size-3.5" /></button>
-        <button type="button" onClick={() => setZoom(1)} className="min-w-11 rounded-[6px] px-1 text-caption font-bold tabular-nums text-ink-2 hover:bg-subtle">{Math.round(zoom * 100)}%</button>
-        <button type="button" aria-label="Zoom in" onClick={() => setZoom(Math.min(1.4, +(zoom + 0.1).toFixed(2)))} className="grid size-7 place-items-center rounded-[6px] text-ink-3 hover:bg-subtle"><Plus className="size-3.5" /></button>
+      <div className="squircle absolute bottom-3 right-5 z-10 flex items-center gap-1 rounded-control border border-hair bg-card p-1 shadow-float">
+        <button type="button" aria-label="Zoom out" onClick={() => setZoom(Math.max(0.5, +(zoom - 0.1).toFixed(2)))} style={{ borderRadius: nestedRadius("var(--radius-control)", 5) }} className="squircle grid size-7 place-items-center text-ink-3 hover:bg-subtle"><Minus className="size-3.5" /></button>
+        <button type="button" onClick={() => setZoom(1)} style={{ borderRadius: nestedRadius("var(--radius-control)", 5) }} className="squircle min-w-11 px-1 text-caption font-bold tabular-nums text-ink-2 hover:bg-subtle">{Math.round(zoom * 100)}%</button>
+        <button type="button" aria-label="Zoom in" onClick={() => setZoom(Math.min(1.4, +(zoom + 0.1).toFixed(2)))} style={{ borderRadius: nestedRadius("var(--radius-control)", 5) }} className="squircle grid size-7 place-items-center text-ink-3 hover:bg-subtle"><Plus className="size-3.5" /></button>
       </div>
       <div className="max-h-[calc(100dvh-260px)] min-h-[480px] overflow-auto" onClick={(e) => { if (e.target === e.currentTarget) onClear(); }}
         style={{ backgroundImage: "radial-gradient(var(--color-hair-2) 1px, transparent 1px)", backgroundSize: "18px 18px" }}>
@@ -334,7 +332,7 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
                 return <path key={i} d={path(a, b)} fill="none" stroke={stroke[e.tone ?? "muted"]} strokeOpacity={dim ? 0.15 : e.tone && e.tone !== "muted" ? 0.75 : 0.5} strokeWidth={1.6} strokeDasharray={e.tone === "danger" ? "5 4" : undefined} />;
               })}
             </svg>
-            {place(at.opening, <DNode n={n} f={{ kind: "opening" }} tone="ink" eyebrow="Doctor opens" body={`“${sc.persona.opening}”`} />)}
+            {place(at.opening, <DNode n={n} f={{ kind: "opening" }} tone="ink" eyebrow={`${sc.persona.name.replace(/,.*$/, "")} opens`} body={`“${sc.persona.opening}”`} />)}
             {place(at.guard, (
               <div className="squircle flex flex-col gap-1.5 rounded-panel border-2 border-dashed border-danger-line bg-danger-bg/60 p-3">
                 <span className="text-micro font-bold uppercase tracking-wider text-danger">At any point · never say</span>
@@ -366,7 +364,7 @@ function Diagram({ sc, obs, rules, inCall, callsOf, passMark, n, onClear }: View
                 place(at[`${k}:mv`], <Mini tone={o.moment ? "danger" : "muted"} text={o.moment ? "Critical flag · fails" : "Misses again · moves on"} />),
               ];
             })}
-            {place(at.close, <DNode n={n} f={{ kind: "close" }} tone="ink" eyebrow="Doctor closes" body={`“${sc.persona.closing}”`} />)}
+            {place(at.close, <DNode n={n} f={{ kind: "close" }} tone="ink" eyebrow={`${sc.persona.name.replace(/,.*$/, "")} closes`} body={`“${sc.persona.closing}”`} />)}
             {place(at.score, (
               <button type="button" onClick={() => n.pick({ kind: "rubric" })} className={cn("squircle flex w-full flex-col gap-1.5 rounded-panel border bg-ok-bg/60 p-3 text-left", n.isSel({ kind: "rubric" }) ? "border-brand ring-2 ring-brand/20" : "border-ok-line")}>
                 <span className="flex items-center justify-between text-micro font-bold uppercase tracking-wider text-ok"><span className="flex items-center gap-1"><Flag className="size-3" aria-hidden="true" />Scorecard</span><span>Pass {passMark}</span></span>
@@ -777,6 +775,56 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A situation's call as a read-only flow, for testing and for live trainings: how the person opens, each
+ * thing they raise with what happens when the rep handles or misses it, the never-say rules, the close
+ * and the scorecard. As a diagram or as a list; selecting a step only highlights it.
+ */
+export function CallFlow({ sc, passMark }: { sc: Scenario; passMark: number }) {
+  const [view, setView] = useState<"diagram" | "list">("diagram");
+  const [sel, setSel] = useState<CallFocus | null>(null);
+  const obs: Objection[] = sc.custom ? sc.custom.objections : sc.objectionIds.map(objection);
+  const rules: ProhibitedRule[] = sc.custom ? sc.custom.prohibited : sc.prohibitedIds.map(prohibited);
+  const n: NodeCtx = {
+    isSel: (f) => !!sel && keyOf(sel) === keyOf(f), flashing: () => false, flashN: 0, canEdit: false, addToChat: () => {},
+    pick: (f) => setSel(sel && keyOf(sel) === keyOf(f) ? null : f),
+  };
+  const callsOf = (o: Objection) => [o.finalOnly ? "Not in screening" : "Every call"];
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-hair px-4 py-2.5">
+        <Text size="caption" tone="subtle" className="min-w-0 flex-1">{obs.filter((o) => !o.moment).length} pushbacks · {obs.filter((o) => o.moment).length} moments to handle · about {sc.durationMin} min</Text>
+        <Seg value={view} onChange={(v) => setView(v as "diagram" | "list")} items={[["diagram", "Flow"], ["list", "Script"]]} label="View" />
+      </div>
+      {view === "diagram"
+        ? <Diagram sc={sc} obs={obs} rules={rules} inCall={() => true} callsOf={callsOf} passMark={passMark} n={n} onClear={() => setSel(null)} />
+        : <ListView sc={sc} obs={obs} rules={rules} inCall={() => true} callsOf={callsOf} passMark={passMark} n={n} />}
+    </div>
+  );
+}
+
+/**
+ * An objective's call, as a flow: an example call on one of its situations (reps get one, drawn). Switch
+ * the example to see how each situation would go. The flow belongs to the objective, not the situation.
+ */
+export function ObjectiveFlow({ scs, passMark }: { scs: Scenario[]; passMark: number }) {
+  const [pick, setPick] = useState(scs[0]?.id);
+  const sc = scs.find((x) => x.id === pick) ?? scs[0];
+  if (!sc) return <Text size="body" tone="subtle" className="px-4 py-6">No situations yet, so there's no call to show.</Text>;
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2.5">
+        <Text size="caption" weight="semibold" tone="subtle" className="shrink-0">{scs.length > 1 ? `Example call · reps get one of ${scs.length}, drawn:` : "The call:"}</Text>
+        {scs.map((x) => (
+          <button key={x.id} type="button" onClick={() => setPick(x.id)} aria-pressed={x.id === sc.id} title={x.description}
+            className={cn("max-w-[260px] truncate rounded-full border px-2.5 py-1 text-caption font-semibold transition-colors", x.id === sc.id ? "border-brand bg-tint text-brand-deep" : "border-hair-2 bg-card text-ink-3 hover:text-ink")}>{x.title}</button>
+        ))}
+      </div>
+      <CallFlow key={sc.id} sc={sc} passMark={passMark} />
     </div>
   );
 }

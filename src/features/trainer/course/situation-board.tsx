@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Maximize2, Mic, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { GitBranch, Maximize2, Mic, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
@@ -19,6 +19,9 @@ import { useCourse } from "./use-course";
 import { StageHeader } from "./stage-ui";
 import { People, SituationDetail, removeSituation, useHomeStrays } from "./scenarios"; // v1-hidden: ROLE_ICON
 import { askFor, turnId, useTrainingChat } from "./training-chat-store";
+import { ObjectiveFlow } from "./roleplay";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
+import { objectiveBank } from "@/lib/objective-call";
 
 const GENERATE_SECONDS = 120;
 /** v1-hidden: trainers picking which situations go into screening. SwishX sets screening up. */
@@ -39,6 +42,8 @@ export function SituationBoard() {
   const router = useRouter();
   const focusId = useSearchParams().get("obj");
   const [openSc, setOpenSc] = useState<string | null>(null);
+  /* Inside an objective: its situations, or its call as a flow. */
+  const [obTab, setObTab] = useState<"situations" | "flow">("situations");
   const course = data?.course;
   const scs = useMemo(() => (course ? allScenarios().filter((x) => course.scenarioIds.includes(x.id)) : []), [course?.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const [gen, setGen] = useState<{ left: number; total: number; plan: { ob: Objective; scs: Scenario[] }[]; placed: string[] } | null>(null);
@@ -120,7 +125,7 @@ export function SituationBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <StageHeader n={2} sub="The moments on a call where each objective is tested. Each objective has its own tab, with its situations under it."
+      <StageHeader n={3} sub="Where each objective gets tested on a call."
         actions={editable && !gen && bare.length > 0 && scs.length > 0 ? <Button size="sm" onClick={() => startGen()}><AgentIcon className="size-4" aria-hidden="true" />Write situations for {bare.length} more</Button> : undefined} />
 
       {gen && (
@@ -137,7 +142,7 @@ export function SituationBoard() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption text-ink-3">
           {/* v1-hidden: which situations screening uses. SwishX sets screening up.
           {screening && <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-info" aria-hidden="true" /><b className="text-ink-2">Screening</b> uses {screen.length} of these, a 3-minute call before the lessons. Not graded.</span>} */}
-          <span>{one ? "Each rep is scored on one situation per objective, drawn for them; a retry draws another." : "Each rep is scored on every situation."}</span>
+          <span>{one ? "One situation drawn per rep. A retry draws another." : "Every situation is scored."}</span>
         </div>
       )}
 
@@ -182,8 +187,8 @@ export function SituationBoard() {
                   <span className="text-caption text-ink-3"><People people={cur.people} /></span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {mine.length > 0 && (
-                    <Link href={`${base}/roleplay/test?run=objective&obj=${cur.id}`} title={`Test ${one ? "a drawn situation" : `the ${mine.length} situations`} of this objective`}
+                  {!editable && (
+                    <Link href={`${base}/roleplay/test?run=objective&obj=${cur.id}`} title={one ? "Test this objective's call, on a situation drawn for you" : `Test this objective's ${mine.length} situations`}
                       className="inline-flex h-8 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-3 text-caption font-bold text-ink-2 transition-colors hover:border-brand hover:text-brand-deep">
                       <Mic className="size-3.5" aria-hidden="true" />Test
                     </Link>
@@ -192,6 +197,19 @@ export function SituationBoard() {
                 </div>
               </div>
 
+              {/* The objective's situations, or its call as a flow (only when viewing a live training). */}
+              {!editable && (
+                <Segmented role="tablist" aria-label="Objective" className="self-start">
+                  {([["situations", `Situations · ${mine.length}`], ["flow", "Call flow"]] as const).map(([k, l]) => (
+                    <SegmentedButton key={k} active={obTab === k} role="tab" aria-pressed={undefined} aria-selected={obTab === k} onClick={() => setObTab(k)}>
+                      {k === "flow" && <GitBranch className="size-3.5" aria-hidden="true" />}{l}
+                    </SegmentedButton>
+                  ))}
+                </Segmented>
+              )}
+              {!editable && obTab === "flow"
+                ? <div className="-mx-4 -mb-4 overflow-hidden rounded-b-card border-t border-hair sm:-mx-5 sm:-mb-5"><ObjectiveFlow key={cur.id} scs={objectiveBank(course, cur, scs)} passMark={course.settings.passRoleplay} /></div>
+                : <>
               <ul className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
                 {mine.map((sc) => {
                   const scr = inScreen.has(sc.id);
@@ -238,6 +256,7 @@ export function SituationBoard() {
                   {editable && !gen && <Button size="sm" onClick={() => startGen(cur)}><AgentIcon className="size-3.5" aria-hidden="true" />Write a few</Button>}
                 </div>
               )}
+                </>}
             </section>
           </div>
         );

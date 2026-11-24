@@ -3,16 +3,20 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, ChevronRight, CheckCircle2, ArrowRight, Sparkle, ScanSearch, BookOpen, ClipboardCheck, Award, Library, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
+import { Mic, ChevronRight, CheckCircle2, ArrowRight, Sparkle, ScanSearch, BookOpen, ClipboardCheck, Award, Library, Stethoscope, Syringe, Pill, Briefcase, UserRound, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
 // v1-hidden (ask bar): import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
-import { fmtDate, isOverdue, opensLater } from "@/store/selectors";
+import { fmtDate, isOverdue, opensLater, daysFromToday } from "@/store/selectors";
 import { product } from "@/data/org";
-import type { Course, Progress } from "@/data/types";
+import type { Character, Course, Progress } from "@/data/types";
+import { CHARACTERS } from "@/lib/scenario-set";
+import { callPlan } from "./situations";
+import { JourneySteps, ProgressRing, VoiceWave, type JourneyStep } from "./hero-visuals";
 import { libraryCourses } from "@/features/library/library-data";
 // v1-hidden: import { allScenarios } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
 import { FictionalNote } from "@/components/patterns/academy";
+import { materialOptional } from "@/lib/direct-material";
 // v1-hidden (ask bar): import { useCopilot } from "@/features/copilot/copilot-store";
 import { useRep, pathProgress, isAssigned, isStarted, modulesOf, moduleMinutes, type NextStep } from "./use-rep"; // v1-hidden: pathModules
 // v1-hidden: import { QuickWatchRail } from "./watch";
@@ -51,7 +55,8 @@ export function RepHome() {
       {next ? <UpNext next={next} /> : suggested ? (
         <UpNextCard tag={{ icon: Library, label: "From the library" }} course={suggested.title} stage={{ icon: BookOpen, label: "Not started" }}
           title={suggested.objective || `${modulesOf(suggested).length} lessons`} why="Nothing is assigned to you right now. This is the one most of your team is taking."
-          cta="Have a look" href={`/rep/course/${suggested.id}`} minutes={modulesOf(suggested).reduce((x, m) => x + moduleMinutes(suggested, m), 0)} />
+          cta="Have a look" href={`/rep/course/${suggested.id}`} minutes={modulesOf(suggested).reduce((x, m) => x + moduleMinutes(suggested, m), 0)}
+          pct={0} steps={[{ label: "Start", state: "now" }, { label: "Certified", state: "todo" }]} visual={{ kind: "lesson", who: `${modulesOf(suggested).length} lessons`, sub: "Open to everyone on your team" }} />
       ) : (
         <section className="flex items-center gap-3 rounded-card bg-ink p-5 text-white">
           <CheckCircle2 className="size-7 shrink-0 text-ok-on-dark" aria-hidden="true" />
@@ -120,7 +125,7 @@ const TAG: Record<Progress["assignType"], { label: string; cls: string }> = {
 
 function TrainingCard({ p, c }: { p: Progress; c: Course }) {
   const pr = pathProgress(p, c);
-  const pct = p.path || !c.settings.screening ? pr.pct : 0;
+  const pct = c.origin === "direct" ? pr.overall : p.path || !c.settings.screening ? pr.pct : 0;
   const tag = TAG[p.assignType];
   return (
     <Link href={`/rep/course/${c.id}`} className="flex w-[220px] shrink-0 snap-start flex-col gap-3 rounded-card bg-card p-4 shadow-soft transition-transform active:scale-[0.98]">
@@ -184,52 +189,100 @@ function stageOf(st: NextStep): { icon: LucideIcon; label: string } {
 
 function UpNext({ next }: { next: NextStep }) {
   const p = next.progress;
-  const pr = pathProgress(p, next.course);
+  const c = next.course;
+  const pr = pathProgress(p, c);
   const tag = isAssigned(p)
     ? { icon: Sparkle, label: p.state === "needs_coaching" ? "Your manager asked for this" : p.state === "remediation" ? "Retake path" : p.assignType === "required" ? "Required for you" : "Assigned to you" }
     : { icon: Library, label: isStarted(p) ? "You started this" : "You picked this" };
-  const due = p.dueAt ? { text: isOverdue(p) ? "Overdue" : `Due ${fmtDate(p.dueAt)}`, late: isOverdue(p) } : undefined;
+  const days = p.dueAt ? daysFromToday(p.dueAt) : undefined;
+  const due = p.dueAt ? { text: isOverdue(p) ? `Overdue ${Math.abs(days!)} day${Math.abs(days!) === 1 ? "" : "s"}` : days === 0 ? "Due today" : `Due ${fmtDate(p.dueAt)}`, late: isOverdue(p) } : undefined;
   return (
-    <UpNextCard tag={tag} due={due} course={next.course.title} stage={stageOf(next)} title={next.title} why={next.why}
+    <UpNextCard tag={tag} due={due} course={c.title} stage={stageOf(next)} title={next.title} why={next.why}
       unlocks={next.unlocks} practiceOnly={p.mode === "practice"} cta={next.cta} href={next.href} minutes={next.minutes}
-      bar={p.mode !== "optional" && (p.path || !next.course.settings.screening) && pr.modules > 0 ? { pct: pr.pct, label: `${pr.modulesDone}/${pr.modules} lessons` } : undefined} />
+      pct={pr.overall} steps={journeyOf(p, c)} visual={visualOf(next)} />
   );
 }
 
-/** The course first, then the stage you're at in it and the one thing to do. */
-function UpNextCard({ tag, due, course, stage, title, why, unlocks, practiceOnly, bar, cta, href, minutes }: {
+/** The training's steps for the card, as the rep goes through them. */
+function journeyOf(p: Progress, c: Course): JourneyStep[] {
+  const pr = pathProgress(p, c);
+  const raw: { label: string; done: boolean; sub?: string }[] = [];
+  if (c.settings.screening) raw.push({ label: "Screening", done: !!p.screening });
+  if (c.origin === "direct") {
+    if (pr.modules > 0 && !materialOptional(c, p)) raw.push({ label: "Materials", done: pr.modulesDone >= pr.modules, sub: `${pr.modulesDone}/${pr.modules}` });
+    const plan = callPlan(c, p);
+    const passed = plan.objectives.filter((o) => o.state === "passed").length;
+    raw.push({ label: "Assessments", done: plan.allPassed, sub: `${passed}/${plan.objectives.length}` });
+  } else {
+    if (pr.modules > 0) raw.push({ label: "Lessons", done: pr.modulesDone >= pr.modules, sub: `${pr.modulesDone}/${pr.modules}` });
+    raw.push({ label: "Final", done: p.attempts.some((a) => a.passed) });
+  }
+  raw.push({ label: "Certified", done: p.state === "certified" });
+  const now = raw.findIndex((x) => !x.done);
+  return raw.map((x, i) => ({ label: x.label, sub: x.sub, state: x.done ? "done" : i === now ? "now" : "todo" }));
+}
+
+/** What the next step looks like: a call (who, how long), a lesson, or the certificate. */
+function visualOf(st: NextStep): Visual {
+  const who = st.href.match(/call=([a-z]+)/)?.[1] as Character | undefined;
+  if (st.href.includes("/screening")) return { kind: "call", who: "Screening call", sub: `about ${st.minutes ?? 3} min · not graded`, role: "doctor" };
+  if (st.href.includes("/assessment")) return { kind: "call", who: `${CHARACTERS[who ?? "doctor"].label} call`, sub: `about ${st.minutes ?? 5} min · scored`, role: who ?? "doctor" };
+  if (st.href.includes("/learn")) return { kind: "lesson", who: stageOf(st).label, sub: st.minutes ? `${st.minutes} min left` : "Your team's material" };
+  if (st.href.includes("/attest")) return { kind: "cert", who: "Every objective passed", sub: "Your certificate is ready" };
+  return { kind: "call", who: "Practice call", sub: "not graded", role: "doctor" };
+}
+
+type Visual = { kind: "call" | "lesson" | "cert"; who: string; sub: string; role?: Character };
+const ROLE_ICON: Record<Character, LucideIcon> = { doctor: Stethoscope, nurse: Syringe, pharmacist: Pill, manager: Briefcase, patient: UserRound };
+
+/**
+ * The one thing to do next, made to be seen: the training and the step, how far through you are (a ring
+ * that draws itself), what the step looks like (a call with a live voice, a lesson, the certificate),
+ * where it sits in the training's steps, and the way in.
+ */
+function UpNextCard({ tag, due, course, stage, title, practiceOnly, cta, href, minutes, pct, steps, visual }: {
   tag: { icon: LucideIcon; label: string }; due?: { text: string; late: boolean }; course: string; stage: { icon: LucideIcon; label: string };
-  title: string; why: string; unlocks?: string; practiceOnly?: boolean; bar?: { pct: number; label: string }; cta: string; href: string; minutes?: number;
+  title: string; why: string; unlocks?: string; practiceOnly?: boolean; cta: string; href: string; minutes?: number;
+  pct: number; steps: JourneyStep[]; visual: Visual;
 }) {
-  const Tag = tag.icon, Stage = stage.icon;
+  const Tag = tag.icon;
   const sameTitle = title.toLowerCase() === stage.label.toLowerCase();
+  const Who = visual.kind === "call" ? ROLE_ICON[visual.role ?? "doctor"] : visual.kind === "lesson" ? BookOpen : Award;
   return (
     <section className="relative overflow-hidden rounded-card bg-ink p-5 text-white shadow-float">
-      <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-brand/45 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-10 size-48 rounded-full bg-brand-2/25 blur-2xl" />
+      <div className="drift pointer-events-none absolute -right-20 -top-24 size-64 rounded-full bg-brand/50 blur-3xl" />
+      <div className="drift pointer-events-none absolute -bottom-28 -left-16 size-56 rounded-full bg-brand-2/30 blur-3xl" style={{ animationDelay: "-5s" }} />
       <div className="relative flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 text-caption font-bold text-white/75">
-          <span className="flex items-center gap-1.5"><Tag className="size-3.5" aria-hidden="true" />{tag.label}</span>
-          {due && <span className={cn("shrink-0", due.late && "text-brand-light")}>{due.text}</span>}
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-caption font-bold text-white/75"><Tag className="size-3.5" aria-hidden="true" />{tag.label}</span>
+          {due && <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold", due.late ? "bg-[#ff8a6b]/20 text-[#ffb59f]" : "bg-white/10 text-white/80")}>{due.text}</span>}
         </div>
-        <div className="flex flex-col gap-2">
-          <Text size="display-lg" weight="extrabold" tone="inverse" tracking="tight" className="leading-tight">{course}</Text>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-caption font-bold text-white"><Stage className="size-3.5" aria-hidden="true" />{stage.label}</span>
-            {practiceOnly && <span className="rounded-full bg-white/10 px-3 py-1 text-caption font-semibold text-white/80">Practice only</span>}
-            {!sameTitle && <Text size="body-lg" weight="semibold" tone="inverse" className="min-w-0">{title}</Text>}
+
+        <div className="flex items-center gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <Text size="display-lg" weight="extrabold" tone="inverse" tracking="tight" className="leading-tight">{course}</Text>
+            {!sameTitle && <Text size="body" weight="semibold" tone="inverse" className="line-clamp-2 opacity-80">{title}</Text>}
+            {practiceOnly && <span className="self-start rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-bold text-white/80">Practice only</span>}
           </div>
-          {/* v1-hidden: the "why" sentence and "Finishing it unlocks…" line; the button already says how long it takes.
-          <Text size="body" tone="inverse" className="opacity-75">{why}</Text>
-          {unlocks && <span className="flex items-center gap-1.5 text-caption text-white/65"><Lock className="size-3" aria-hidden="true" />Finishing it unlocks {unlocks}</span>} */}
+          <ProgressRing pct={pct}><span className="flex flex-col items-center leading-none"><span className="text-subhead font-extrabold tabular-nums">{pct}%</span><span className="mt-0.5 text-[10px] font-bold text-white/60">done</span></span></ProgressRing>
         </div>
-        {bar && (
-          <div className="flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-brand-2" style={{ width: `${bar.pct}%` }} /></div>
-            <Text size="caption" tone="inverse" className="opacity-75" tabular>{bar.label}</Text>
-          </div>
-        )}
-        {/* One line, always: the card above already names who and what, so the button keeps just the verb ("Start call · Dana · 1 objective" → "Start call"). */}
+
+        {/* What's next, drawn: a call with a live voice, a lesson, or the certificate. */}
+        <div className="flex items-center gap-3 rounded-[20px] bg-white/8 p-3">
+          <span className="relative grid size-12 shrink-0 place-items-center">
+            {visual.kind !== "lesson" && <span className="pulse-ring absolute inset-0 rounded-full bg-white/20" />}
+            <span className={cn("relative grid size-12 place-items-center rounded-full text-white", visual.kind === "cert" ? "bg-sage" : visual.kind === "lesson" ? "bg-lilac" : "bg-peach")}><Who className="size-5" aria-hidden="true" /></span>
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-body font-bold text-white">{visual.who}</span>
+            <span className="truncate text-caption text-white/65">{visual.sub}</span>
+          </span>
+          {visual.kind === "call" && <VoiceWave bars={9} className="h-8 w-16 shrink-0" barClass="bg-white/70" />}
+        </div>
+
+        <JourneySteps steps={steps} />
+
+        {/* One line, always: the card above already names who and what, so the button keeps just the verb. */}
         <Link href={href} className="focus-ring flex h-14 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-5 text-subhead font-bold text-ink transition-transform active:scale-[0.98]">
           <span className="truncate">{cta.split(" · ")[0]}</span>{minutes ? <span className="shrink-0 font-semibold text-ink-3">· {minutes} min</span> : null}<ArrowRight className="size-4 shrink-0" aria-hidden="true" />
         </Link>

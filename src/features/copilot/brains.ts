@@ -170,12 +170,12 @@ export const trainerBrain = {
       };
     }
     if (has(p, "weak", "gap", "struggl", "competenc", "criteri", "skill")) {
-      const ps = s.progress.filter((x) => x.courseId === "c-lumora-launch");
+      const ps = s.progress.filter((x) => x.courseId === "c-fieldkit");
       const rows = heatmap(s, ps, "assessment");
       const weak = weakestDomains(rows).slice(0, 3);
       const worstRegion = rows.map((r) => ({ name: r.name, v: r.cells.find((x) => x.domain === weak[0]?.domain.id)?.value })).filter((r) => r.v != null).sort((a, b) => a.v! - b.v!)[0];
       return {
-        text: `On Lumora, the weakest area is ${weak[0]?.domain.name.toLowerCase()} (average ${weak[0]?.value}).${worstRegion ? ` ${worstRegion.name} is lowest there at ${worstRegion.v}.` : ""} A short booster on it would reach the most reps.`,
+        text: `On the Lumora field kit, the weakest area is ${weak[0]?.domain.name.toLowerCase()} (average ${weak[0]?.value}).${worstRegion ? ` ${worstRegion.name} is lowest there at ${worstRegion.v}.` : ""} A short booster on it would reach the most reps.`,
         items: weak.map((w) => ({ tone: w.value < 65 ? "danger" : w.value < 80 ? "warn" : "ok", title: w.domain.name, sub: `Average ${w.value}` })),
         actions: [{ label: "See the heatmap", href: "/trainer/analytics" }],
       };
@@ -404,7 +404,25 @@ export const repBrain = {
       ],
     };
   },
+  /** Suggestions from the rep's own situation: their next objective, a product they're assigned on, what's overdue, their last practice call. */
+  suggestions(ctx: Ctx): { text: string; tag: string }[] {
+    const mine = ctx.s.progress.filter((p) => p.userId === ctx.me.id && p.state !== "certified");
+    const step = repNext(ctx);
+    const out: { text: string; tag: string }[] = [];
+    if (step && /\/assessment|\/screening/.test(step.href) && !/screening/i.test(step.title)) out.push({ text: `Help me with “${step.title}”`, tag: step.course.title });
+    const brands = new Map<string, number>();
+    for (const p of mine) { const b = PRODUCTS.find((x) => x.id === courseOf(ctx.s, p.courseId)?.productId)?.brand; if (b) brands.set(b, (brands.get(b) ?? 0) + 1); }
+    const top = [...brands.entries()].sort((a, b) => b[1] - a[1]);
+    if (top[0]) out.push({ text: `What's assigned to me on ${top[1]?.[0] ?? top[0][0]}?`, tag: top[1]?.[0] ?? top[0][0] });
+    out.push(mine.some(isOverdue) ? { text: "What's overdue, and what's left?", tag: "Overdue" } : { text: "When are my trainings due?", tag: "Deadlines" });
+    const last = ctx.s.practice.filter((x) => x.userId === ctx.me.id && x.result).sort((a, b) => b.at.localeCompare(a.at))[0];
+    if (last?.result?.criteria.some((c) => !c.met)) out.push({ text: "What did I miss in my last practice call?", tag: "Practice" });
+    if (out.length < 4) out.push({ text: "Help me with the cost objection", tag: "Objections" });
+    return out.slice(0, 4);
+  },
   prompts(ctx: Ctx) {
+    const sug = this.suggestions(ctx).map((x) => x.text);
+    if (sug.length) return sug;
     const onCourse = !!pageCourse(ctx);
     return [
       onCourse ? "Explain this lesson simply" : "What should I do next?",
@@ -425,6 +443,39 @@ export const repBrain = {
     }
     if (COMPARATIVE_HINTS.some((h) => p.includes(h))) {
       return { text: "There are no head-to-head studies, so comparative claims aren't approved. Stick to what the label and approved materials say about this product on its own." };
+    }
+    /* An objective from the rep's trainings, by name: what it asks for and how to get it right. */
+    const obHit = ctx.s.progress.filter((x) => x.userId === ctx.me.id).flatMap((x) => (courseOf(ctx.s, x.courseId)?.objectives ?? []).map((ob) => ({ ob, c: courseOf(ctx.s, x.courseId)! })))
+      .find(({ ob }) => p.includes(ob.title.toLowerCase().replace(/[“”]/g, "\"")) || p.replace(/[“”"]/g, "").includes(ob.title.toLowerCase().replace(/[“”"]/g, "")));
+    if (obHit) {
+      const next = repNext(ctx);
+      return {
+        text: `${obHit.ob.title}. ${obHit.ob.description} On the call, this is what counts:`,
+        items: (obHit.ob.lookFors ?? []).map((x) => ({ tone: "ok" as Tone, title: x })),
+        actions: [
+          ...(next && next.course.id === obHit.c.id ? [{ label: next.cta.split(" · ")[0], href: next.href }] : []),
+          { label: "Rehearse it in Practice", href: "/rep/practice/prep" },
+        ],
+      };
+    }
+    /* Everything assigned on one product. */
+    const brand = PRODUCTS.find((x) => p.includes(` ${x.brand.toLowerCase()}`));
+    if (brand && has(p, "assigned", "trainings", "what's on", "my list")) {
+      const on = ctx.s.progress.filter((x) => x.userId === ctx.me.id && courseOf(ctx.s, x.courseId)?.productId === brand.id);
+      return on.length
+        ? { text: `You have ${on.length} training${on.length === 1 ? "" : "s"} on ${brand.brand}:`, items: on.map((x) => ({ tone: (x.state === "certified" ? "ok" : isOverdue(x) ? "danger" : "faint") as Tone, title: courseOf(ctx.s, x.courseId)?.title ?? "", sub: x.state === "certified" ? "Certified" : `${pathProgress(x, courseOf(ctx.s, x.courseId)!).overall}% done${x.dueAt ? ` · ${isOverdue(x) ? "overdue since" : "due"} ${fmtDate(x.dueAt)}` : ""}`, href: `/rep/course/${x.courseId}` })) }
+        : { text: `Nothing on ${brand.brand} is assigned to you right now.` };
+    }
+    /* The last practice call, and what it missed. */
+    if (has(p, "practice call", "last call", "last practice")) {
+      const last = ctx.s.practice.filter((x) => x.userId === ctx.me.id && x.result).sort((a, b) => b.at.localeCompare(a.at))[0];
+      if (!last?.result) return { text: "You haven't taken a practice call yet.", actions: [{ label: "Start one", href: "/rep/practice/prep" }] };
+      const miss = last.result.criteria.filter((c) => !c.met);
+      return {
+        text: `“${last.title}” scored ${last.result.score}. ${miss.length ? `You missed ${miss.length} point${miss.length === 1 ? "" : "s"}:` : "You met every point."}${last.result.flags.length ? ` And one line was flagged: ${last.result.flags[0].label.toLowerCase()}.` : ""}`,
+        items: miss.map((c) => ({ tone: "warn" as Tone, title: c.label })),
+        actions: [{ label: "Open the call", href: `/rep/practice/session/${last.id}` }, { label: "Try it again", href: `/rep/practice/prep?from=${last.id}` }],
+      };
     }
     if (has(p, "explain", "summar", "module", "key point", "simply", "what is this")) {
       const r = repModule(ctx);

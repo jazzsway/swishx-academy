@@ -25,6 +25,9 @@ import { cn } from "@/lib/cn";
 const PAD = 3;
 const BORDER = 1;
 
+/** The corner for something nested in a rounded box: the box's radius less the gap between them (padding plus border). */
+export const nestedRadius = (outer: string, gap: number) => `calc(${outer} - ${gap}px)`;
+
 export function Segmented({
   children,
   className,

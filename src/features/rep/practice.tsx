@@ -3,42 +3,78 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Lock, Mic, ChevronRight, Trash2, RotateCcw, Flame, X, Check } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
+import { Lock, Mic, Trash2, RotateCcw, Flame, X, Check, AudioLines, Stethoscope, Syringe, Pill, Briefcase, UserRound, ShieldAlert } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
 import { cn } from "@/lib/cn";
 import { nowIso, useApp } from "@/store/app-store";
-import { useMe, fmtDate, daysFromToday } from "@/store/selectors";
-import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, registerExtraObjections, scenario as getScenario } from "@/data/scenarios"; // v1-hidden: allScenarios
+import { useMe, daysFromToday } from "@/store/selectors";
+import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, allScenarios, objection, registerExtraObjections, scenario as getScenario } from "@/data/scenarios";
 import { situationObjection } from "@/lib/roleplay-draft";
 import type { Item, PracticeSession } from "@/data/types";
-import { competency } from "@/data/org";
+import { competency, product, PRODUCTS } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { ScreenTop, BottomBar } from "@/features/shell/screen-chrome";
 import { Chip } from "@/components/ui/chip";
-import { Modal } from "@/components/ui/modal";
 import { EmptyState, Ring } from "@/components/patterns/academy";
+import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { CallScreen } from "@/features/roleplay/call-screen";
 import { Scorecard } from "@/features/roleplay/scorecard";
 import { BlockView } from "@/features/shared/block-view";
+import { PracticeHero } from "./hero-visuals";
 
-const NAMES = ["Dr. Sam Rivera", "Dr. Priyanka Rao", "Dr. Tom Becker", "Dr. Alicia Moreno", "Dr. Jonah Weiss"];
+/* ── Who you can rehearse with ────────────────────────────────────────────── */
 
-function personaFor(setup: NonNullable<PracticeSession["setup"]>) {
-  const name = NAMES[(setup.specialty.length + setup.traits.length) % NAMES.length];
+type Role = "doctor" | "nurse" | "pharmacist" | "manager";
+const ROLES: { id: Role; label: string; names: string[]; specialty?: string }[] = [
+  { id: "doctor", label: "Doctor", names: ["Dr. Sam Rivera", "Dr. Priyanka Rao", "Dr. Alicia Moreno", "Dr. Jonah Weiss"] },
+  { id: "nurse", label: "Nurse", names: ["Nurse Tom Becker", "Nurse Grace Obi"], specialty: "Dermatology nurse" },
+  { id: "pharmacist", label: "Pharmacist", names: ["Mei Lin, PharmD", "Sam Patel, PharmD"], specialty: "Specialty pharmacist" },
+  { id: "manager", label: "Practice manager", names: ["Dana Whitfield", "Luis Romero"], specialty: "Practice manager" },
+];
+const ROLE_ICON: Record<string, typeof Stethoscope> = { doctor: Stethoscope, nurse: Syringe, pharmacist: Pill, manager: Briefcase, patient: UserRound };
+const LENGTHS = [3, 5, 8];
+const initialsOf = (name: string) => name.replace(/^(Dr\.|Nurse)\s*/, "").replace(/,.*$/, "").split(" ").map((x) => x[0]).join("").slice(0, 2);
+const mmss = (n: number) => `${Math.floor(n / 60)}:${String(Math.round(n % 60)).padStart(2, "0")}`;
+
+function personaFor(setup: NonNullable<PracticeSession["setup"]>, brand: string) {
+  const role = ROLES.find((r) => r.id === (setup.role ?? "doctor")) ?? ROLES[0];
+  const name = setup.persona ?? role.names[(setup.specialty.length + setup.traits.length) % role.names.length];
   const opening = setup.callType === "First call"
-    ? "Hi. I don't have long. What's Lumora and why should I care?"
-    : setup.callType === "Follow-up" ? "Back again. I've thought about Lumora since last time. I still have questions."
-      : "So Lumora's been out a few weeks. Tell me what you're hearing from other offices.";
-  return { name, specialty: setup.specialty, setting: "Practice you're visiting this week (simulated)", traits: setup.traits, opening };
+    ? `Hi. I don't have long. What's ${brand} and why should I care?`
+    : setup.callType === "Follow-up" ? `Back again. I've thought about ${brand} since last time. I still have questions.`
+      : `So ${brand}'s been out a few weeks. Tell me what you're hearing from other offices.`;
+  return { name, specialty: role.id === "doctor" ? setup.specialty : role.specialty!, setting: "Practice you're visiting this week (simulated)", traits: setup.traits, opening };
 }
 
+/** The usual objections, in the chosen product's name. Lumora's are the originals; others are copies with the name swapped. */
+function objectionsFor(ids: string[], brand: string) {
+  if (brand === "Lumora") return { ids, extra: [] as typeof OBJECTIONS };
+  const extra = OBJECTIONS.filter((o) => ids.includes(o.id)).map((o) => {
+    const swap = (t: string) => t.replace(/Lumora/g, brand);
+    return { ...o, id: `${o.id}@${brand}`, line: swap(o.line), pushback: swap(o.pushback), handled: swap(o.handled) };
+  });
+  return { ids: ids.map((id) => (OBJECTIONS.some((o) => o.id === id) ? `${id}@${brand}` : id)), extra };
+}
+
+const dayLabel = (iso: string) => {
+  const d = daysFromToday(iso.slice(0, 10));
+  return d === 0 ? "Today" : d === -1 ? "Yesterday" : new Date(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+};
+
+/** v1-hidden: practising situations from your trainings, the practice stats, "work on next" and the past-call filters. Practice is just: start a call, and your past calls. */
+const EXTRAS = false;
+
+/**
+ * Practice: voice calls to rehearse, separate from asking SwishX in Chat. Start a call you set up (who,
+ * product, mood, what they'll push back on), or practise a situation from your trainings. Every call
+ * is kept privately, with its scorecard and full transcript, to look back on and try again.
+ */
 export function PracticeHub() {
   const me = useMe();
   const s = useApp();
+  const [show, setShow] = useState<"all" | "rehearsal" | "training">("all");
   const mine = s.practice.filter((x) => x.userId === me.id);
-  /* v1-hidden: const assigned = s.progress.filter((p) => p.userId === me.id).map((p) => p.courseId); */
-  /* v1-hidden: const library = allScenarios().filter((x) => x.use.includes("practice") && assigned.includes(x.courseId)); */
-  const calls = mine.filter((x) => x.kind === "roleplay"); // v1-hidden: quiz sessions (no quiz in v1)
+  const calls = mine.filter((x) => x.kind === "roleplay").sort((a, b) => b.at.localeCompare(a.at)); // v1-hidden: quiz sessions (no quiz in v1)
   const scored = calls.filter((x) => x.result);
   const weekAgo = new Date(new Date(nowIso()).getTime() - 7 * 86400_000).toISOString();
   const thisWeek = calls.filter((x) => x.at >= weekAgo).length;
@@ -48,45 +84,73 @@ export function PracticeHub() {
   const missed = new Map<string, number>();
   for (const x of scored.slice(0, 5)) for (const c of x.result!.criteria) if (!c.met) missed.set(c.label, (missed.get(c.label) ?? 0) + 1);
   const workOn = [...missed.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  /* Situations from the trainings assigned to you, one per objective you haven't passed yet. */
+  const fromTrainings = useMemo(() => {
+    const out: { sc: ReturnType<typeof allScenarios>[number]; course: string; objective?: string }[] = [];
+    for (const p of s.progress.filter((x) => x.userId === me.id && x.state !== "certified")) {
+      const c = s.courses.find((x) => x.id === p.courseId);
+      if (!c || c.origin !== "direct") continue;
+      /* One per training, so each training you're on is there to practise. */
+      for (const ob of c.objectives ?? []) {
+        const sc = allScenarios().find((x) => c.scenarioIds.includes(x.id) && x.objectiveId === ob.id && !x.use.includes("screening"));
+        if (sc && !p.scenarioRuns?.[sc.id]?.passed) { out.push({ sc, course: c.title, objective: ob.title }); break; }
+      }
+      if (out.length >= 4) return out;
+    }
+    return out;
+  }, [s.progress, s.courses, me.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = calls.filter((x) => show === "all" || (x.setup?.source ?? "rehearsal") === show);
+  const days = [...new Set(shown.map((x) => dayLabel(x.at)))];
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-4 pt-5">
       <header className="flex items-end justify-between gap-3">
         <div className="flex flex-col">
           <Text as="h1" size="hero" weight="extrabold" tracking="tight">Practice</Text>
-          <Text size="body" tone="subtle">Rehearse with AI doctors before the real call.</Text>
+          <Text size="body" tone="subtle">Voice calls to rehearse before the real one.</Text>
         </div>
         <span className="flex shrink-0 items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-caption font-bold text-white"><Lock className="size-3" aria-hidden="true" />Private</span>
       </header>
 
-      <Link href="/rep/practice/prep" className="squircle group relative overflow-hidden rounded-card bg-ink p-5 text-white shadow-float">
-        <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 100% 0%, var(--color-brand) 0, transparent 55%), radial-gradient(circle at 0% 120%, var(--color-brand-2) 0, transparent 45%)" }} />
-        <div className="relative flex flex-col gap-3">
-          <span className="grid size-12 place-items-center rounded-full bg-white/15"><Mic className="size-6" aria-hidden="true" /></span>
-          <div className="flex flex-col gap-1">
-            <Text size="display" weight="extrabold" tone="inverse" tracking="tight">Prep for a meeting</Text>
-            <Text size="body" tone="inverse" className="opacity-80">Tell SwishX who you&apos;re seeing: their specialty, their mood, what they&apos;ll push back on. Then rehearse it.</Text>
-          </div>
-          <span className="flex h-14 items-center justify-center gap-2 rounded-full bg-white text-subhead font-bold text-ink transition-transform group-active:scale-[0.98]">Set up a rehearsal<ChevronRight className="size-4" aria-hidden="true" /></span>
-        </div>
-      </Link>
+      <PracticeHero initials={me.initials} />
 
-      <section aria-label="Your practice" className="grid grid-cols-3 gap-2.5">
+      {EXTRAS && fromTrainings.length > 0 && (
+        <section className="flex flex-col gap-2.5">
+          <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">From your trainings</Text><Text size="caption" tone="subtle">Not scored for the record</Text></div>
+          <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+            {fromTrainings.map(({ sc, course, objective }) => {
+              const I = ROLE_ICON[sc.character ?? "doctor"] ?? Stethoscope;
+              return (
+                <Link key={sc.id} href={`/rep/practice/call?scenario=${sc.id}`} className="flex w-[248px] shrink-0 snap-start flex-col gap-2.5 rounded-card bg-card p-4 shadow-hair transition-transform active:scale-[0.98]">
+                  <span className="flex items-center gap-2">
+                    <span className="grid size-9 place-items-center rounded-full bg-sage-bg text-ok"><I className="size-4" aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1 truncate text-caption font-semibold text-ink-3">{course}</span>
+                  </span>
+                  <Text size="body-lg" weight="bold" className="line-clamp-2 leading-snug">{objective ?? sc.title}</Text>
+                  <Text size="caption" tone="subtle" className="line-clamp-2">{sc.title} · {sc.persona.name.replace(/,.*$/, "")}</Text>
+                  <span className="mt-auto flex items-center gap-1.5 text-caption font-bold text-brand-deep"><Mic className="size-3.5" aria-hidden="true" />Practise it · {sc.durationMin} min</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {EXTRAS && <section aria-label="Your practice" className="grid grid-cols-3 gap-2.5">
         {[
-          { label: "This week", value: thisWeek, sub: thisWeek === 1 ? "session" : "sessions", tile: "bg-lilac" },
+          { label: "This week", value: thisWeek, sub: thisWeek === 1 ? "call" : "calls", tile: "bg-lilac" },
           { label: "Average", value: avg ?? "–", sub: avg !== undefined ? "score" : "no calls yet", tile: "bg-sage" },
           { label: "Best", value: best ?? "–", sub: best !== undefined ? "score" : "no calls yet", tile: "bg-peach" },
         ].map((t) => (
-          /* Whole-colour stat tiles, the freud way. */
           <div key={t.label} className={cn("flex flex-col gap-1 rounded-panel px-3.5 py-3.5 text-white shadow-soft", t.tile)}>
             <span className="text-caption font-bold text-white/90">{t.label}</span>
             <span className="text-display-lg font-extrabold leading-none tabular-nums">{t.value}</span>
             <span className="text-caption font-semibold text-white/85">{t.sub}</span>
           </div>
         ))}
-      </section>
+      </section>}
 
-      {workOn.length > 0 && (
+      {EXTRAS && workOn.length > 0 && (
         <section className="flex flex-col gap-2.5 rounded-card bg-tint p-4">
           <div className="flex items-center gap-2"><Flame className="size-4 text-brand-deep" aria-hidden="true" /><Text size="body-lg" weight="bold">Work on next</Text></div>
           <Text size="caption" tone="muted" className="-mt-1.5">What your recent calls missed most often.</Text>
@@ -102,63 +166,51 @@ export function PracticeHub() {
         </section>
       )}
 
-      {/* v1-hidden: AI doctors from your trainings. Practice is your own rehearsals and their history.
-      <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">AI doctors</Text><Text size="caption" tone="subtle">From your trainings</Text></div>
-        {library.length === 0 && <Text tone="subtle">No practice doctors in your trainings yet. Prep for a meeting builds one for you.</Text>}
-        {library.map((sc) => {
-          const runs = scored.filter((x) => x.title.includes(sc.persona.name) || x.setup?.callType === sc.title);
-          const top = runs.length ? Math.max(...runs.map((x) => x.result!.score)) : undefined;
-          return (
-            <div key={sc.id} className="squircle flex flex-col gap-3 rounded-card border border-hair bg-card p-4 shadow-hair">
-              <div className="flex items-center gap-3">
-                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body-lg font-extrabold text-white">{sc.persona.name.replace("Dr. ", "").split(" ").map((x) => x[0]).join("")}</span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <Text size="body-lg" weight="bold" truncate>{sc.persona.name}</Text>
-                  <Text size="caption" tone="subtle" truncate>{sc.persona.specialty} · {sc.persona.setting}</Text>
-                </div>
-                {top !== undefined && <Ring value={top} size={40} stroke={4} label={`Your best ${top}%`}><Text size="micro" weight="bold">{top}</Text></Ring>}
-              </div>
-              <Text size="body" tone="muted">{sc.objective}</Text>
-              <div className="flex flex-wrap gap-1.5">
-                {sc.persona.traits.map((t) => <Chip key={t} size="sm">{t}</Chip>)}
-                <Chip size="sm">{sc.durationMin} min</Chip>
-              </div>
-              <Link href={`/rep/practice/call?scenario=${sc.id}`} className="flex h-11 items-center justify-center gap-2 rounded-control bg-brand text-body-lg font-bold text-white shadow-brand-lift transition-transform active:scale-[0.98]">
-                <Mic className="size-4" aria-hidden="true" />{runs.length ? "Call again" : "Start the call"}
-              </Link>
-            </div>
-          );
-        })}
-      </section>
-
-      */}
-      <section className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Your practice calls</Text>{calls.length > 0 && <Text size="caption" tone="subtle">{calls.length} saved</Text>}</div>
-        {calls.length === 0 && (
-          <div className="squircle flex flex-col items-center gap-2 rounded-card border border-dashed border-hair-2 px-6 py-8 text-center">
-            <Mic className="size-6 text-ink-4" aria-hidden="true" />
-            <Text size="body-lg" weight="semibold">No sessions yet</Text>
-            <Text size="body" tone="subtle">Your first call takes about 5 minutes. You&apos;ll get a scorecard straight after.</Text>
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between"><Text as="h2" size="title" weight="bold">Past calls</Text>{calls.length > 0 && <Text size="caption" tone="subtle">{calls.length} · private</Text>}</div>
+        {EXTRAS && calls.length > 0 && (
+          <div className="flex gap-2">
+            {([["all", "All"], ["rehearsal", "Rehearsals"], ["training", "From trainings"]] as const).map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setShow(k)} aria-pressed={show === k}
+                className={cn("h-9 rounded-full px-3.5 text-caption font-bold transition-colors", show === k ? "bg-ink text-white" : "bg-card text-ink-2 shadow-hair")}>{l}</button>
+            ))}
           </div>
         )}
-        {calls.map((x) => {
-          const miss = x.result?.criteria.find((c) => !c.met);
-          return (
-            <Link key={x.id} href={`/rep/practice/session/${x.id}`} className="squircle flex items-center gap-3 rounded-panel border border-hair bg-card px-4 py-3 transition-colors hover:bg-subtle">
-              <Ring value={x.result?.score ?? 0} size={44} stroke={4} tone={(x.result?.score ?? 0) >= 75 ? "ok" : "brand"} label={`${x.result?.score ?? 0}%`}><Text size="caption" weight="bold" tabular>{x.result?.score ?? 0}</Text></Ring>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Text size="body-lg" weight="semibold" truncate>{x.title}</Text>
-                <Text size="caption" tone="subtle" truncate>{fmtDate(x.at)}{miss ? ` · work on: ${miss.label.toLowerCase()}` : x.result ? " · every point met" : " · not finished"}</Text>
-              </div>
-              <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />
-            </Link>
-          );
-        })}
+        {calls.length === 0 && (
+          <div className="squircle flex flex-col items-center gap-2 rounded-card border border-dashed border-hair-2 px-6 py-8 text-center">
+            <AudioLines className="size-6 text-ink-4" aria-hidden="true" />
+            <Text size="body-lg" weight="semibold">No calls yet</Text>
+            <Text size="body" tone="subtle">Your first call takes about 5 minutes. You&apos;ll get a scorecard and the transcript straight after.</Text>
+          </div>
+        )}
+        {calls.length > 0 && !shown.length && <Text size="body" tone="subtle">None of these yet.</Text>}
+        {days.map((d) => (
+          <div key={d} className="flex flex-col gap-2">
+            <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">{d}</Text>
+            {shown.filter((x) => dayLabel(x.at) === d).map((x) => {
+              const I = ROLE_ICON[x.setup?.role ?? "doctor"] ?? Stethoscope;
+              const score = x.result?.score ?? 0;
+              return (
+                <Link key={x.id} href={`/rep/practice/session/${x.id}`} className="flex items-center gap-3 rounded-card bg-card px-3.5 py-3 shadow-hair transition-transform active:scale-[0.99]">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><I className="size-5" aria-hidden="true" /></span>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <Text size="body" weight="bold" truncate>{x.title}</Text>
+                    <Text size="caption" tone="subtle" truncate>
+                      {new Date(x.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{x.result ? ` · ${mmss(x.result.durationSec)}` : ""}{x.setup?.source === "training" ? " · from a training" : ""}{x.setup?.assisted ? " · assisted" : ""}
+                    </Text>
+                  </div>
+                  {x.result
+                    ? <Ring value={score} size={42} stroke={4} tone={score >= 75 ? "ok" : "brand"} label={`${score}%`}><Text size="caption" weight="bold" tabular>{score}</Text></Ring>
+                    : <span className="text-caption text-ink-4">Not finished</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </section>
 
       <Text size="caption" tone="subtle" className="flex items-start gap-1.5 px-1">
-        <Lock className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Only you can see your sessions. Your trainer sees anonymous team trends only. Sessions delete after {s.settings.practiceRetentionDays} days.
+        <Lock className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Only you can see your calls. Your trainer sees anonymous team trends only. Calls delete after {s.settings.practiceRetentionDays} days.
       </Text>
     </div>
   );
@@ -166,14 +218,15 @@ export function PracticeHub() {
 
 /** A tougher version of the same call: sharper doctor, one more objection. */
 function harden(setup: NonNullable<PracticeSession["setup"]>): NonNullable<PracticeSession["setup"]> {
-  const extra = OBJECTIONS.find((o) => !setup.objectionIds.includes(o.id));
+  const extra = OBJECTIONS.find((o) => !setup.objectionIds.some((x) => x.split("@")[0] === o.id));
   return {
     ...setup,
     traits: [...new Set([...setup.traits, "Sceptical", "Time-pressed"])],
-    objectionIds: setup.objectionIds.length < 3 && extra ? [...setup.objectionIds, extra.id] : setup.objectionIds,
+    objectionIds: setup.objectionIds.length < 3 && extra ? [...setup.objectionIds.map((x) => x.split("@")[0]), extra.id] : setup.objectionIds.map((x) => x.split("@")[0]),
   };
 }
 
+/** Setting up a practice call: who, which product, what they're like, what they'll push on, how long, and how much help. */
 export function PrepMeeting() {
   const router = useRouter();
   const search = useSearchParams();
@@ -182,49 +235,58 @@ export function PrepMeeting() {
   /* "Try again" and "Harder" come back here with the earlier session's setup and start straight away. */
   const from = s.practice.find((p) => p.id === search.get("from") && p.userId === me.id)?.setup;
   const start = from && (search.get("harder") === "1" ? harden(from) : from);
+  const products = PRODUCTS.filter((p) => p.divisionId === (me.divisionId ?? "div-imm") && p.status !== "Awaiting approval");
+  const [role, setRole] = useState<Role>((start?.role as Role) ?? "doctor");
+  const [productId, setProductId] = useState(start?.productId ?? products[0]?.id ?? "p-lumora");
   const [specialty, setSpecialty] = useState(start?.specialty ?? PREP_SPECIALTIES[0]);
   const [traits, setTraits] = useState<string[]>(start?.traits ?? ["Sceptical", "Cost-focused"]);
   const [callType, setCallType] = useState(start?.callType ?? PREP_CALL_TYPES[1]);
-  const [objs, setObjs] = useState<string[]>(start?.objectionIds.filter((x) => x !== "ob-own") ?? ["ob-cost", "ob-eyes"]);
+  const [objs, setObjs] = useState<string[]>(start?.objectionIds.filter((x) => x !== "ob-own").map((x) => x.split("@")[0]) ?? ["ob-cost", "ob-eyes"]);
   const [situation, setSituation] = useState(start?.situation ?? "");
+  const [minutes, setMinutes] = useState(start?.minutes ?? 5);
   const [assisted, setAssisted] = useState(start?.assisted ?? true);
   const [live, setLive] = useState(!!start);
-  /* The rep's own situation becomes the doctor's first objection, for this call only. */
+  const brand = PRODUCTS.find((p) => p.id === productId)?.brand ?? "Lumora";
+  /* The rep's own situation becomes the person's first objection, for this call only; the rest speak the product's name. */
   const own = situation.trim().length > 8 ? situationObjection(situation) : undefined;
-  useEffect(() => { registerExtraObjections(own ? [own] : []); }, [own?.line]); // eslint-disable-line react-hooks/exhaustive-deps
-  const callObjs = own ? ["ob-own", ...objs.slice(0, 2)] : objs;
-  const setup = { specialty, traits, objectionIds: callObjs, callType, assisted, situation: own ? situation.trim() : undefined };
+  const branded = objectionsFor(objs, brand);
+  useEffect(() => { registerExtraObjections([...(own ? [own] : []), ...branded.extra]); }, [own?.line, brand, objs.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const callObjs = own ? ["ob-own", ...branded.ids.slice(0, 2)] : branded.ids;
+  const setup: NonNullable<PracticeSession["setup"]> = { specialty, traits, objectionIds: callObjs, callType, assisted, situation: own ? situation.trim() : undefined, role, productId, minutes, source: "rehearsal" };
+  const persona = personaFor(setup, brand);
   const base = getScenario("sc-kim");
 
   if (live)
-    return <CallScreen scenario={{ ...base, objective: own ? "Practise the conversation you described. Nothing is graded." : "Practise the conversation you're expecting. Nothing is graded.", durationMin: 6 }} objectionIds={callObjs} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]}
-      personaOverride={personaFor(setup)} onExit={() => setLive(false)} assisted={assisted}
+    return <CallScreen scenario={{ ...base, objective: own ? "Practise the conversation you described. Nothing is graded." : "Practise the conversation you're expecting. Nothing is graded.", durationMin: minutes }} objectionIds={callObjs} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]}
+      personaOverride={persona} onExit={() => setLive(false)} assisted={assisted}
       onComplete={(r, meta) => {
-        setup.assisted = meta.assisted;
-        const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `Prep · ${traits.join(", ").toLowerCase()} ${specialty.toLowerCase()}`, setup, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
+        const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `${persona.name.replace(/,.*$/, "")} · ${callType.toLowerCase()}`, setup: { ...setup, assisted: meta.assisted, persona: persona.name }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
         s.touchStreak(me.id);
         router.replace(`/rep/practice/session/${id}`);
       }} />;
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-5">
-      <ScreenTop title="Who are you meeting?"
+      <ScreenTop title="Set up your call"
         leading={<Link href="/rep/practice" aria-label="Close" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>}
         eyebrow={<span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private practice</span>}
-        sub={<Text size="body" tone="subtle" className="-mt-2">Describe the type of doctor, not the person. No names or notes about real HCPs.</Text>} />
-      <Group label="Specialty">{PREP_SPECIALTIES.map((x) => <Chip key={x} size="lg" selected={specialty === x} onClick={() => setSpecialty(x)}>{x}</Chip>)}</Group>
+        sub={<Text size="body" tone="subtle" className="-mt-2">Describe the type of person, not a real one. No names or notes about real HCPs.</Text>} />
+      <Group label="Who are you meeting?">{ROLES.map((r) => { const I = ROLE_ICON[r.id]; return <Chip key={r.id} size="lg" selected={role === r.id} onClick={() => setRole(r.id)} iconLeft={<I className="size-4" aria-hidden="true" />}>{r.label}</Chip>; })}</Group>
+      {role === "doctor" && <Group label="Specialty">{PREP_SPECIALTIES.map((x) => <Chip key={x} size="lg" selected={specialty === x} onClick={() => setSpecialty(x)}>{x}</Chip>)}</Group>}
+      {products.length > 1 && <Group label="Product">{products.map((p) => <Chip key={p.id} size="lg" selected={productId === p.id} onClick={() => setProductId(p.id)}>{p.brand}</Chip>)}</Group>}
       <Group label="What are they like?">{PREP_TRAITS.map((x) => <Chip key={x} size="lg" selected={traits.includes(x)} onClick={() => setTraits(traits.includes(x) ? traits.filter((t) => t !== x) : [...traits, x])}>{x}</Chip>)}</Group>
       <Group label="Call">{PREP_CALL_TYPES.map((x) => <Chip key={x} size="lg" selected={callType === x} onClick={() => setCallType(x)}>{x}</Chip>)}</Group>
+      <Group label={`Objections you expect (${objs.length}/3)`}>
+        {OBJECTIONS.map((o) => <Chip key={o.id} size="lg" selected={objs.includes(o.id)} onClick={() => setObjs(objs.includes(o.id) ? objs.filter((x) => x !== o.id) : objs.length < 3 ? [...objs, o.id] : objs)}>{o.label}</Chip>)}
+      </Group>
       <div className="flex flex-col gap-2">
         <label htmlFor="own-situation" className="text-label font-semibold text-ink-2">Bring your own situation <span className="font-normal text-ink-3">(optional)</span></label>
         <textarea id="own-situation" rows={3} value={situation} onChange={(e) => setSituation(e.target.value)}
           placeholder="e.g. She only gives me two minutes at the door and says she's happy with what she prescribes."
           className="squircle min-h-[84px] resize-none rounded-control border border-hair-2 bg-card px-3.5 py-3 text-body-lg outline-none transition-colors placeholder:text-ink-4 focus:border-brand" />
-        {own && <Text size="caption" tone="brand-deep" weight="semibold">The doctor opens with this: “{own.line}”</Text>}
+        {own && <Text size="caption" tone="brand-deep" weight="semibold">They open with this: “{own.line}”</Text>}
       </div>
-      <Group label={`Objections you expect (${objs.length}/3)`}>
-        {OBJECTIONS.map((o) => <Chip key={o.id} size="lg" selected={objs.includes(o.id)} onClick={() => setObjs(objs.includes(o.id) ? objs.filter((x) => x !== o.id) : objs.length < 3 ? [...objs, o.id] : objs)}>{o.label}</Chip>)}
-      </Group>
+      <Group label="How long?">{LENGTHS.map((m) => <Chip key={m} size="lg" selected={minutes === m} onClick={() => setMinutes(m)}>{m} min</Chip>)}</Group>
       <div className="flex flex-col gap-2">
         <Text size="label" weight="semibold" tone="muted">How much help?</Text>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Assisted or unassisted">
@@ -236,7 +298,12 @@ export function PrepMeeting() {
           ))}
         </div>
       </div>
-      <BottomBar><Button size="lg" fullWidth disabled={!callObjs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start practice call</Button></BottomBar>
+      {/* Who picks up, before you call. */}
+      <div className="flex items-center gap-3 rounded-card bg-card p-3.5 shadow-hair">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-peach text-body font-extrabold text-white">{initialsOf(persona.name)}</span>
+        <span className="flex min-w-0 flex-1 flex-col"><Text size="body" weight="bold" truncate>{persona.name}</Text><Text size="caption" tone="subtle" truncate>{persona.specialty} · {traits.join(", ").toLowerCase() || "no particular mood"} · {minutes} min</Text></span>
+      </div>
+      <BottomBar><Button size="lg" fullWidth disabled={!callObjs.length} onClick={() => setLive(true)}><Mic className="size-4" aria-hidden="true" />Start the call</Button></BottomBar>
     </div>
   );
 }
@@ -245,6 +312,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return <div className="flex flex-col gap-2"><Text size="label" weight="semibold" tone="muted">{label}</Text><div className="flex flex-wrap gap-2">{children}</div></div>;
 }
 
+/** A situation from one of your trainings, practised: the same person and moments, kept privately, not scored for the record. */
 export function LibraryCall() {
   const search = useSearchParams();
   const router = useRouter();
@@ -253,51 +321,95 @@ export function LibraryCall() {
   const sc = getScenario(search.get("scenario") ?? "sc-kim");
   return <CallScreen scenario={sc} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push("/rep/practice")} assisted
     onComplete={(r, meta) => {
-      const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `${sc.title}${meta.assisted ? " · assisted" : ""}`, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context, assisted: meta.assisted }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
+      const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: sc.title, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context, assisted: meta.assisted, role: sc.character, persona: sc.persona.name, minutes: sc.durationMin, source: "training", courseId: sc.courseId, scenarioId: sc.id }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
       s.touchStreak(me.id);
       router.replace(`/rep/practice/session/${id}`);
     }} />;
 }
 
+/**
+ * One past practice call: who it was with and how it went, then its scorecard, the full transcript (what
+ * was said, when, what counted and what was flagged) and the setup it ran on. Try it again, or harder.
+ */
 export function PracticeSessionView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const me = useMe();
   const s = useApp();
+  const [tab, setTab] = useState<"score" | "transcript" | "setup">("score");
   const x = s.practice.find((p) => p.id === id && p.userId === me.id);
-  const [shareOpen, setShareOpen] = useState(false);
-  const manager = s.users.find((u) => u.id === me.managerId);
-  if (!x?.result) return <div className="p-4"><EmptyState title="Session not found" body="It may have been deleted." /></div>;
+  if (!x?.result) return <div className="p-4"><EmptyState title="Call not found" body="It may have been deleted." /></div>;
+  const r = x.result;
+  const st = x.setup;
+  const who = st?.persona ?? x.title.split(" · ")[0];
+  const I = ROLE_ICON[st?.role ?? "doctor"] ?? Stethoscope;
+  const course = st?.courseId ? s.courses.find((c) => c.id === st.courseId) : undefined;
+  const verdict = r.score >= 75 ? "Strong call" : r.score >= 60 ? "Getting there" : "Keep practising";
+  const again = st?.source === "training" && st.scenarioId ? `/rep/practice/call?scenario=${st.scenarioId}` : st ? `/rep/practice/prep?from=${x.id}` : "/rep/practice";
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-4 pt-5">
-      <div className="flex flex-col gap-1">
-        <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-2"><Lock className="size-3.5" aria-hidden="true" />Private · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days</span>
-        <Text as="h1" size="display-lg" weight="extrabold" tracking="tight" className="leading-tight">{x.title}</Text>
-      </div>
-      <Scorecard result={x.result} mode="practice" approvedHref={(m) => `/rep/course/c-lumora-launch/learn?module=${m}&optional=1`} />
-      {/* v1-hidden: the Try again / Make it harder pair here; they're the page's actions, pinned at the bottom below. */}
-      {/* v1-hidden: sharing a session with your manager (no managers in v1).
-      {x.shared ? (
-        <div className="squircle flex items-center justify-between gap-3 rounded-panel bg-ok-bg px-4 py-3">
-          <Text size="body" tone="ok" weight="semibold">{x.shared.seen ? `Seen by ${manager?.first}` : `Shared with ${manager?.first}`}</Text>
-          {!x.shared.seen && <button type="button" className="text-body font-semibold text-ok underline" onClick={() => s.setPracticeShared(x.id, false)}>Unshare</button>}
+      <div className="flex items-center gap-3.5">
+        <span className="relative grid size-14 shrink-0 place-items-center rounded-full bg-peach text-title font-extrabold text-white">
+          {initialsOf(who)}
+          <span className="absolute -bottom-0.5 -right-0.5 grid size-6 place-items-center rounded-full bg-ink text-white ring-2 ring-canvas"><I className="size-3" aria-hidden="true" /></span>
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 text-caption font-semibold text-ink-3"><Lock className="size-3" aria-hidden="true" />Private · deletes in {Math.max(0, daysFromToday(x.deletesAt))} days</span>
+          <Text as="h1" size="display" weight="extrabold" tracking="tight" className="leading-tight">{x.title}</Text>
+          <Text size="caption" tone="subtle">{dayLabel(x.at)}, {new Date(x.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {st?.assisted ? "assisted" : "unassisted"}{course ? ` · from ${course.title}` : ""}</Text>
+          <Text size="caption" weight="bold" className={r.score >= 75 ? "text-ok" : r.score >= 60 ? "text-warn" : "text-danger"}>{verdict}</Text>
         </div>
-      ) : <Button variant="soft" size="lg" onClick={() => setShareOpen(true)}><Share2 className="size-4" aria-hidden="true" />Share with my manager</Button>}
-      */}
-      <button type="button" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }} className="flex items-center gap-1.5 self-center text-body font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-4" aria-hidden="true" />Delete this session</button>
-      <BottomBar inset={4}>
-        <Button size="lg" fullWidth onClick={() => router.push(x.setup ? `/rep/practice/prep?from=${x.id}` : "/rep/practice")}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
-        {x.setup && <Button variant="ghost" fullWidth onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>}
-      </BottomBar>
-      {/* v1-hidden: share modal. */}
-      <Modal open={false && shareOpen} onClose={() => setShareOpen(false)} title={`Share with ${manager?.name ?? "your manager"}?`} size="sm"
-        footer={<><Button variant="secondary" onClick={() => setShareOpen(false)}>Cancel</Button><Button onClick={() => { s.setPracticeShared(x.id, true); setShareOpen(false); }}>Share this session</Button></>}>
-        <ul className="flex flex-col gap-2 text-body-lg">
-          <li className="flex gap-2"><Check className="mt-0.5 size-4 text-ok" aria-hidden="true" />This session's transcript and scorecard</li>
-          <li className="flex gap-2"><Check className="mt-0.5 size-4 text-ok" aria-hidden="true" />Nothing else. Your other sessions stay private.</li>
-          <li className="flex gap-2"><Check className="mt-0.5 size-4 text-ok" aria-hidden="true" />You can unshare until they open it.</li>
+      </div>
+
+      <Segmented role="tablist" aria-label="Call" className="self-stretch">
+        {([["score", "Scorecard"], ["transcript", "Transcript"], ["setup", "Setup"]] as const).map(([k, l]) => (
+          <SegmentedButton key={k} active={tab === k} role="tab" aria-pressed={undefined} aria-selected={tab === k} onClick={() => setTab(k)} className="flex-1">{l}</SegmentedButton>
+        ))}
+      </Segmented>
+
+      {tab === "score" && <Scorecard result={r} mode="practice" noTranscript />}
+
+      {tab === "transcript" && (
+        <ol className="flex flex-col gap-3" aria-label="Transcript">
+          {r.transcript.map((t, i) => {
+            const rep = t.speaker === "rep";
+            const flag = rep ? r.flags.find((f) => f.quote === t.text) : undefined;
+            const hit = rep ? r.criteria.filter((c) => c.met && c.quote && t.text.includes(c.quote)) : [];
+            return (
+              <li key={i} className={cn("flex flex-col gap-1", rep ? "items-end" : "items-start")}>
+                <span className="px-1 text-micro font-bold text-ink-4">{rep ? "You" : who.replace(/,.*$/, "")} · {mmss(t.at)}</span>
+                <span className={cn("max-w-[85%] rounded-[20px] px-3.5 py-2.5 text-body leading-relaxed", rep ? "rounded-br-[6px] bg-ink text-white" : "rounded-bl-[6px] bg-card text-ink shadow-hair", flag && "ring-2 ring-danger")}>{t.text}</span>
+                {flag && <span className="flex max-w-[85%] items-start gap-1 px-1 text-caption font-semibold text-danger"><ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{flag.label}: {flag.explanation}</span>}
+                {hit.map((c) => <span key={c.id} className="flex items-center gap-1 px-1 text-caption font-semibold text-ok"><Check className="size-3.5" aria-hidden="true" />{c.label}</span>)}
+              </li>
+            );
+          })}
+          {!r.transcript.length && <Text size="body" tone="subtle">Nothing was said on this call.</Text>}
+        </ol>
+      )}
+
+      {tab === "setup" && (
+        <ul className="flex flex-col divide-y divide-hair rounded-card bg-card px-4 shadow-hair">
+          {[
+            ["With", `${who}${st?.specialty ? ` · ${st.specialty}` : ""}`],
+            ["Product", PRODUCTS.find((p) => p.id === st?.productId)?.brand ?? (course ? product(course.productId)?.brand ?? "—" : "Lumora")],
+            ["Call", st?.callType ?? "—"],
+            ["Their mood", st?.traits.join(", ") || "—"],
+            ["Pushed back on", (st?.objectionIds ?? []).map((o) => objection(o)?.label).filter(Boolean).join(", ") || "—"],
+            ...(st?.situation ? [["Your situation", st.situation]] : []),
+            ["Length", st?.minutes ? `${st.minutes} min set · ${mmss(r.durationSec)} taken` : mmss(r.durationSec)],
+            ["Help", st?.assisted ? "Assisted: prompts while talking" : "Unassisted"],
+          ].map(([k, v]) => (
+            <li key={k} className="flex gap-3 py-3"><span className="w-28 shrink-0 text-caption font-semibold text-ink-3">{k}</span><span className="min-w-0 flex-1 text-body text-ink">{v}</span></li>
+          ))}
         </ul>
-      </Modal>
+      )}
+
+      <button type="button" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }} className="flex items-center gap-1.5 self-center text-body font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-4" aria-hidden="true" />Delete this call</button>
+      <BottomBar inset={4}>
+        <Button size="lg" fullWidth onClick={() => router.push(again)}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
+        {st && st.source !== "training" && <Button variant="ghost" fullWidth onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>}
+      </BottomBar>
     </div>
   );
 }

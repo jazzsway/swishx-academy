@@ -9,7 +9,7 @@ import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import { COMPETENCIES, competency, domainOf } from "@/data/org";
 import type { Course, Scenario } from "@/data/types";
-import { screeningOf } from "@/lib/scenario-set";
+import { noMaterial } from "@/lib/direct-material";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/patterns/academy";
 import { useCourse } from "./use-course";
@@ -33,8 +33,11 @@ export function TrainingSettings() {
   if (!data) return null;
   return (
     <div className="flex flex-col gap-4">
-      <StageHeader n={3} sub="The rules of the call, and what reps are scored on. The defaults work." />
-      <Rules course={data.course} scs={scs} />
+      <StageHeader n={4} sub="The defaults work. Change only what you need." />
+      {/* A live version is read only: its rules change in a new version ("Edit as v2"). */}
+      <fieldset disabled={!data.editable} className="contents">
+        <Rules course={data.course} />
+      </fieldset>
       <Scoring course={data.course} scs={scs} />
     </div>
   );
@@ -76,18 +79,16 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
         <Text size="body" tone="subtle">Each objective is scored on its own criteria. <Link href={`${base}/roleplay`} className="font-semibold text-brand-deep hover:underline">Add objectives</Link> to see them here.</Text>
       ) : (
         <>
-          <Text size="body" tone="subtle" className="-mt-2 max-w-[68ch]">This training tests {list.length} of your organisation&apos;s criteria. Here&apos;s what each counts for across the training. Ask the agent to change the weights.</Text>
           <ul className="flex flex-col">
             {list.map(({ c, pct }, k) => (
               <li key={c} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-t border-hair py-3.5 first:border-0 first:pt-0">
-                <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1" title={competency(c)?.description}>
                   <span className="flex items-center gap-2">
                     <span className={cn("size-2.5 shrink-0 rounded-full", SEG[k % SEG.length])} aria-hidden="true" />
                     <span className="text-body-lg font-semibold text-ink">{competency(c)?.name}</span>
                   </span>
-                  <Text size="caption" tone="subtle" className="pl-[18px] leading-relaxed">{competency(c)?.description}</Text>
                 </div>
-                <span className="flex items-baseline gap-1"><span className="text-title font-extrabold tabular-nums text-ink">{pct}%</span><span className="text-micro text-ink-4">of the score</span></span>
+                <span className="flex items-baseline gap-1"><span className="text-title font-extrabold tabular-nums text-ink">{pct}%</span></span>
                 <span className="col-span-2 ml-[18px] h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
                   <span className={cn("block h-full rounded-full", SEG[k % SEG.length])} style={{ width: `${(pct / top) * 100}%` }} />
                 </span>
@@ -132,12 +133,11 @@ function Scoring({ course, scs }: { course: Course; scs: Scenario[] }) {
 }
 
 /** The rules of the call, one line each: passing, retries, screening, certification. */
-function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
+function Rules({ course }: { course: Course }) {
   const updateSettings = useApp((s) => s.updateSettings);
   const updateCourse = useApp((s) => s.updateCourse);
   const st = course.settings;
   const set = (patch: Parameters<typeof updateSettings>[1]) => updateSettings(course.id, patch);
-  const screen = screeningOf(course, scs);
   return (
     <Card title="Rules of the call" eyebrow="Passing and certification">
       <ul className="-mt-1 flex flex-col">
@@ -156,13 +156,25 @@ function Rules({ course, scs }: { course: Course; scs: Scenario[] }) {
           </Segmented>
         </Line>
         */}
-        <Line label="Assisted mode" hint={st.finalNoHints === false ? "Reps can tap a bulb for a hint during the scored call. It doesn't change the score; you see how many they used. Screening never has hints." : "Off: the scored call has no hints, like the real thing. Reps can still practise with hints."}>
+        {/* Which files reps see is set file by file, when they're added. Here: whether the ones they see are a step or optional. */}
+        {course.origin === "direct" && (
+          <Line label="Materials" hint={noMaterial(course)
+            ? "None. Every file is context only."
+            : !st.materialOptional
+              ? `Reps go through ${course.modules.length === 1 ? "the file" : `all ${course.modules.length} files`} before the assessments.`
+              : `${course.modules.length === 1 ? "One file" : `${course.modules.length} files`} to look through any time. Not a step.`}>
+            {noMaterial(course)
+              ? <Text size="caption" weight="semibold" tone="subtle">No files shown to reps</Text>
+              : <><Text size="caption" tone="subtle">Mandatory to read</Text><Toggle label="Materials mandatory to read" on={!st.materialOptional} onChange={(v) => set({ materialOptional: !v })} /></>}
+          </Line>
+        )}
+        <Line label="Assisted mode" hint={st.finalNoHints === false ? "A hint button on assessment calls. It doesn't change the score." : "No hints on assessment calls."}>
           <Toggle label="Assisted mode" on={st.finalNoHints === false} onChange={(v) => set({ finalNoHints: !v })} />
         </Line>
-        <Line label="Screening call" hint={st.screening ? `3 minutes, not graded, from ${screen.length} situation${screen.length === 1 ? "" : "s"} SwishX picks. It sets each rep's baseline, and lessons they already know become optional.` : "Off: every rep takes every lesson, in order, with no baseline."}>
+        <Line label="Screening call" hint={st.screening ? `3 min, not graded. Sets the baseline${noMaterial(course) || st.materialOptional ? "" : " and skips material reps already know"}.` : "Off. No baseline."}>
           <Toggle label="Screening" on={st.screening} onChange={(v) => { set(v ? { screening: true, screeningCall: true, baseline: true } : { screening: false, screeningCall: false, baseline: false }); updateCourse(course.id, { type: v ? "personalised" : "linear" }); }} />
         </Line>
-        <Line label="Recertify" hint="Reps take the scored call again; the certificate lapses if they don't.">
+        <Line label="Recertify" hint="The certificate lapses unless reps pass again.">
           <Text size="caption" tone="subtle">every</Text>
           <Stepper label="Recertify months" value={st.recertMonths} min={1} max={36} suffix="mo" onChange={(n) => set({ recertMonths: n })} />
         </Line>

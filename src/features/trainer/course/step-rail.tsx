@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Paperclip, PanelRight, PencilLine, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, LayoutGrid, Lock, Mic, Paperclip, PanelRight, PencilLine, Rocket, Settings2, Target, Users, X } from "lucide-react";
 import { AgentIcon, LogoMark } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
@@ -39,38 +39,52 @@ export function DirectTopBar() {
   const [files, setFiles] = useState(false);
   const { course, cur, lv, editable } = data;
   const base = `/trainer/courses/${id}`;
+  const mode = useDirectMode(id);
   /* "?files=1" (from the publish checks, or an old link to basic details) opens the files. */
   useEffect(() => { if (askFiles) { setFiles(true); router.replace(pathname, { scroll: false }); } }, [askFiles]); // eslint-disable-line react-hooks/exhaustive-deps
-  const nFiles = course.modules.length + (course.roleplaySourceIds?.length ?? 0);
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-hair bg-card px-3 sm:px-4">
       <span className="grid size-8 shrink-0 place-items-center rounded-control border border-tint-line bg-gradient-to-br from-tint to-white"><LogoMark size={17} className="text-brand" /></span>
       <span className="h-5 w-px shrink-0 bg-hair-2" aria-hidden="true" />
       <div className="flex min-w-0 flex-col">
         {/* The name, edited in place: there's no separate details page. */}
-        {editable
+        {editable && mode === "edit"
           ? <input aria-label="Training name" value={course.title} onChange={(e) => updateCourse(course.id, { title: e.target.value })} title="Rename the training" size={Math.max(12, Math.min(48, course.title.length + 1))}
               className="-mx-1 max-w-[46vw] truncate rounded-glyph bg-transparent px-1 text-body-lg font-extrabold leading-tight text-ink outline-none transition-colors hover:bg-subtle focus:bg-subtle focus:ring-1 focus:ring-brand/40" />
           : <Text as="h1" size="body-lg" weight="extrabold" truncate className="leading-tight">{course.title}</Text>}
         <span className="hidden items-center gap-1.5 truncate text-micro font-semibold text-ink-3 sm:flex">
           v{cur.version} <VersionChip state={cur.state} size="xs" />
           {lv && lv.version !== cur.version && <span>· v{lv.version} live</span>}
-          <span>· {product(course.productId)?.brand ?? "Company"} · {courseMinutes(course)} min</span>
+          {lv && lv.version === cur.version && lv.publishedAt && <span>· live since {new Date(lv.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+          <span>· {product(course.productId)?.brand ?? "Company"} · {!course.modules.length ? "no material for reps" : `${courseMinutes(course)} min`}</span>
           <span className="hidden rounded-glyph bg-info-bg px-1.5 py-px text-info xl:inline">With my material</span>
         </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button type="button" onClick={() => setFiles(true)} title="The training's files: which reps see, and which are information only"
-          className="flex h-9 items-center gap-1.5 rounded-control border border-hair-2 bg-card px-2.5 text-caption font-semibold text-ink-2 transition-colors hover:border-hair-3 hover:text-ink">
-          <Paperclip className="size-4" aria-hidden="true" />Files<span className="tabular-nums text-ink-4">{nFiles}</span>
-        </button>
-        <VersionHistoryButton course={course} />
-        <button type="button" onClick={toggle} aria-pressed={open} title={open ? "Hide the agent (⌘\\)" : "Show the agent (⌘\\)"} aria-label="Toggle the agent panel"
-          className={cn("grid size-9 place-items-center rounded-control border transition-colors", open ? "border-hair-2 bg-black/5 text-ink" : "border-tint-line bg-tint text-brand-deep hover:bg-tint/70")}>
-          {open ? <PanelRight className="size-4" /> : <AgentIcon className="size-4" />}
-        </button>
-        {cur.state === "published" && <Button size="sm" variant="secondary" onClick={() => { startNewVersion(course.id); router.push(`${base}/roleplay`); }}><PencilLine className="size-4" aria-hidden="true" />Edit as v{cur.version + 1}</Button>}
-        <NextStage />
+        {mode === "edit" && (
+          <>
+            <VersionHistoryButton course={course} />
+            <button type="button" onClick={toggle} aria-pressed={open} title={open ? "Hide the agent (⌘\\)" : "Show the agent (⌘\\)"} aria-label="Toggle the agent panel"
+              className={cn("grid size-9 place-items-center rounded-control border transition-colors", open ? "border-hair-2 bg-black/5 text-ink" : "border-tint-line bg-tint text-brand-deep hover:bg-tint/70")}>
+              {open ? <PanelRight className="size-4" /> : <AgentIcon className="size-4" />}
+            </button>
+            <Button size="sm" variant="secondary" onClick={() => router.push(`${base}?preview=1`)} title="See the training the way it will look once it's live"><Eye className="size-4" aria-hidden="true" />Preview</Button>
+            <NextStage />
+          </>
+        )}
+        {mode === "preview" && (
+          <>
+            <Button size="sm" variant="secondary" onClick={() => router.push(`${base}/roleplay`)}><ArrowLeft className="size-4" aria-hidden="true" />Back to editing</Button>
+            <Button size="sm" onClick={() => router.push(`${base}/publish`)}><Rocket className="size-4" aria-hidden="true" />Publish v{cur.version}</Button>
+          </>
+        )}
+        {mode === "view" && (
+          <>
+            <VersionHistoryButton course={course} />
+            <Button size="sm" variant="secondary" onClick={() => { startNewVersion(course.id); router.push(`${base}/roleplay`); }}><PencilLine className="size-4" aria-hidden="true" />Edit as v{cur.version + 1}</Button>
+            <Button size="sm" onClick={() => router.push(`${base}/assign`)}><Users className="size-4" aria-hidden="true" />Assign</Button>
+          </>
+        )}
         <span className="mx-0.5 h-5 w-px bg-hair-2" aria-hidden="true" />
         <button type="button" onClick={() => (cur.state === "published" ? router.push("/trainer/courses") : setLeaving(true))} aria-label="Close training" title="Close training"
           className="grid size-9 place-items-center rounded-control text-ink-3 transition-colors hover:bg-subtle hover:text-ink"><X className="size-4.5" /></button>
@@ -79,6 +93,22 @@ export function DirectTopBar() {
       {leaving && <LeaveDialog course={course} hasLive={!!lv} draftVersion={cur.version} onCancel={() => setLeaving(false)} />}
     </header>
   );
+}
+
+/* A stable empty thread: a fresh [] on every read would re-render forever. */
+const NO_TURNS: { id: string }[] = [];
+
+/**
+ * How a training with the trainer's own material is open. view: a live version, read only, with its
+ * overview and people. preview: a draft, seen the way it will look once live. edit: a draft, built
+ * stage by stage.
+ */
+export function useDirectMode(id: string): "view" | "preview" | "edit" {
+  const pathname = usePathname();
+  const preview = useSearchParams().get("preview") === "1";
+  const data = useCourse(id);
+  if (data && !data.editable) return "view";
+  return preview && pathname === `/trainer/courses/${id}` ? "preview" : "edit";
 }
 
 /**
@@ -91,8 +121,8 @@ function NextStage() {
   const router = useRouter();
   const base = `/trainer/courses/${id}`;
   const step = stepOf(pathname, base);
-  if (step === 4) return null;
-  const next = STAGES[step as 1 | 2 | 3];
+  if (step >= STAGES.length) return null;
+  const next = STAGES[step];
   return <Button size="sm" onClick={() => router.push(`${base}${next.path}`)}>Next: {next.label.toLowerCase()}<ArrowRight className="size-4" aria-hidden="true" /></Button>;
 }
 
@@ -107,18 +137,18 @@ export function StageFooter() {
   const router = useRouter();
   const base = `/trainer/courses/${id}`;
   const step = stepOf(pathname, base);
-  if (step === 4 || pathname.startsWith(`${base}/roleplay/test`)) return null;
-  const next = STAGES[step as 1 | 2 | 3];
+  if (step >= STAGES.length || pathname.startsWith(`${base}/roleplay/test`)) return null;
+  const next = STAGES[step];
   const prev = step > 1 ? STAGES[step - 2] : null;
   return (
     <div className="pointer-events-none sticky bottom-0 z-20 flex justify-center px-4 pb-5 pt-8">
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-hair bg-card/95 p-1.5 shadow-float backdrop-blur">
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-ink/95 p-1.5 shadow-float ring-1 ring-white/10 backdrop-blur">
         {prev && (
           <>
-            <button type="button" onClick={() => router.push(`${base}${prev.path}`)} className="flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold text-ink-2 transition-colors hover:bg-subtle hover:text-ink">
-              <ArrowLeft className="size-4" aria-hidden="true" />Back<span className="hidden text-ink-4 sm:inline">· {prev.label}</span>
+            <button type="button" onClick={() => router.push(`${base}${prev.path}`)} className="flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold text-white/85 transition-colors hover:bg-white/10 hover:text-white">
+              <ArrowLeft className="size-4" aria-hidden="true" />Back<span className="hidden text-white/50 sm:inline">· {prev.label}</span>
             </button>
-            <span className="h-5 w-px bg-hair-2" aria-hidden="true" />
+            <span className="h-5 w-px bg-white/20" aria-hidden="true" />
           </>
         )}
         <button type="button" onClick={() => router.push(`${base}${next.path}`)}
@@ -131,27 +161,30 @@ export function StageFooter() {
 }
 
 /**
- * The four stages of building the training, down a slim rail on the far left: objectives, the
- * situations that test them, settings, then publishing and assigning. Each shows where it stands; yours is highlighted.
+ * The stages of building the training, down a slim rail on the far left: the material, objectives, the
+ * situations that test them, settings, a test of the calls, then publishing and assigning. Each shows where it stands; yours is highlighted.
  */
 export function StepperRail({ course }: { course: Course }) {
   const pathname = usePathname();
   const base = `/trainer/courses/${course.id}`;
   const custom = useApp((s) => s.scenarios);
-  const assigned = useApp((s) => s.progress.some((p) => p.courseId === course.id));
   const scs = useMemo(() => allScenarios().filter((x) => course.scenarioIds.includes(x.id)), [course.scenarioIds, custom]); // eslint-disable-line react-hooks/exhaustive-deps
   const step = stepOf(pathname, base);
   const obs = course.objectives?.length ?? 0;
   const lv = useCourse(course.id)?.lv;
-  /* Settings have defaults from the start, so they count as done once the trainer has been there. */
-  const settingsSeen = useTrainingChat((s) => !!s.threads[course.id]?.some((t) => t.id === `stage-${course.id}-3`)) || step > 3;
+  /* Settings have defaults, and testing is optional, so each counts as done once the trainer has been there. */
+  const seen = useTrainingChat((s) => s.threads[course.id]) ?? NO_TURNS;
+  const been = (n: number) => seen.some((t) => t.id === `stage-${course.id}-${STAGES[n - 1].key}`) || step > n;
+  const files = course.modules.length + (course.roleplaySourceIds?.length ?? 0);
   const sub: Record<number, string> = {
-    1: `${obs} objective${obs === 1 ? "" : "s"}`,
-    2: `${scs.length} situation${scs.length === 1 ? "" : "s"}`,
-    3: `Screening ${course.settings.screening ? "on" : "off"} · recertify ${course.settings.recertMonths} mo`,
-    4: assigned ? "Assigned" : lv ? "Published" : "Not published yet",
+    1: `${files} file${files === 1 ? "" : "s"}`,
+    2: `${obs} objective${obs === 1 ? "" : "s"}`,
+    3: `${scs.length} situation${scs.length === 1 ? "" : "s"}`,
+    4: `Screening ${course.settings.screening ? "on" : "off"} · recertify ${course.settings.recertMonths} mo`,
+    5: "Nothing is saved",
+    6: lv ? `v${lv.version} live` : "Not published yet",
   };
-  const done: Record<number, boolean> = { 1: obs > 0, 2: scs.length > 0, 3: settingsSeen && scs.length > 0, 4: assigned };
+  const done: Record<number, boolean> = { 1: files > 0, 2: obs > 0, 3: scs.length > 0, 4: been(4) && obs > 0, 5: been(5) && obs > 0, 6: false };
   const steps = STAGES.map((st) => ({ n: st.n, href: `${base}${st.path}`, label: st.label, short: st.short, sub: sub[st.n], done: done[st.n] }));
   return (
     <nav aria-label="Build your training" className="hidden w-[84px] shrink-0 flex-col border-r border-hair bg-canvas px-1.5 py-4 md:flex xl:w-[208px] xl:px-3">
@@ -178,6 +211,47 @@ export function StepperRail({ course }: { course: Course }) {
           );
         })}
       </ol>
+    </nav>
+  );
+}
+
+/**
+ * The left rail of a live training, in place of the four building stages: its overview, what it tests,
+ * its rules and its people. Read only; "Edit as v2" in the top bar opens the stages again.
+ */
+export function ViewRail({ course }: { course: Course }) {
+  const pathname = usePathname();
+  const base = `/trainer/courses/${course.id}`;
+  const assigned = useApp((s) => s.progress.filter((p) => p.courseId === course.id).length);
+  const lv = useCourse(course.id)?.lv;
+  const items = [
+    { href: base, label: "Overview", icon: LayoutGrid, on: pathname === base },
+    { href: `${base}/material`, label: "Material", icon: Paperclip, on: pathname.startsWith(`${base}/material`), count: course.modules.length + (course.roleplaySourceIds?.length ?? 0) },
+    { href: `${base}/situations`, label: "Objectives", icon: Target, on: pathname.startsWith(`${base}/situations`) || (pathname.startsWith(`${base}/roleplay`) && !pathname.startsWith(`${base}/roleplay/test`)), count: course.objectives?.length },
+    { href: `${base}/test`, label: "Test the calls", icon: Mic, on: pathname.startsWith(`${base}/test`) || pathname.startsWith(`${base}/roleplay/test`) },
+    { href: `${base}/settings`, label: "Settings", icon: Settings2, on: pathname.startsWith(`${base}/settings`) },
+    { href: `${base}/people`, label: "People", icon: Users, on: pathname.startsWith(`${base}/people`) || pathname.startsWith(`${base}/assign`), count: assigned },
+  ];
+  return (
+    <nav aria-label="Training" className="hidden w-[84px] shrink-0 flex-col border-r border-hair bg-canvas px-1.5 py-4 md:flex xl:w-[208px] xl:px-3">
+      <ul className="flex flex-col gap-1">
+        {items.map((it) => (
+          <li key={it.label}>
+            <Link href={it.href} aria-current={it.on ? "page" : undefined} title={it.label}
+              className={cn("squircle flex flex-col items-center gap-1 rounded-panel px-1 py-2 transition-colors xl:flex-row xl:gap-3 xl:px-2", it.on ? "bg-tint" : "hover:bg-subtle")}>
+              <span className={cn("grid size-8 shrink-0 place-items-center rounded-control transition-colors", it.on ? "bg-brand text-white shadow-brand-lift" : "bg-card text-ink-3 shadow-hair")}><it.icon className="size-4" aria-hidden="true" /></span>
+              <span className={cn("text-center text-micro font-semibold leading-tight xl:flex-1 xl:text-left xl:text-body", it.on ? "text-ink" : "text-ink-3 xl:text-ink-2")}>{it.label}</span>
+              {!!it.count && <span className={cn("hidden rounded-chip px-1.5 text-micro font-bold tabular-nums xl:inline", it.on ? "bg-card text-brand-deep" : "bg-black/[0.05] text-ink-3")}>{it.count}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {lv && (
+        <div className="mt-auto hidden flex-col gap-1 rounded-panel border border-hair bg-card p-3 xl:flex">
+          <span className="flex items-center gap-1.5 text-caption font-bold text-ink-2"><Lock className="size-3.5 text-ink-4" aria-hidden="true" />v{lv.version} is live</span>
+          <span className="text-caption leading-snug text-ink-3">Read only. Use Edit in the top bar to change it.</span>
+        </div>
+      )}
     </nav>
   );
 }

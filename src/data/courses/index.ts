@@ -6,6 +6,9 @@ import {
   AD101_MODULES, CARDEXA_ITEMS, CARDEXA_V1_MODULES, CARDEXA_V2_MODULES, COMPLIANCE_MODULES, NP_MODULES,
 } from "./other-courses";
 import { fieldKitCourse } from "./field-kit";
+import { callCheckCourse } from "./call-check";
+import { switchCourse } from "./switch-talk";
+import { directDemoCourses } from "./direct-demo";
 
 export function defaultSettings(type: Course["type"], over: Partial<CourseSettings> = {}): CourseSettings {
   const personalised = type === "personalised";
@@ -68,6 +71,9 @@ function libraryCourse(id: string, title: string, objective: string, mods: Modul
     ownerId: MAYA, updatedAt: publishedAt, visibility: scope.everyone ? "everyone" : "audience", prerequisites: [], allowExplore: true,
   };
 }
+
+/** v1-hidden: the trainings SwishX writes. Off, so the demo shows only trainings built from the trainer's own material. */
+export const SWISHX_WRITTEN = false;
 
 export function seedCourses(): Course[] {
   const list: Course[] = [
@@ -205,9 +211,29 @@ export function seedCourses(): Course[] {
     screening: true, screeningCall: true, screeningScenarioId: "sc-fieldkit-screen", screeningItems: 0, baseline: true,
     completion: { path: true, assessment: true, verify: false, attestation: true, checks: 0 },
   })));
-  /* The flagship course leads every list. */
-  const FIRST = "c-lumora-launch";
-  return [...list.filter((c) => c.id === FIRST), ...list.filter((c) => c.id !== FIRST)];
+  /* A calls-only training: one context document, no lessons for reps; screening, the scored calls, the certificate. */
+  list.push(callCheckCourse(defaultSettings("personalised", {
+    assessmentCall: true, finalNoHints: false,
+    screening: true, screeningCall: true, screeningItems: 0, baseline: true,
+    completion: { path: false, assessment: true, verify: false, attestation: true, checks: 0 },
+  })));
+  /* A full training from the trainer's own material: files reps see, files that only build the calls, three objectives. */
+  list.push(switchCourse(defaultSettings("personalised", {
+    assessmentCall: true, finalNoHints: false,
+    screening: true, screeningCall: true, screeningItems: 0, baseline: true,
+    completion: { path: true, assessment: true, verify: false, attestation: true, checks: 0 },
+  })));
+  /* The rest of the trainings built from the trainer's own material. */
+  list.push(...directDemoCourses(defaultSettings("personalised", {
+    assessmentCall: true, finalNoHints: false,
+    screening: true, screeningCall: true, screeningItems: 0, baseline: true,
+    completion: { path: true, assessment: true, verify: false, attestation: true, checks: 0 },
+  })));
+  /* v1-hidden: trainings SwishX writes (long and short form, and the open Library courses). The demo is
+     only trainings built from the trainer's own material; flip this to bring the others back. */
+  const shown = SWISHX_WRITTEN ? list : list.filter((c) => c.origin === "direct");
+  const FIRST = ["c-switch", "c-callcheck", "c-fieldkit"];
+  return [...FIRST.map((id) => shown.find((c) => c.id === id)!), ...shown.filter((c) => !FIRST.includes(c.id))];
 }
 
 export { LUMORA_LAUNCH_MODULES, LUMORA_ITEMS };

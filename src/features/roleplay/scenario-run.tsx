@@ -36,7 +36,7 @@ export function ScenarioRun({ scenarios, mode, voiceAllowed, onScenarioDone, onF
     return (
       <div className="flex min-h-full flex-[1_0_auto] flex-col bg-ink text-white">
         <div className="flex items-center justify-between gap-3 px-5 pt-5">
-          <span className="flex items-center gap-1.5 rounded-chip bg-ok/20 px-2.5 py-1 text-caption font-semibold text-white"><Check className="size-3.5" aria-hidden="true" />Situation {i + 1} of {n} done</span>
+          <span className="flex items-center gap-1.5 rounded-chip bg-ok/20 px-2.5 py-1 text-caption font-semibold text-white"><Check className="size-3.5" aria-hidden="true" />Call {i + 1} of {n} done</span>
           <button type="button" aria-label="End for now" onClick={() => onFinish(i + 1)} className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-5" /></button>
         </div>
 
@@ -88,7 +88,7 @@ export function ScenarioRun({ scenarios, mode, voiceAllowed, onScenarioDone, onF
 
   return (
     <CallScreen key={sc.id} scenario={sc} mode={mode} voiceAllowed={voiceAllowed} skipPrep={i > 0} showSamples={showSamples} hints={hints} onExit={i > 0 ? () => onFinish(i) : onExit}
-      run={n > 1 ? { label: `Situation ${i + 1} of ${n}`, next: next ? `Next: ${next.persona.name} joins` : "Finish the call" } : undefined}
+      run={n > 1 ? { label: `Call ${i + 1} of ${n}`, next: next ? `Next: ${next.persona.name} joins` : "Finish the call" } : undefined}
       onComplete={(r, meta) => { setLast(onScenarioDone(sc, r, { hints: meta.hints }) ?? null); if (next) setBetween(true); else onFinish(n); }} />
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, FileText, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, CalendarClock, BookOpen, Library as LibraryIcon, Layers } from "lucide-react";
+import { Check, FileText, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, CalendarClock, BookOpen, Mic, Library as LibraryIcon, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
@@ -20,6 +20,7 @@ import { MediaSummary } from "./watch";
 import { BaselineCard, DirectJourney, PracticeCalls, PracticeOnlyNote } from "./course-extras";
 import { moduleCards } from "@/lib/short-form";
 import type { Course as CourseT, Module as ModuleT } from "@/data/types";
+import { noMaterial } from "@/lib/direct-material";
 
 /** How big a module is: cards for short form, minutes for long. */
 const span = (c: CourseT, m: ModuleT) => (c.format === "short" ? `${moduleCards(m).length} cards` : `${m.minutes} min`);
@@ -94,12 +95,14 @@ function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: strin
   return (
     <Link href={`/rep/course/${c.id}`} className={cn("squircle flex items-center gap-3.5 rounded-panel border bg-card p-4 hover:bg-subtle", isOverdue(p) ? "border-danger-line" : "border-hair")}>
       {cert ? <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok-bg text-ok"><Award className="size-5" aria-hidden="true" /></span>
-        : <Ring value={p.state === "not_started" ? 0 : pr.pct} size={44} label={`${pr.pct}%`}><Text size="micro" weight="bold">{p.state === "not_started" ? "0" : pr.pct}%</Text></Ring>}
+        : <Ring value={p.state === "not_started" ? 0 : pr.overall} size={44} label={`${pr.overall}%`}><Text size="micro" weight="bold">{p.state === "not_started" ? "0" : pr.overall}%</Text></Ring>}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
         <span className="flex flex-wrap items-center gap-1.5">
           {tag && <Chip size="xs" tone={tag.tone}>{tag.label}</Chip>}
-          {c.origin === "direct" && <span className="inline-flex items-center gap-1 rounded-chip bg-info-bg px-1.5 py-0.5 text-micro font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Team material</span>}
+          {c.origin === "direct" && (noMaterial(c)
+            ? <span className="inline-flex items-center gap-1 rounded-chip bg-lilac-bg px-1.5 py-0.5 text-micro font-semibold text-accent-violet"><Mic className="size-3" aria-hidden="true" />Assessments only</span>
+            : <span className="inline-flex items-center gap-1 rounded-chip bg-info-bg px-1.5 py-0.5 text-micro font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Team material</span>)}
           {opensLater(p) && <Chip size="xs" iconLeft={<CalendarClock className="size-3" aria-hidden="true" />}>Opens {fmtDate(p.startsAt)}</Chip>}
           <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"} weight={isOverdue(p) ? "semibold" : undefined}>
             {cert ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : p.dueAt ? (isOverdue(p) ? `Overdue since ${fmtDate(p.dueAt)}` : `Due ${fmtDate(p.dueAt)}`) : "No due date"}
@@ -501,7 +504,7 @@ export function LibrarySection() {
           const tile = ["bg-sage", "bg-peach", "bg-lilac", "bg-sun"][i % 4];
           return (
             <Link key={c.id} href={`/rep/course/${c.id}`} className="flex items-center gap-3.5 rounded-card bg-card p-3.5 shadow-hair transition-transform active:scale-[0.99]">
-              {p && pr ? <Ring value={pr.pct} size={52} stroke={5} label={`${pr.pct}%`}><Text size="caption" weight="extrabold">{pr.pct}%</Text></Ring>
+              {p && pr ? <Ring value={pr.overall} size={52} stroke={5} label={`${pr.overall}%`}><Text size="caption" weight="extrabold">{pr.overall}%</Text></Ring>
                 : <span className={cn("grid size-[52px] shrink-0 place-items-center rounded-[16px] text-white", tile)}><BookOpen className="size-6" aria-hidden="true" /></span>}
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>

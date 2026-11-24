@@ -20,6 +20,7 @@ import { ScenarioRun } from "@/features/roleplay/scenario-run";
 import { CriteriaScores } from "@/features/roleplay/criteria-scores";
 import { CHARACTERS, characterOf, scenarioScore, screeningOf } from "@/lib/scenario-set";
 import type { Scenario } from "@/data/types";
+import { isObjectiveCall, objectiveBank } from "@/lib/objective-call";
 
 const PASS = 75;
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
@@ -31,14 +32,14 @@ const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, 
  */
 export function TestCall({ embedded }: { embedded?: boolean }) {
   const run = useSearchParams().get("run");
-  return run === "all" || run === "screening" || run === "objective" ? <RunTest kind={run} /> : <SingleTest embedded={embedded} />;
+  return run === "all" || run === "screening" || run === "objective" || run === "assessment" ? <RunTest kind={run} /> : <SingleTest embedded={embedded} />;
 }
 
 function SingleTest({ embedded }: { embedded?: boolean }) {
   const search = useSearchParams();
   const sc = getScenario(search.get("sc") ?? search.get("scenario") ?? "sc-kim");
   /* Inside the course workspace the call runs on the canvas, and "back" is the call tree. */
-  const back = embedded ? (sc.objectiveId ? `/trainer/courses/${sc.courseId}/situations?obj=${sc.objectiveId}` : `/trainer/courses/${sc.courseId}/roleplay?sc=${sc.id}`) : search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
+  const back = embedded && search.get("from") === "test" ? `/trainer/courses/${sc.courseId}/test` : embedded ? (sc.objectiveId ? `/trainer/courses/${sc.courseId}/situations?obj=${sc.objectiveId}` : `/trainer/courses/${sc.courseId}/roleplay?sc=${sc.id}`) : search.get("back") ?? `/trainer/courses/${sc.courseId}/roleplay`;
   const otherHref = (id: string) => (embedded ? `/trainer/courses/${sc.courseId}/roleplay/test?sc=${id}` : `/trainer/test-call?scenario=${id}&back=${encodeURIComponent(back)}`);
   const course = useApp((s) => s.courses.find((c) => c.id === sc.courseId));
   const others = allScenarios().filter((x) => x.courseId === sc.courseId && x.id !== sc.id);
@@ -59,7 +60,7 @@ function SingleTest({ embedded }: { embedded?: boolean }) {
 
   const top = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? (course?.origin === "direct" ? "Situations" : "Call tree") : "AI roleplay"}</Link>
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{embedded ? (course?.origin === "direct" ? (search.get("from") === "test" ? "Test the calls" : "Situations") : "Call tree") : "AI roleplay"}</Link>
       <span className="text-ink-4">/</span>
       <Text size="body" weight="semibold" className="text-ink-2">{embedded ? (course?.origin === "direct" ? sc.title : sc.persona.name) : course?.title}</Text>
       {embedded && stage !== "brief" && (
@@ -288,10 +289,12 @@ function LivePanel({ live, sc }: { live: { state: CallState; elapsed: number } |
 }
 
 /**
- * The trainer takes the training's call the way a rep will: every scenario back to back, or the short
- * screening call built from the screening scenarios. Each scenario is scored on its own weights.
+ * The trainer takes the calls the way a rep will. A call is per objective: one of its situations, drawn
+ * (a new draw each time, as a retry would be). "assessment" is every objective's call, back to back; the
+ * screening call is the short one built from the screening situations. "all" (every situation) is kept
+ * for old links. Each situation is scored on its own weights.
  */
-function RunTest({ kind }: { kind: "all" | "screening" | "objective" }) {
+function RunTest({ kind }: { kind: "all" | "screening" | "objective" | "assessment" }) {
   const obId = useSearchParams().get("obj");
   const { id } = useParams<{ id: string }>();
   const course = useApp((s) => s.courses.find((c) => c.id === id));
@@ -300,19 +303,34 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" }) {
   const [results, setResults] = useState<{ sc: Scenario; r: CallOutcome }[]>([]);
   const [stage, setStage] = useState<"call" | "result">("call");
   const [round, setRound] = useState(0);
+  /* Where the draw starts, so two tests in a row don't always open on the same situation. */
+  const [seed] = useState(() => Math.floor(Math.random() * 997));
+  const fromTest = useSearchParams().get("from") === "test";
+  const backSearch = useSearchParams().get("back");
   if (!course) return null;
   const ob = kind === "objective" ? course.objectives?.find((x) => x.id === obId) : undefined;
-  const back = `/trainer/courses/${course.id}/roleplay${kind === "screening" ? "#screening" : ob ? `?obj=${ob.id}` : ""}`;
+  /* Back to where the test started: an objective's situations, or the objectives. */
+  const back = backSearch ?? (fromTest ? `/trainer/courses/${course.id}/test` : ob ? `/trainer/courses/${course.id}/situations?obj=${ob.id}` : `/trainer/courses/${course.id}/roleplay${kind === "screening" ? "#screening" : ""}`);
   const all = allScenarios().filter((x) => course.scenarioIds.includes(x.id));
   /* The screening call is the short version: about 3 minutes across its scenarios. */
-  const list = kind === "screening" ? screeningOf(course, all).map((x, _i, a) => ({ ...x, durationMin: Math.max(1, Math.round(3 / a.length)) })) : ob ? all.filter((x) => x.objectiveId === ob.id) : all;
+  const scored = all.filter((x) => !x.use.includes("screening") || x.use.includes("assessment"));
+  const draw = (bank: Scenario[], k: number) => bank[(seed + round + k) % bank.length];
+  const everyOne = course.settings.situationsPerObjective === "all";
+  /* An objective's situations, or (with none) its own call. */
+  const bankOf = (obId2: string) => { const o = course.objectives?.find((x) => x.id === obId2); return o ? objectiveBank(course, o, scored) : []; };
+  const list = kind === "screening" ? screeningOf(course, all).map((x, _i, a) => ({ ...x, durationMin: Math.max(1, Math.round(3 / a.length)) }))
+    /* A training that scores every situation (Settings) has no draw: the objective's call is all of them. */
+    : kind === "objective" ? (!ob ? [] : everyOne ? bankOf(ob.id) : bankOf(ob.id).length ? [draw(bankOf(ob.id), 0)] : [])
+    : kind === "assessment" ? (course.objectives ?? []).flatMap((o, k) => (everyOne ? bankOf(o.id) : bankOf(o.id).length ? [draw(bankOf(o.id), k)] : []))
+    : scored;
+  const obTitle = (sc: Scenario) => course.objectives?.find((o) => o.id === sc.objectiveId)?.title;
   const pass = course.settings.passRoleplay;
   const top = (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />Objectives</Link>
+      <Link href={back} className="flex items-center gap-1.5 text-body font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" aria-hidden="true" />{fromTest ? "Test the calls" : backSearch ? "Overview" : ob ? "Situations" : "Objectives"}</Link>
       <span className="text-ink-4">/</span>
-      <Text size="body" weight="semibold" className="text-ink-2">{kind === "screening" ? "Screening call" : ob ? ob.title : "The full call"} · {list.length} situation{list.length === 1 ? "" : "s"}</Text>
-      <Chip size="sm" className="ml-auto">Test call · nothing is saved</Chip>
+      <Text size="body" weight="semibold" className="text-ink-2">{kind === "screening" ? "Screening call" : ob ? (list[0] && isObjectiveCall(list[0]) ? `${ob.title} · a call on the objective itself` : everyOne ? `${ob.title} · ${list.length} situations` : bankOf(ob.id).length > 1 ? `${ob.title} · one of its ${bankOf(ob.id).length} situations` : `${ob.title} · its one situation`) : kind === "assessment" ? `Every objective · ${list.length} call${list.length === 1 ? "" : "s"}` : `Every situation · ${list.length}`}</Text>
+      <Chip size="sm" className="ml-auto">Test · not saved</Chip>
     </div>
   );
   if (!list.length) return <div className="flex flex-col gap-4">{top}<Card><Text tone="subtle">Add a scenario first.</Text></Card></div>;
@@ -332,8 +350,8 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" }) {
     <div className="flex flex-col gap-5">
       {top}
       <div className="flex flex-col gap-1">
-        <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">{kind === "screening" ? "Your screening call" : ob ? `Your test of “${ob.title}”` : "Your test of the full call"}</Text>
-        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Screening isn't graded: these scores set a rep's baseline and decide which lessons they can skip." : `Each situation is scored on its objective's criteria, weighted as you set them. A rep passes a situation at ${pass}%.`} Nothing was saved.</Text>
+        <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Your results</Text>
+        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Not graded. It sets a rep's baseline." : `Pass mark ${pass}%.`}</Text>
       </div>
       <ol className="flex flex-col gap-2.5">
         {list.map((sc, i) => {
@@ -345,6 +363,7 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" }) {
               <div className="flex flex-wrap items-center gap-4">
               <span className="grid size-6 place-items-center rounded-glyph bg-black/[0.06] text-micro font-bold text-ink-3">{i + 1}</span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                {kind !== "screening" && obTitle(sc) && <span className="text-micro font-bold uppercase tracking-wider text-ink-4">{obTitle(sc)}</span>}
                 <span className="text-body-lg font-bold text-ink">{sc.title}</span>
                 <span className="text-caption text-ink-3">{sc.persona.name} · {CHARACTERS[characterOf(sc)].label}</span>
                 {done && done.r.flags.some((f) => f.critical) && <span className="text-caption font-semibold text-danger">Critical flag: {done.r.flags.find((f) => f.critical)!.label}</span>}
@@ -362,7 +381,7 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" }) {
       </ol>
       <div className="flex flex-wrap gap-2">
         <Button size="lg" onClick={() => { setResults([]); setRound(round + 1); setStage("call"); }}><RotateCcw className="size-4" aria-hidden="true" />Call again</Button>
-        <Link href={back} className="inline-flex h-12 items-center px-3 text-body font-semibold text-ink-3 hover:text-ink">Back to the objectives</Link>
+        <Link href={back} className="inline-flex h-12 items-center px-3 text-body font-semibold text-ink-3 hover:text-ink">Back</Link>
       </div>
     </div>
   );
