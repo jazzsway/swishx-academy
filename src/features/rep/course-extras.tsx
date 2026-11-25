@@ -381,30 +381,9 @@ function AssessmentTile({ c, p, o, i, total, locked, lockNote }: { c: Course; p:
             </section>
           )}
 
-          <section className="flex flex-col gap-2">
-            <div className="flex flex-col gap-0.5">
-              <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">The situations</Text>
-              <Text size="caption" tone="subtle">{all ? `You'll take each of these ${o.bank.length}.` : o.bank.length > 1 ? `You'll get one of these ${o.bank.length}, picked for you.` : "This is the one you'll take."}</Text>
-            </div>
-            <ul className="flex flex-col gap-2">
-              {o.bank.map((x) => {
-                const R = ROLE[characterOf(x)];
-                const run = p.scenarioRuns?.[x.id];
-                return (
-                  <li key={x.id} className="flex gap-3 rounded-panel bg-subtle/70 p-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-card text-ink-3"><R className="size-4" aria-hidden="true" /></span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="flex items-start gap-2">
-                        <Text size="body" weight="semibold" className="min-w-0 flex-1 leading-snug">{x.title}</Text>
-                        {run && <span className={cn("shrink-0 rounded-chip px-1.5 py-0.5 text-micro font-bold tabular-nums", run.passed ? "bg-ok text-white" : "bg-danger-bg text-danger")}>{run.score}</span>}
-                      </span>
-                      {x.description && <Text size="caption" tone="subtle" className="leading-relaxed">{x.description}</Text>}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+          {/* v1-hidden: the objective's situations listed. Reps see the objective and what counts; the
+              situation is a surprise on the call, as it would be with a real HCP. */}
+          <Text size="caption" tone="subtle">{all ? "Every situation is scored, one call each." : "The situation is picked for you when the call starts."}</Text>
         </div>
       </Sheet>
     </li>

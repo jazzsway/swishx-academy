@@ -308,6 +308,8 @@ export const useApp = create<AppState>()(
             assessmentScenarioId: undefined,
             baseline: screens,
             finalNoHints: true,
+            /* A new training with the trainer's own material: reps can go straight to the assessments; the files are there to look through (Settings can make them mandatory). */
+            materialOptional: direct ? true : undefined,
             verify: "auto", // v1-hidden: was c.type === "personalised" ? "manager" : "auto" 
             /* A direct course is done when every file is seen; a final call, once attached, adds the assessment. */
             completion: direct ? { path: true, assessment: false, verify: false, attestation: false, checks: 0 }
