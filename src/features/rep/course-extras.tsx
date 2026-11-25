@@ -440,7 +440,7 @@ function ObjectiveTile({ c, p, o, i, total, locked, lockNote, startOpen }: { c: 
               <div className="flex gap-1.5" aria-hidden="true">
                 {Array.from({ length: cov.total }, (_, k) => <span key={k} className={cn("h-2 flex-1 rounded-full", k < cov.covered ? "bg-brand" : "bg-black/[0.08]")} />)}
               </div>
-              <Text size="caption" tone="subtle">{passed ? "Final passed. Practise any time to stay sharp." : cov.pct >= 100 ? "Every situation practised. The final assessment is open." : `${cov.covered} of ${cov.total} situation${cov.total === 1 ? "" : "s"} practised. Each practice call covers one; at 100% the final opens.`}</Text>
+              <Text size="caption" tone="subtle">{passed ? "Final passed. Practise any time to stay sharp." : cov.pct >= 100 ? "Coverage complete. The final assessment is open." : "Practise to complete your coverage and unlock the final assessment."}</Text>
             </section>
 
             {/* Past practice: opens its own list, each call with its score, coverage, recording and transcript. */}
