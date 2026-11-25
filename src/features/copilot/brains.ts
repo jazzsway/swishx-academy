@@ -390,7 +390,7 @@ function repModule(ctx: Ctx): { course: Course; module: Module } | undefined {
 const cite = (sid?: string, page?: number) => (sid ? `${source(sid)?.title ?? "Source"}${page ? `, p. ${page}` : ""}` : undefined);
 
 export const repBrain = {
-  scope: "Answers only from approved training content. Off during screening and assessments.",
+  scope: "Answers only from approved training content. Off during screening and final assessments.",
   briefing(ctx: Ctx): Briefing {
     const step = repNext(ctx);
     const mine = ctx.s.progress.filter((p) => p.userId === ctx.me.id);

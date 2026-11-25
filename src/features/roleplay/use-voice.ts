@@ -58,7 +58,7 @@ export function useVoice() {
       }
       setInterim((finalText.current + live).trim());
     };
-    r.onerror = (e) => { setError(e.error === "not-allowed" ? "Microphone access was blocked. You can type instead." : null); setListening(false); };
+    r.onerror = (e) => { setError(e.error === "not-allowed" ? "Microphone access was blocked. Allow it in your browser to talk." : null); setListening(false); };
     r.onend = () => {
       setListening(false);
       const t = finalText.current.trim();

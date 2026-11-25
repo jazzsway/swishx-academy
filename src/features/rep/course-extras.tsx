@@ -2,7 +2,8 @@
 
 import { Children, useEffect, useState } from "react";
 import Link from "next/link";
-import { Award, Briefcase, Check, ChevronDown, ChevronRight, FileText, Film, Headphones, Image as ImageIcon, Lock, Mic, Pill, Presentation, Stethoscope, Syringe, TrendingUp, UserRound } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Award, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, Film, Headphones, History, Image as ImageIcon, Lock, Mic, Pill, Presentation, Sparkles, Stethoscope, Syringe, TrendingUp, Trophy, Zap, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { Sheet } from "@/components/ui/sheet";
 import { lookForsOf } from "@/lib/objectives";
@@ -12,7 +13,8 @@ import { modulesOf } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
 import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
-import { callPlan, scenarioStatus, type ObjectivePlanState, type PlannedCall } from "./situations";
+import { callPlan, coverageOf, scenarioStatus, type ObjectivePlanState, type PlannedCall } from "./situations";
+import { PracticeCallTabs } from "./session-replay";
 import type { Character, Course, Module, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 
@@ -155,6 +157,9 @@ function Stage({ n, title, status, done, current, locked, last, summary, childre
  */
 export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const presenter = useApp((x) => x.presenter);
+  const practice = useApp((x) => x.practice);
+  /* Back from a practice call on an objective (?ob=…): that objective opens again, with its new coverage. */
+  const openOb = useSearchParams().get("ob");
   const mods = modulesOf(c);
   const base = `/rep/course/${c.id}`;
   const practiceOnly = p.mode === "practice";
@@ -183,24 +188,64 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const stages = [
     ...(screens && screen.length > 0 ? [{ t: "Screening", done: screened }] : []),
     ...(!practiceOnly && !optionalMaterial && needed.length > 0 ? [{ t: "Materials", done: filesDone }] : []),
-    ...(plan.objectives.length > 0 ? [{ t: "Assessments", done }] : []),
+    ...(plan.objectives.length > 0 ? [{ t: "Practice", done }] : []),
     { t: "Certified", done: certified },
   ];
   const at = stages.findIndex((x) => !x.done);
+  /* The level map: every step a node; objectives fill with practice coverage until their final is passed. */
+  type Node = { key: string; kind: "screen" | "files" | "ob" | "cert"; done: boolean; pct: number; label: string; n?: number };
+  const obCovs = plan.objectives.map((o) => coverageOf(c, p.userId, o.bank, practice));
+  const obCov = obCovs.map((x) => x.pct);
+  const nodes: Node[] = [
+    ...(screens && screen.length > 0 ? [{ key: "screen", kind: "screen" as const, done: screened, pct: screened ? 100 : 0, label: screened ? `Screening done, baseline ${p.screening!.overall}` : "Screening call" }] : []),
+    ...(!practiceOnly && !optionalMaterial && needed.length > 0 ? [{ key: "files", kind: "files" as const, done: filesDone, pct: needed.length ? Math.round((lessonsDone / needed.length) * 100) : 0, label: `Materials, ${lessonsDone} of ${needed.length}` }] : []),
+    ...plan.objectives.map((o, k) => ({ key: o.ob?.id ?? `ob${k}`, kind: "ob" as const, n: k + 1, done: o.state === "passed", pct: obCov[k], label: `Objective ${k + 1}: ${o.state === "passed" ? "passed" : `${obCov[k]}% covered`}` })),
+    { key: "cert", kind: "cert" as const, done: certified, pct: certified ? 100 : 0, label: certified ? "Certified" : "Certificate" },
+  ];
+  const cur = nodes.findIndex((x) => !x.done);
+  /* Overall: each node counts the same; an objective's practice gets it halfway, its final the rest. */
+  const overall = Math.round((nodes.reduce((sum, x) => sum + (x.done ? 1 : x.kind === "ob" ? x.pct / 200 : x.kind === "files" ? x.pct / 100 : 0), 0) / nodes.length) * 100);
+  const curNode = nodes[cur];
+  const left = curNode?.kind === "ob" ? obCovs[(curNode.n ?? 1) - 1].total - obCovs[(curNode.n ?? 1) - 1].covered : 0;
+  const hint = !curNode ? "Every step done. You're certified."
+    : curNode.kind === "screen" ? "Take a 3-minute call to set your baseline. It isn't graded."
+    : curNode.kind === "files" ? `Finish ${needed.length - lessonsDone} more material${needed.length - lessonsDone === 1 ? "" : "s"} to open practice.`
+    : curNode.kind === "cert" ? "Every objective passed. Collect your certificate."
+    : curNode.pct >= 100 ? `Objective ${curNode.n}'s final assessment is unlocked. Take it when you're ready.`
+    : `Practise ${left} more situation${left === 1 ? "" : "s"} to unlock Objective ${curNode.n}'s final assessment.`;
 
   return (
     <section className="flex flex-col gap-3" aria-label="Your journey">
-      {/* Where you are, at a glance: one segment per stage. */}
-      <div className="flex flex-col gap-3 rounded-card bg-sage p-4 text-white shadow-soft">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-body font-bold text-white/90">{at < 0 ? "All done" : `Step ${at + 1} of ${stages.length} · ${stages[at].t}`}</span>
-          {/* v1-hidden: the "Your team's material" chip. */}
+      {/* Where you are, compact and for any number of objectives: the steps before practice as icons, one
+          segment per objective (filling with practice coverage, solid once its final is passed), then the certificate. */}
+      <div className="relative flex flex-col gap-3 overflow-hidden rounded-card bg-sage p-4 text-white shadow-soft">
+        <div className="drift pointer-events-none absolute -right-16 -top-20 size-48 rounded-full bg-white/15 blur-3xl" aria-hidden="true" />
+        <div className="relative flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-caption font-bold text-white/85">{at < 0 ? "All done" : `Step ${at + 1} of ${stages.length} · ${stages[at].t}`}</span>
+          {screened && <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-micro font-bold">Baseline {p.screening!.overall}</span>}
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-micro font-extrabold tabular-nums text-sage"><Zap className="size-3 fill-current" aria-hidden="true" />{overall}%</span>
         </div>
-        <span className="text-display font-extrabold leading-tight tracking-tight">{at < 0 ? "You're certified" : at === stages.length - 1 && done ? "Get your certificate" : stages[at].t === "Screening" ? "Start with a short call" : stages[at].t === "Materials" ? "Go through the materials" : stages[at].t === "Assessments" ? "Take your assessments" : "Get certified"}</span>
-        <div className="flex gap-1.5" aria-hidden="true">
-          {stages.map((x, i) => <span key={x.t} className={cn("h-2 flex-1 rounded-full", x.done ? "bg-white" : i === at ? "bg-white/55" : "bg-white/25")} />)}
+        <span className="relative text-title font-extrabold leading-tight tracking-tight">{at < 0 ? "You're certified" : at === stages.length - 1 && done ? "Get your certificate" : stages[at].t === "Screening" ? "Start with a short call" : stages[at].t === "Materials" ? "Go through the materials" : stages[at].t === "Practice" ? "Practise each objective" : "Get certified"}</span>
+        <div className="relative flex items-center gap-1.5" role="img" aria-label={nodes.map((x) => x.label).join(". ")}>
+          {nodes.filter((x) => x.kind === "screen" || x.kind === "files").map((x) => (
+            <span key={x.key} className={cn("grid size-6 shrink-0 place-items-center rounded-full", x.done ? "bg-white text-sage" : nodes[cur] === x ? "now-glow bg-white/30" : "bg-white/20")}>
+              {x.done ? <Check className="size-3.5" strokeWidth={3} aria-hidden="true" /> : x.kind === "screen" ? <Mic className="size-3" aria-hidden="true" /> : <FileText className="size-3" aria-hidden="true" />}
+            </span>
+          ))}
+          <span className="flex min-w-0 flex-1 gap-[3px]">
+            {nodes.filter((x) => x.kind === "ob").map((x) => (
+              <span key={x.key} className={cn("relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/20", nodes[cur] === x && "ring-2 ring-white/70 ring-offset-1 ring-offset-sage")}>
+                <span className={cn("absolute inset-y-0 left-0 rounded-full transition-[width] duration-700", x.done ? "bg-white" : "bg-white/55")} style={{ width: `${x.done ? 100 : x.pct}%` }} />
+              </span>
+            ))}
+          </span>
+          <span className={cn("grid size-6 shrink-0 place-items-center rounded-full", certified ? "bg-white text-sage" : "bg-white/20")}><Trophy className="size-3.5" aria-hidden="true" /></span>
         </div>
-        {/* v1-hidden: the row of stage names under the bar; the line above names the one you're on. */}
+        <div className="relative flex items-start gap-2 text-caption font-semibold leading-snug">
+          <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 text-white/95">{hint}</span>
+          {plan.objectives.length > 0 && <span className="shrink-0 tabular-nums text-white/80">{passedObs}/{plan.objectives.length} passed</span>}
+        </div>
       </div>
       <ol className="flex flex-col gap-3">
         {screens && screen.length > 0 && (
@@ -252,8 +297,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         )}
 
         {plan.objectives.length > 0 && (
-          <Stage n={++n} title="Assessments" done={done} current={!callsLocked && !done} locked={callsLocked} summary={`${plan.objectives.length} objective${plan.objectives.length === 1 ? "" : "s"} · one call each`}
-            status={callsLocked ? <Pill_ tone="muted">{optionalMaterial || !needed.length ? "After screening" : "After the materials"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}>{passedObs} of {plan.objectives.length} passed</Pill_>}>
+          <Stage n={++n} title="Practice and complete" done={done} current={!callsLocked && !done} locked={callsLocked} summary={`${plan.objectives.length} objective${plan.objectives.length === 1 ? "" : "s"} · practise, then the final`}
+            status={callsLocked ? <Pill_ tone="muted">{optionalMaterial || !needed.length ? "After screening" : "After the materials"}</Pill_> : <Pill_ tone={done ? "ok" : "muted"}><span className="tabular-nums" aria-label={`${passedObs} of ${plan.objectives.length} objectives complete`}>{passedObs}/{plan.objectives.length}</span></Pill_>}>
             {/* The rules, as chips rather than a sentence. */}
             <div className="flex flex-wrap gap-1.5">
               {[`Pass ${c.settings.passRoleplay}`, `${c.settings.attempts} ${c.settings.attempts === 1 ? "try" : "tries"} each`, ...(c.settings.finalNoHints === false ? ["Hints on"] : [])].map((x) => (
@@ -261,8 +306,8 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
               ))}
             </div>
             {/* One assessment per objective. A tap shows what to expect: the objective, who you'll meet, what counts, and its situations. */}
-            <ul className="flex flex-col gap-2" aria-label="Your assessments">
-              {plan.objectives.map((o, i) => <AssessmentTile key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} total={plan.objectives.length} locked={callsLocked} lockNote={optionalMaterial || !needed.length ? "Opens after your screening call" : "Opens after the materials"} />)}
+            <ul className="flex flex-col gap-2" aria-label="Your objectives">
+              {plan.objectives.map((o, i) => <ObjectiveTile key={o.ob?.id ?? "loose"} c={c} p={p} o={o} i={i} total={plan.objectives.length} locked={callsLocked} startOpen={!!o.ob && openOb === o.ob.id} lockNote={optionalMaterial || !needed.length ? "Opens after your screening call" : "Opens after the materials"} />)}
             </ul>
             {/* v1-hidden: one call per person, covering several objectives (CallCard, callsOf). Each objective is now its own assessment. */}
           </Stage>
@@ -271,7 +316,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
         {/* Optional material: not a step. It sits just above the certificate, to look through any time. */}
         {!practiceOnly && optionalMaterial && mods.length > 0 && (
           <Stage n={++n} title="Materials" summary={`${mods.length} file${mods.length === 1 ? "" : "s"} · any time`} status={<Pill_ tone="muted">Optional</Pill_>}>
-            <Text size="caption" tone="subtle" className="-mt-1">Look through any of it, any time. It isn&apos;t a step, and the assessments don&apos;t wait for it.</Text>
+            <Text size="caption" tone="subtle" className="-mt-1">Look through any of it, any time. It isn&apos;t a step, and practice doesn&apos;t wait for it.</Text>
             <ul className="flex flex-col gap-1.5">
               {mods.map((m) => {
                 const meta = fileMeta(m);
@@ -310,6 +355,175 @@ const OB_STATUS: Record<ObjectivePlanState, { label: string; tone: "ok" | "dange
 };
 type Plan = ReturnType<typeof callPlan>;
 
+/**
+ * One objective, to practise and complete. Practice calls cover its situations one by one (each finished
+ * call covers its situation); at 100% coverage the final assessment opens, scored on a situation drawn for
+ * the rep. The sheet shows what the objective is about, the coverage, the two ways in, and the past
+ * practice calls, each with its score, coverage, a recording and its transcript.
+ */
+function ObjectiveTile({ c, p, o, i, total, locked, lockNote, startOpen }: { c: Course; p: Progress; o: Plan["objectives"][number]; i: number; total: number; locked: boolean; lockNote: string; startOpen?: boolean }) {
+  const [open, setOpen] = useState(false);
+  /* Coming back to the training on this objective (?ob=…) opens it. After mount, not on the first render:
+     sheets portal into the device's overlay layer, which only exists on the client. */
+  useEffect(() => { if (startOpen) setOpen(true); }, [startOpen]);
+  /* Past practice opens in its own drawer: the list of calls, or one call. */
+  const [hist, setHist] = useState<string | null>(null);
+  const practice = useApp((x) => x.practice);
+  const base = `/rep/course/${c.id}`;
+  const st = c.settings;
+  const cov = coverageOf(c, p.userId, o.bank, practice);
+  const sc = o.next[0] ?? o.tested ?? o.bank[0];
+  const people = [...new Set(o.bank.map(characterOf))];
+  const I = ROLE[characterOf(sc)];
+  const passed = o.state === "passed";
+  /* The final opens once every situation has been practised (or if it's been taken already). */
+  const finalOpen = cov.pct >= 100 || o.state !== "todo";
+  const canFinal = !locked && finalOpen && ["todo", "started", "retry"].includes(o.state) && o.next.length > 0;
+  const status = OB_STATUS[o.state];
+  const when = o.retryAt?.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const note = o.state === "waiting" ? `You can retry the final from ${when}` : o.state === "out" ? "No tries left on the final. Your manager can reset it" : o.state === "retry" ? `${o.triesLeft} ${o.triesLeft === 1 ? "try" : "tries"} left on the final` : undefined;
+  const final = `${base}/assessment?call=${characterOf(o.next[0] ?? sc)}${o.ob ? `&ob=${o.ob.id}` : ""}`;
+  const practise = `/rep/practice/call?scenario=${cov.next.id}&course=${c.id}${o.ob ? `&ob=${o.ob.id}` : ""}`;
+  const title = o.ob?.title ?? "More situations";
+  const looks = o.ob ? lookForsOf(o.ob) : [];
+  const session = cov.sessions.find((x) => x.id === hist);
+  const close = () => { setOpen(false); setHist(null); };
+  const mmss = (n: number) => `${Math.floor(n / 60)}:${String(Math.round(n % 60)).padStart(2, "0")}`;
+  const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+  return (
+    <li>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog"
+        className={cn("flex w-full items-center gap-3 rounded-panel p-3.5 text-left transition-colors", passed ? "bg-sage-bg" : !locked ? "bg-tint/70 hover:bg-tint" : "bg-subtle/70 hover:bg-subtle")}>
+        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-white", passed ? "bg-sage" : !locked ? "bg-peach" : "bg-lilac")}>
+          {passed ? <Check className="size-5" aria-hidden="true" /> : <I className="size-5" aria-hidden="true" />}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-micro font-bold uppercase tracking-wider text-ink-3">Objective {i + 1}</span>
+          <Text size="body" weight="bold" className="leading-snug">{title}</Text>
+          {passed ? <Text size="caption" tone="subtle">Final passed{o.tested ? ` · ${p.scenarioRuns?.[o.tested.id]?.score ?? ""}` : ""}</Text> : (
+            <span className="flex items-center gap-2">
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/[0.07]"><span className="block h-full rounded-full bg-brand" style={{ width: `${cov.pct}%` }} /></span>
+              <span className="shrink-0 text-caption font-semibold tabular-nums text-ink-3">{cov.pct}% covered</span>
+            </span>
+          )}
+        </span>
+        {passed ? <Pill_ tone="ok">Done</Pill_> : o.state !== "todo" ? <Pill_ tone={status.tone}>{status.label}</Pill_> : finalOpen && !locked ? <Pill_ tone="brand">Final ready</Pill_> : locked ? <Lock className="size-4 shrink-0 text-ink-4" aria-hidden="true" /> : <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
+      </button>
+
+      <Sheet open={open && !hist} onClose={close} label={title}
+        title={<span className="flex flex-col gap-1"><span className="text-micro font-bold uppercase tracking-wider text-ink-3">Objective {i + 1} of {total}</span><span className="text-title font-extrabold leading-snug text-ink">{title}</span></span>}
+        footer={passed
+          ? <div className="flex w-full flex-col gap-2">
+              {o.tested && <Link href={`${base}/assessment?report=${o.tested.id}`} className="flex h-12 w-full items-center justify-center rounded-full bg-cta text-body-lg font-bold text-white">See your final</Link>}
+              <Link href={practise} className="flex h-11 w-full items-center justify-center gap-2 rounded-full text-body font-bold text-ink-2 hover:bg-subtle"><Mic className="size-4" aria-hidden="true" />Practise again</Link>
+            </div>
+          : locked
+            ? <span aria-disabled="true" className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-subtle text-body-lg font-bold text-ink-4"><Lock className="size-4" aria-hidden="true" />{lockNote}</span>
+            : <div className="flex w-full flex-col gap-2">
+                {/* Practice first; the final joins (and leads) once every situation is covered. */}
+                {canFinal && <Link href={final} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-cta text-body-lg font-bold text-white"><Award className="size-4.5" aria-hidden="true" />{o.state === "retry" ? "Retry the final assessment" : "Take the final assessment"}</Link>}
+                <Link href={practise} className={cn("flex w-full items-center justify-center gap-2 rounded-full font-bold", canFinal ? "h-11 text-body text-ink-2 hover:bg-subtle" : "h-12 bg-cta text-body-lg text-white")}><Mic className="size-4.5" aria-hidden="true" />{cov.pct >= 100 ? "Practise again" : cov.covered ? "Keep practising" : "Start practising"}</Link>
+                {!canFinal && <span aria-disabled="true" className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-subtle text-body font-bold text-ink-4"><Lock className="size-4" aria-hidden="true" />{note ?? `Final assessment · opens at 100%`}</span>}
+              </div>}>
+
+        {(
+          <div className="flex flex-col gap-5 pb-2">
+            {o.ob?.description && <Text size="body" tone="muted" className="leading-relaxed">{o.ob.description}</Text>}
+
+            {/* Coverage: the situations practised, towards the final. */}
+            <section className="flex flex-col gap-2.5 rounded-[20px] bg-subtle/70 p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-caption font-bold uppercase tracking-wider text-ink-3">Coverage</span>
+                <span className="text-title font-extrabold tabular-nums text-ink">{cov.pct}%</span>
+              </div>
+              <div className="flex gap-1.5" aria-hidden="true">
+                {Array.from({ length: cov.total }, (_, k) => <span key={k} className={cn("h-2 flex-1 rounded-full", k < cov.covered ? "bg-brand" : "bg-black/[0.08]")} />)}
+              </div>
+              <Text size="caption" tone="subtle">{passed ? "Final passed. Practise any time to stay sharp." : cov.pct >= 100 ? "Every situation practised. The final assessment is open." : `${cov.covered} of ${cov.total} situation${cov.total === 1 ? "" : "s"} practised. Each practice call covers one; at 100% the final opens.`}</Text>
+            </section>
+
+            {/* Past practice: opens its own list, each call with its score, coverage, recording and transcript. */}
+            <button type="button" onClick={() => setHist("list")} disabled={!cov.sessions.length}
+              className="flex items-center gap-3 rounded-[20px] bg-card p-3.5 text-left shadow-hair ring-1 ring-hair transition-colors hover:bg-subtle disabled:opacity-60">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-lilac text-white"><History className="size-4.5" aria-hidden="true" /></span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body font-bold text-ink">Past practice sessions</span>
+                <span className="text-caption text-ink-3">{cov.sessions.length ? `${cov.sessions.length} call${cov.sessions.length === 1 ? "" : "s"} · last ${day(cov.sessions[0].at)}` : "No practice calls yet"}</span>
+              </span>
+              {cov.sessions.length > 0 && <ChevronRight className="size-4 shrink-0 text-ink-4" aria-hidden="true" />}
+            </button>
+
+            <div className="flex flex-wrap gap-1.5">
+              {[`Final: pass ${st.passRoleplay}`, `${st.attempts} ${st.attempts === 1 ? "try" : "tries"}`, st.finalNoHints === false ? "Hints on" : "No hints", "Practice isn't graded"].map((x) => (
+                <span key={x} className="rounded-full bg-subtle px-2.5 py-1 text-micro font-bold text-ink-2">{x}</span>
+              ))}
+            </div>
+            {note && !passed && <div className="rounded-panel bg-sun-bg px-3.5 py-3 text-body font-semibold text-warn">{note}.</div>}
+
+            <section className="flex flex-col gap-2">
+              <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">Who you&apos;ll meet</Text>
+              <div className="flex flex-wrap gap-2">
+                {people.map((k) => { const R = ROLE[k]; return <span key={k} className="flex items-center gap-2 rounded-full bg-subtle py-1 pl-1 pr-3 text-body font-semibold text-ink-2"><span className="grid size-7 place-items-center rounded-full bg-peach text-white"><R className="size-3.5" aria-hidden="true" /></span>{CHARACTERS[k].label}</span>; })}
+              </div>
+            </section>
+
+            {looks.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">What counts</Text>
+                <ul className="flex flex-col gap-1.5">
+                  {looks.map((x) => <li key={x} className="flex items-start gap-2 text-body text-ink-2"><Check className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden="true" />{x}</li>)}
+                </ul>
+              </section>
+            )}
+
+          </div>
+        )}
+
+      </Sheet>
+
+      {/* Past practice sessions: a drawer of its own, the same height for the list and for one call. */}
+      <Sheet open={open && !!hist} onClose={close} className="h-[88%]" label="Past practice sessions"
+        title={<span className="flex flex-col gap-1">
+          <button type="button" onClick={() => setHist(hist === "list" ? null : "list")} className="flex items-center gap-1 self-start text-caption font-bold text-ink-3 hover:text-ink"><ChevronLeft className="size-3.5" aria-hidden="true" />{hist === "list" ? "Objective" : "Past practice sessions"}</button>
+          <span className="text-title font-extrabold leading-snug text-ink">{session ? (allScenarios().find((x) => x.id === session.setup?.scenarioId)?.title ?? session.title) : "Past practice sessions"}</span>
+        </span>}>
+        {hist === "list" && (
+          <ul className="flex flex-col gap-2 pb-2">
+            {cov.sessions.map((x) => {
+              const sit = allScenarios().find((y) => y.id === x.setup?.scenarioId);
+              const R = ROLE[sit ? characterOf(sit) : "doctor"];
+              const score = x.result?.score ?? 0;
+              /* A call where the rep said nothing: kept, but it covers nothing and has no score. */
+              const empty = !x.result?.transcript.some((t) => t.speaker === "rep");
+              return (
+                <li key={x.id}>
+                  <button type="button" onClick={() => setHist(x.id)} className="flex w-full items-center gap-3 rounded-[20px] bg-card p-3 text-left shadow-hair ring-1 ring-hair hover:bg-subtle">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><R className="size-4.5" aria-hidden="true" /></span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="truncate text-body font-bold text-ink">{sit?.title ?? x.title}</span>
+                      <span className="text-caption text-ink-3">{day(x.at)} · {mmss(x.result?.durationSec ?? 0)} · {empty ? "nothing said, doesn't count" : `coverage ${cov.after.get(x.id) ?? 0}%`}</span>
+                    </span>
+                    <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-body font-extrabold tabular-nums", empty ? "bg-subtle text-ink-4" : score >= st.passRoleplay ? "bg-sage-bg text-ok" : "bg-peach-bg text-brand-deep")}>{empty ? "–" : score}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {session?.result && (
+          <div className="flex flex-col gap-3 pb-2">
+            <span className="text-caption text-ink-3">{day(session.at)} · {session.result.transcript.some((t) => t.speaker === "rep") ? `coverage ${cov.after.get(session.id) ?? 0}% after this call` : "nothing said, doesn't count"}</span>
+            <PracticeCallTabs x={session} />
+          </div>
+        )}
+      </Sheet>
+    </li>
+  );
+}
+
+/* v1-hidden: the assessment tile, before practice and coverage. */
 /**
  * One objective's assessment: a call with one person, on one of the objective's situations (drawn for the
  * rep), or on each of them when the training scores them all. The tile says where it stands; a tap opens

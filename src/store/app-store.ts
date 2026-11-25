@@ -447,7 +447,7 @@ export const useApp = create<AppState>()(
               if (p.state === "not_started") return next;
               if (p.state === "certified") {
                 if (plan.completed === "keep") return next;
-                tell(p, "Recertify", `${course.title} has a new version. Take its assessments again by ${day(due)} to stay certified.`);
+                tell(p, "Recertify", `${course.title} has a new version. Practise and take its finals again by ${day(due)} to stay certified.`);
                 return { ...next, ...reset, state: "not_started" as const, startedAt: undefined, dueAt: due, assignType: "required" as const };
               }
               if (plan.inProgress === "keep") { tell(p, "Training updated", `${course.title} has a new version. Your progress carries over.`); return next; }
@@ -738,11 +738,11 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 43,
+      version: 44,
       /* From v29: keep everything a trainer made. To v33: give the field kit its objectives, the practice manager and assisted mode.
          To v35: the people in situations speak in their own voice: an opening written for the situation, a patient's own side-effect line, no "our product". */
       migrate: (persisted, from) => {
-        if (from < 29 || from > 42) return initial() as unknown as AppState;
+        if (from < 29 || from > 43) return initial() as unknown as AppState;
         let st = persisted as AppState;
         if (from <= 32) {
           const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
@@ -798,7 +798,7 @@ export const useApp = create<AppState>()(
           };
         }
         /* v42–43: Priya's past practice calls, with transcripts, for the Practice tab (replaced, so they're current). */
-        if (from <= 42) st = { ...st, practice: [...st.practice.filter((p) => !PRIYA_PRACTICE.some((x) => x.id === p.id)), ...PRIYA_PRACTICE] };
+        if (from <= 43) st = { ...st, practice: [...st.practice.filter((p) => !PRIYA_PRACTICE.some((x) => x.id === p.id)), ...PRIYA_PRACTICE] };
         return { ...st, scenarios: st.scenarios.map((sc) => ownVoice(sc, st.courses)) };
       },
       storage: createJSONStorage(() => localStorage),

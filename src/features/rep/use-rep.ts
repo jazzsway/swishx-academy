@@ -12,7 +12,7 @@ import { product } from "@/data/org";
 import { blockCards } from "@/lib/short-form";
 import { allScenarios } from "@/data/scenarios";
 import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
-import { callPlan } from "./situations";
+import { callPlan, coverageOf } from "./situations";
 
 /** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
 const blockMinutes = (c: Course, b: Module["blocks"][number]) => (c.format === "short" ? blockCards(b).length / 3 : b.minutes);
@@ -120,7 +120,13 @@ export function directNext(p: Progress, c: Course): NextStep | null {
     const sc = o.next[0];
     const min = Math.max(3, sc.durationMin);
     const who = CHARACTERS[characterOf(sc)].label.toLowerCase();
-    return step(o.ob?.title ?? sc.title, `Assessment ${k + 1} of ${plan.objectives.length} · a ${min}-minute call with a ${who} · scored`, `${o.state === "retry" ? "Retry" : "Start"} assessment ${k + 1} · ${o.ob?.title ?? sc.title}`, `${base}/assessment?call=${characterOf(sc)}${o.ob ? `&ob=${o.ob.id}` : ""}`, min);
+    /* Practice first: until every situation of the objective is covered, the next step is a practice call. */
+    const cov = coverageOf(c, p.userId, o.bank, useApp.getState().practice);
+    if (o.ob && o.state === "todo" && cov.pct < 100) {
+      const pm = Math.max(3, cov.next.durationMin);
+      return step(o.ob.title, `Objective ${k + 1} of ${plan.objectives.length} · ${cov.pct}% covered · practice, not graded`, `Practise objective ${k + 1} · ${o.ob.title}`, `/rep/practice/call?scenario=${cov.next.id}&course=${c.id}&ob=${o.ob.id}`, pm);
+    }
+    return step(o.ob?.title ?? sc.title, `Final assessment ${k + 1} of ${plan.objectives.length} · a ${min}-minute call with a ${who} · scored`, `${o.state === "retry" ? "Retry" : "Take"} final assessment ${k + 1} · ${o.ob?.title ?? sc.title}`, `${base}/assessment?call=${characterOf(sc)}${o.ob ? `&ob=${o.ob.id}` : ""}`, min);
   }
   if (plan.allPassed) return step("Get your certificate", "Every objective passed. Your certificate is ready.", "Get your certificate", `${base}/attest`);
   return null;
@@ -137,7 +143,7 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
     return { progress: p, course: c, eyebrow: p.mode === "practice" ? `${c.title} · scenarios only` : c.title, title: "Take the scenario call", why: `${c.scenarioIds.length} people, back to back in one call. Stop and continue any time.`, cta: p.state === "assessment" ? "Continue the call" : "Start the call", href: `${base}/assessment`, minutes: 15 };
   if (p.mode === "practice" && !p.attempts.at(-1)?.passed)
     return c.settings.completion.assessment
-      ? { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Take the final assessment", why: "You're assigned practice only. Rehearse the call first, as often as you like.", cta: "Start assessment", href: `${base}/assessment`, minutes: 10 }
+      ? { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Take the final assessment", why: "You're assigned practice only. Rehearse the call first, as often as you like.", cta: "Start the final", href: `${base}/assessment`, minutes: 10 }
       : { progress: p, course: c, eyebrow: `${c.title} · practice only`, title: "Practise the call", why: "You're assigned practice only. It's private and unlimited.", cta: "Practise", href: "/rep/practice", minutes: 5 };
   if (p.state === "not_started")
     return c.settings.screening
@@ -161,7 +167,7 @@ export function nextStepFor(p: Progress, c: Course): NextStep | null {
   if (p.state === "assessment" && last?.passed) return { progress: p, course: c, eyebrow: c.title, title: "Get your certificate", why: "You passed. Your certificate is ready.", cta: "Get your certificate", href: `${base}/attest` };
   if (!c.settings.completion.assessment) return { progress: p, course: c, eyebrow: c.title, title: "Get your certificate", why: "You've finished every lesson.", cta: "Get your certificate", href: `${base}/attest` };
   if (scenarioCall) return { progress: p, course: c, eyebrow: c.title, title: "Take the scenario call", why: `Your lessons are done. ${c.scenarioIds.length} people, back to back in one call.`, cta: "Start the call", href: `${base}/assessment`, minutes: 15 };
-  return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: c.items.some((i) => i.pool === "assessment") ? "Your path is done. Quiz plus a short call." : "Your path is done. One scored call.", cta: "Start assessment", href: `${base}/assessment`, minutes: 15 };
+  return { progress: p, course: c, eyebrow: c.title, title: p.state === "needs_coaching" ? "Resubmit your roleplay" : "Take the final assessment", why: c.items.some((i) => i.pool === "assessment") ? "Your path is done. Quiz plus a short call." : "Your path is done. One scored call.", cta: "Start the final", href: `${base}/assessment`, minutes: 15 };
 }
 
 export function useRep() {

@@ -143,7 +143,7 @@ export function Assessment() {
       <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-8">
         {items.length > 0 && <Chip tone="ok" size="md" className="self-start">Quiz done</Chip>}
         <Text as="h1" size="hero" weight="extrabold" tracking="tight" className="leading-tight">{items.length ? "Last part: the call" : `Your call with ${sc?.persona.name ?? "the doctor"}`}</Text>
-        <Text size="subhead" tone="muted" className="leading-relaxed">{sc?.persona.name} is {sc?.persona.traits.slice(0, 2).join(" and ").toLowerCase() ?? "sceptical"}. This call is recorded{st.verify === "manager" ? " and your manager will review it" : ""}. An off-label or risk-minimising statement fails the assessment.</Text>
+        <Text size="subhead" tone="muted" className="leading-relaxed">{sc?.persona.name} is {sc?.persona.traits.slice(0, 2).join(" and ").toLowerCase() ?? "sceptical"}. This call is recorded{st.verify === "manager" ? " and your manager will review it" : ""}. An off-label or risk-minimising statement fails the final.</Text>
         <BottomBar><Button size="lg" fullWidth onClick={() => setPhase("call")}>Go to the call<ArrowRight className="size-4" aria-hidden="true" /></Button></BottomBar>
       </div>
     );

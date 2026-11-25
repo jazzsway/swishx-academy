@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, FileText, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, CalendarClock, BookOpen, Mic, Library as LibraryIcon, Layers } from "lucide-react";
+import { Check, FileText, Lock, ChevronDown, ChevronRight, CircleCheck, Hourglass, MessageSquareQuote, Award, PlayCircle, Flag, CalendarClock, BookOpen, Library as LibraryIcon, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, fmtDate, isOverdue, opensLater, ASSIGN_LABEL } from "@/store/selectors";
@@ -100,9 +100,8 @@ function CourseRow({ p, c, tag }: { p: Progress; c: Course; tag?: { label: strin
         <Text size="body-lg" weight="bold" className="leading-snug">{c.title}</Text>
         <span className="flex flex-wrap items-center gap-1.5">
           {tag && <Chip size="xs" tone={tag.tone}>{tag.label}</Chip>}
-          {c.origin === "direct" && (noMaterial(c)
-            ? <span className="inline-flex items-center gap-1 rounded-chip bg-lilac-bg px-1.5 py-0.5 text-micro font-semibold text-accent-violet"><Mic className="size-3" aria-hidden="true" />Assessments only</span>
-            : <span className="inline-flex items-center gap-1 rounded-chip bg-info-bg px-1.5 py-0.5 text-micro font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Team material</span>)}
+          {/* No tag for a calls-only training: practice is what every training ends in. */}
+          {c.origin === "direct" && !noMaterial(c) && <span className="inline-flex items-center gap-1 rounded-chip bg-info-bg px-1.5 py-0.5 text-micro font-semibold text-info"><FileText className="size-3" aria-hidden="true" />Team material</span>}
           {opensLater(p) && <Chip size="xs" iconLeft={<CalendarClock className="size-3" aria-hidden="true" />}>Opens {fmtDate(p.startsAt)}</Chip>}
           <Text size="caption" tone={isOverdue(p) ? "danger" : "subtle"} weight={isOverdue(p) ? "semibold" : undefined}>
             {cert ? `Certified ${fmtDate(p.certifiedAt)} · valid to ${fmtDate(p.certExpiresAt, true)}` : p.dueAt ? (isOverdue(p) ? `Overdue since ${fmtDate(p.dueAt)}` : `Due ${fmtDate(p.dueAt)}`) : "No due date"}
@@ -243,7 +242,8 @@ export function RepCourse() {
 
       {p.mode === "practice" && p.state !== "certified" && c.origin !== "direct" && <PracticeOnlyNote />}
       {c.origin === "direct" && <DirectJourney c={c} p={p} />}
-      <BaselineCard c={c} p={p} />
+      {/* Direct trainings show the baseline on their level map instead. */}
+      {c.origin !== "direct" && <BaselineCard c={c} p={p} />}
 
       {c.origin !== "direct" && pathDone(p, c) && c.settings.completion.assessment && ["learning", "remediation", "needs_coaching"].includes(p.state) && (
         <div className="squircle flex flex-col gap-2 rounded-card border border-hair bg-card p-5">

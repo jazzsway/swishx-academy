@@ -3,24 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Lock, Mic, Trash2, RotateCcw, Flame, X, Check, AudioLines, Stethoscope, Syringe, Pill, Briefcase, UserRound, ShieldAlert } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
+import { Lock, Mic, Trash2, RotateCcw, Flame, X, AudioLines, Stethoscope, Syringe, Pill, Briefcase, UserRound } from "lucide-react"; // v1-hidden: ListChecks, Layers, Share2
 import { cn } from "@/lib/cn";
 import { nowIso, useApp } from "@/store/app-store";
 import { useMe, daysFromToday } from "@/store/selectors";
-import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, allScenarios, objection, registerExtraObjections, scenario as getScenario } from "@/data/scenarios";
+import { OBJECTIONS, PREP_CALL_TYPES, PREP_SPECIALTIES, PREP_TRAITS, allScenarios, registerExtraObjections, scenario as getScenario } from "@/data/scenarios";
 import { situationObjection } from "@/lib/roleplay-draft";
 import type { Item, PracticeSession } from "@/data/types";
-import { competency, product, PRODUCTS } from "@/data/org";
+import { competency, PRODUCTS } from "@/data/org";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { ScreenTop, BottomBar } from "@/features/shell/screen-chrome";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState, Ring } from "@/components/patterns/academy";
-import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
 import { CallScreen } from "@/features/roleplay/call-screen";
-import { Scorecard } from "@/features/roleplay/scorecard";
 import { BlockView } from "@/features/shared/block-view";
 import { PracticeHero } from "./hero-visuals";
+import { objectiveBank, objectiveCall } from "@/lib/objective-call";
+import { coverageOf } from "./situations";
+import { PracticeCallTabs } from "./session-replay";
 
 /* ── Who you can rehearse with ────────────────────────────────────────────── */
 
@@ -260,7 +261,7 @@ export function PrepMeeting() {
     return <CallScreen scenario={{ ...base, objective: own ? "Practise the conversation you described. Nothing is graded." : "Practise the conversation you're expecting. Nothing is graded.", durationMin: minutes }} objectionIds={callObjs} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]}
       personaOverride={persona} onExit={() => setLive(false)} assisted={assisted}
       onComplete={(r, meta) => {
-        const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: `${persona.name.replace(/,.*$/, "")} · ${callType.toLowerCase()}`, setup: { ...setup, assisted: meta.assisted, persona: persona.name }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
+        const id = s.addPractice({ userId: me.id, at: nowIso(), kind: "roleplay", title: `${persona.name.replace(/,.*$/, "")} · ${callType.toLowerCase()}`, setup: { ...setup, assisted: meta.assisted, persona: persona.name }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
         s.touchStreak(me.id);
         router.replace(`/rep/practice/session/${id}`);
       }} />;
@@ -318,12 +319,18 @@ export function LibraryCall() {
   const router = useRouter();
   const me = useMe();
   const s = useApp();
-  const sc = getScenario(search.get("scenario") ?? "sc-kim");
-  return <CallScreen scenario={sc} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push("/rep/practice")} assisted
+  /* From a training's objective: its course and objective ride along, so the call can come back to it. */
+  const course = s.courses.find((c) => c.id === search.get("course"));
+  const ob = course?.objectives?.find((o) => o.id === search.get("ob"));
+  const back = course && ob ? `/rep/course/${course.id}?ob=${ob.id}` : "/rep/practice";
+  /* An objective with no situations practises on its own call, made on demand. */
+  const sc = getScenario(search.get("scenario") ?? "sc-kim") ?? (course && ob ? objectiveCall(course, ob) : getScenario("sc-kim"));
+  return <CallScreen scenario={sc} mode="practice" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(back)} assisted
     onComplete={(r, meta) => {
-      const id = s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "roleplay", title: sc.title, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context, assisted: meta.assisted, role: sc.character, persona: sc.persona.name, minutes: sc.durationMin, source: "training", courseId: sc.courseId, scenarioId: sc.id }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
+      const id = s.addPractice({ userId: me.id, at: nowIso(), kind: "roleplay", title: sc.title, setup: { specialty: sc.persona.specialty, traits: sc.persona.traits, objectionIds: sc.objectionIds, callType: sc.context, assisted: meta.assisted, role: sc.character, persona: sc.persona.name, minutes: sc.durationMin, source: "training", courseId: course?.id ?? sc.courseId, scenarioId: sc.id }, result: { transcript: r.transcript, criteria: r.criteria, flags: r.flags, score: r.score, typed: r.typed, durationSec: r.durationSec } });
       s.touchStreak(me.id);
-      router.replace(`/rep/practice/session/${id}`);
+      /* Always the scorecard first; from an objective, it leads back to the objective. */
+      router.replace(`/rep/practice/session/${id}${course && ob ? `?back=${encodeURIComponent(back)}` : ""}`);
     }} />;
 }
 
@@ -336,16 +343,20 @@ export function PracticeSessionView() {
   const router = useRouter();
   const me = useMe();
   const s = useApp();
-  const [tab, setTab] = useState<"score" | "transcript" | "setup">("score");
+  const search = useSearchParams();
   const x = s.practice.find((p) => p.id === id && p.userId === me.id);
   if (!x?.result) return <div className="p-4"><EmptyState title="Call not found" body="It may have been deleted." /></div>;
   const r = x.result;
   const st = x.setup;
   const who = st?.persona ?? x.title.split(" · ")[0];
-  const I = ROLE_ICON[st?.role ?? "doctor"] ?? Stethoscope;
   const course = st?.courseId ? s.courses.find((c) => c.id === st.courseId) : undefined;
   const verdict = r.score >= 75 ? "Strong call" : r.score >= 60 ? "Getting there" : "Keep practising";
-  const again = st?.source === "training" && st.scenarioId ? `/rep/practice/call?scenario=${st.scenarioId}` : st ? `/rep/practice/prep?from=${x.id}` : "/rep/practice";
+  /* From a training's objective: where it stands now, and the next situation to practise. */
+  const back = search.get("back");
+  const obj = course?.objectives?.find((o) => o.id === (allScenarios().find((y) => y.id === st?.scenarioId)?.objectiveId ?? st?.scenarioId?.replace(`sc-ob-${course?.id}-`, "")));
+  const cov = course && obj ? coverageOf(course, me.id, objectiveBank(course, obj, allScenarios().filter((y) => course.scenarioIds.includes(y.id))), s.practice) : undefined;
+  const again = course && obj && cov ? `/rep/practice/call?scenario=${cov.next.id}&course=${course.id}&ob=${obj.id}` : st?.source === "training" && st.scenarioId ? `/rep/practice/call?scenario=${st.scenarioId}` : st ? `/rep/practice/prep?from=${x.id}` : "/rep/practice";
+  const I = ROLE_ICON[st?.role ?? "doctor"] ?? Stethoscope;
   return (
     <div className="flex min-h-full flex-1 flex-col gap-5 px-4 pt-5">
       <div className="flex items-center gap-3.5">
@@ -358,57 +369,25 @@ export function PracticeSessionView() {
           <Text as="h1" size="display" weight="extrabold" tracking="tight" className="leading-tight">{x.title}</Text>
           <Text size="caption" tone="subtle">{dayLabel(x.at)}, {new Date(x.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {st?.assisted ? "assisted" : "unassisted"}{course ? ` · from ${course.title}` : ""}</Text>
           <Text size="caption" weight="bold" className={r.score >= 75 ? "text-ok" : r.score >= 60 ? "text-warn" : "text-danger"}>{verdict}</Text>
+          {cov && obj && <Text size="caption" weight="semibold" tone="brand-deep">{obj.title} · {r.transcript.some((t) => t.speaker === "rep") ? `${cov.pct}% covered${cov.pct >= 100 ? " · final assessment open" : ""}` : "nothing said, so it doesn't count"}</Text>}
         </div>
       </div>
 
-      <Segmented role="tablist" aria-label="Call" className="self-stretch">
-        {([["score", "Scorecard"], ["transcript", "Transcript"], ["setup", "Setup"]] as const).map(([k, l]) => (
-          <SegmentedButton key={k} active={tab === k} role="tab" aria-pressed={undefined} aria-selected={tab === k} onClick={() => setTab(k)} className="flex-1">{l}</SegmentedButton>
-        ))}
-      </Segmented>
-
-      {tab === "score" && <Scorecard result={r} mode="practice" noTranscript />}
-
-      {tab === "transcript" && (
-        <ol className="flex flex-col gap-3" aria-label="Transcript">
-          {r.transcript.map((t, i) => {
-            const rep = t.speaker === "rep";
-            const flag = rep ? r.flags.find((f) => f.quote === t.text) : undefined;
-            const hit = rep ? r.criteria.filter((c) => c.met && c.quote && t.text.includes(c.quote)) : [];
-            return (
-              <li key={i} className={cn("flex flex-col gap-1", rep ? "items-end" : "items-start")}>
-                <span className="px-1 text-micro font-bold text-ink-4">{rep ? "You" : who.replace(/,.*$/, "")} · {mmss(t.at)}</span>
-                <span className={cn("max-w-[85%] rounded-[20px] px-3.5 py-2.5 text-body leading-relaxed", rep ? "rounded-br-[6px] bg-ink text-white" : "rounded-bl-[6px] bg-card text-ink shadow-hair", flag && "ring-2 ring-danger")}>{t.text}</span>
-                {flag && <span className="flex max-w-[85%] items-start gap-1 px-1 text-caption font-semibold text-danger"><ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{flag.label}: {flag.explanation}</span>}
-                {hit.map((c) => <span key={c.id} className="flex items-center gap-1 px-1 text-caption font-semibold text-ok"><Check className="size-3.5" aria-hidden="true" />{c.label}</span>)}
-              </li>
-            );
-          })}
-          {!r.transcript.length && <Text size="body" tone="subtle">Nothing was said on this call.</Text>}
-        </ol>
-      )}
-
-      {tab === "setup" && (
-        <ul className="flex flex-col divide-y divide-hair rounded-card bg-card px-4 shadow-hair">
-          {[
-            ["With", `${who}${st?.specialty ? ` · ${st.specialty}` : ""}`],
-            ["Product", PRODUCTS.find((p) => p.id === st?.productId)?.brand ?? (course ? product(course.productId)?.brand ?? "—" : "Lumora")],
-            ["Call", st?.callType ?? "—"],
-            ["Their mood", st?.traits.join(", ") || "—"],
-            ["Pushed back on", (st?.objectionIds ?? []).map((o) => objection(o)?.label).filter(Boolean).join(", ") || "—"],
-            ...(st?.situation ? [["Your situation", st.situation]] : []),
-            ["Length", st?.minutes ? `${st.minutes} min set · ${mmss(r.durationSec)} taken` : mmss(r.durationSec)],
-            ["Help", st?.assisted ? "Assisted: prompts while talking" : "Unassisted"],
-          ].map(([k, v]) => (
-            <li key={k} className="flex gap-3 py-3"><span className="w-28 shrink-0 text-caption font-semibold text-ink-3">{k}</span><span className="min-w-0 flex-1 text-body text-ink">{v}</span></li>
-          ))}
-        </ul>
-      )}
+      <PracticeCallTabs x={x} />
 
       <button type="button" onClick={() => { s.deletePractice(x.id); router.replace("/rep/practice"); }} className="flex items-center gap-1.5 self-center text-body font-semibold text-ink-3 hover:text-danger"><Trash2 className="size-4" aria-hidden="true" />Delete this call</button>
       <BottomBar inset={4}>
-        <Button size="lg" fullWidth onClick={() => router.push(again)}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
-        {st && st.source !== "training" && <Button variant="ghost" fullWidth onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>}
+        {back && course && obj ? (
+          <>
+            <Button size="lg" fullWidth onClick={() => router.push(back)}>Back to the objective</Button>
+            <Button variant="ghost" fullWidth onClick={() => router.push(again)}><RotateCcw className="size-4" aria-hidden="true" />{cov && cov.pct < 100 ? "Practise the next situation" : "Practise again"}</Button>
+          </>
+        ) : (
+          <>
+            <Button size="lg" fullWidth onClick={() => router.push(again)}><RotateCcw className="size-4" aria-hidden="true" />Try again</Button>
+            {st && st.source !== "training" && <Button variant="ghost" fullWidth onClick={() => router.push(`/rep/practice/prep?from=${x.id}&harder=1`)}>Make it harder</Button>}
+          </>
+        )}
       </BottomBar>
     </div>
   );
@@ -457,7 +436,7 @@ export function QuickQuiz() {
           <div className={cn("squircle rounded-panel px-4 py-3", picked === q.answer ? "bg-ok-bg" : "bg-warn-bg")}><Text size="body-lg">{q.rationale}</Text></div>
           <Button size="lg" fullWidth onClick={() => {
             if (i < pool.length - 1) { setI(i + 1); setPicked(null); }
-            else { setDone(true); s.addPractice({ userId: me.id, at: new Date().toISOString(), kind: "quiz", title: "Quick quiz", quizScore: Math.round((score / pool.length) * 100) }); s.touchStreak(me.id); }
+            else { setDone(true); s.addPractice({ userId: me.id, at: nowIso(), kind: "quiz", title: "Quick quiz", quizScore: Math.round((score / pool.length) * 100) }); s.touchStreak(me.id); }
           }}>{i < pool.length - 1 ? "Next" : "See score"}</Button>
         </>
       )}

@@ -3,15 +3,17 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, ChevronRight, CheckCircle2, ArrowRight, Sparkle, ScanSearch, BookOpen, ClipboardCheck, Award, Library, Stethoscope, Syringe, Pill, Briefcase, UserRound, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
+import { Mic, Phone, ChevronRight, CheckCircle2, ArrowRight, Sparkle, ScanSearch, BookOpen, ClipboardCheck, Award, Library, Stethoscope, Syringe, Pill, Briefcase, UserRound, type LucideIcon } from "lucide-react"; // v1-hidden: ListChecks, Library as LibraryIcon, Lock, Headphones, Flame
 // v1-hidden (ask bar): import { AgentIcon } from "@/components/ui/logo-mark";
 import { cn } from "@/lib/cn";
 import { fmtDate, isOverdue, opensLater, daysFromToday } from "@/store/selectors";
 import { product } from "@/data/org";
 import type { Character, Course, Progress } from "@/data/types";
 import { CHARACTERS } from "@/lib/scenario-set";
+import { allScenarios } from "@/data/scenarios";
 import { callPlan } from "./situations";
-import { JourneySteps, ProgressRing, VoiceWave, type JourneyStep } from "./hero-visuals";
+import { JourneySteps, ProgressRing, VoiceWave, photoFor, type JourneyStep } from "./hero-visuals";
+import { RankTile } from "./leaderboard";
 import { libraryCourses } from "@/features/library/library-data";
 // v1-hidden: import { allScenarios } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
@@ -38,7 +40,8 @@ export function RepHome() {
   const nextDue = assigned.filter((p) => p.dueAt && !isOverdue(p)).sort((a, b) => a.dueAt!.localeCompare(b.dueAt!))[0];
   const onList = new Set(mine.map((p) => p.courseId));
   const library = libraryCourses(s, me).filter((c) => !onList.has(c.id) && c.id !== suggested?.id).slice(0, 8);
-  const lastCall = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay").at(0);
+  /* The last call that counts: one where the rep actually spoke. */
+  const lastCall = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay" && x.result?.transcript.some((t) => t.speaker === "rep")).at(0);
   const others = assigned.filter((p) => p.courseId !== next?.course.id);
 
   return (
@@ -71,7 +74,11 @@ export function RepHome() {
         </Rail>
       )}
 
-      <PractiseCard last={lastCall?.result ? { id: lastCall.id, score: lastCall.result.score, title: lastCall.title } : undefined} />
+      {/* Where you stand on the team, and a way into practice, side by side. */}
+      <div className="grid grid-cols-2 gap-3">
+        <RankTile />
+        <PractiseCard last={lastCall?.result ? { id: lastCall.id, score: lastCall.result.score, title: lastCall.title } : undefined} />
+      </div>
 
       {library.length > 0 && (
         <Rail title="From the library" href="/rep/learn#library" all="Browse all">
@@ -161,16 +168,16 @@ function LibraryCard({ c, i }: { c: Course; i: number }) {
   );
 }
 
-/** One compact way into practice, with the last call's score when there is one. */
+/** A way into practice, as a tile beside the team rank: the voice moving, and the last call's score. */
 function PractiseCard({ last }: { last?: { id: string; score: number; title: string } }) {
   return (
-    <Link href="/rep/practice/prep" className="flex items-center gap-3.5 rounded-card bg-lilac p-4 text-white shadow-soft transition-transform active:scale-[0.99]">
-      <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white/20"><Mic className="size-6" aria-hidden="true" /></span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-subhead font-extrabold leading-tight">Rehearse a meeting</span>
-        <span className="text-caption font-semibold text-white/85">{last ? `Last call ${last.score} · private` : "With an AI doctor · private"}</span>
+    <Link href="/rep/practice" className="focus-ring relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-card bg-lilac p-4 text-white shadow-soft transition-transform active:scale-[0.98]">
+      <span className="flex items-center gap-1.5 text-body font-bold"><Mic className="size-4" aria-hidden="true" />Practice</span>
+      <VoiceWave bars={14} className="h-12 justify-start" barClass="bg-white/80" />
+      <span className="flex flex-col">
+        <span className="text-display-lg font-extrabold leading-none">{last ? last.score : "Start"}</span>
+        <span className="mt-1 text-caption font-semibold text-white/90">{last ? "Last call · private" : "With an AI doctor"}</span>
       </span>
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink"><ArrowRight className="size-4.5" aria-hidden="true" /></span>
     </Link>
   );
 }
@@ -182,7 +189,7 @@ function stageOf(st: NextStep): { icon: LucideIcon; label: string } {
     const pr = pathProgress(st.progress, st.course);
     return { icon: BookOpen, label: pr.modules ? `Lesson ${Math.min(pr.modulesDone + 1, pr.modules)} of ${pr.modules}` : "Lessons" };
   }
-  if (st.href.includes("/assessment")) return { icon: ClipboardCheck, label: "Assessment" };
+  if (st.href.includes("/assessment")) return { icon: ClipboardCheck, label: "Final assessment" };
   if (st.href.includes("/attest")) return { icon: Award, label: "Certificate" };
   return { icon: Mic, label: "Practice" };
 }
@@ -212,7 +219,7 @@ function journeyOf(p: Progress, c: Course): JourneyStep[] {
     if (pr.modules > 0 && !materialOptional(c, p)) raw.push({ label: "Materials", done: pr.modulesDone >= pr.modules, sub: `${pr.modulesDone}/${pr.modules}` });
     const plan = callPlan(c, p);
     const passed = plan.objectives.filter((o) => o.state === "passed").length;
-    raw.push({ label: "Assessments", done: plan.allPassed, sub: `${passed}/${plan.objectives.length}` });
+    raw.push({ label: "Practice", done: plan.allPassed, sub: `${passed}/${plan.objectives.length}` });
   } else {
     if (pr.modules > 0) raw.push({ label: "Lessons", done: pr.modulesDone >= pr.modules, sub: `${pr.modulesDone}/${pr.modules}` });
     raw.push({ label: "Final", done: p.attempts.some((a) => a.passed) });
@@ -225,14 +232,20 @@ function journeyOf(p: Progress, c: Course): JourneyStep[] {
 /** What the next step looks like: a call (who, how long), a lesson, or the certificate. */
 function visualOf(st: NextStep): Visual {
   const who = st.href.match(/call=([a-z]+)/)?.[1] as Character | undefined;
-  if (st.href.includes("/screening")) return { kind: "call", who: "Screening call", sub: `about ${st.minutes ?? 3} min · not graded`, role: "doctor" };
-  if (st.href.includes("/assessment")) return { kind: "call", who: `${CHARACTERS[who ?? "doctor"].label} call`, sub: `about ${st.minutes ?? 5} min · scored`, role: who ?? "doctor" };
+  if (st.href.includes("/screening")) return { kind: "call", who: "Screening call", sub: `${st.minutes ?? 3} min · not graded`, role: "doctor" };
+  if (st.href.includes("/assessment")) {
+    /* Who the final is with: the objective's situation for that person, when there is one. */
+    const ob = st.href.match(/ob=([^&]+)/)?.[1];
+    const sc = allScenarios().find((x) => st.course.scenarioIds.includes(x.id) && x.character === (who ?? "doctor") && (!ob || x.objectiveId === ob));
+    return { kind: "call", who: "Final assessment call", sub: `${st.minutes ?? 5} min · scored`, role: who ?? "doctor", name: sc?.persona.name.replace(/,.*$/, "") };
+  }
+  if (st.href.includes("/practice/call")) { const sc = allScenarios().find((x) => x.id === st.href.match(/scenario=([^&]+)/)?.[1]); return { kind: "call", who: "Practice call", sub: `${st.minutes ?? 4} min · not graded`, role: sc?.character ?? "doctor", name: sc?.persona.name.replace(/,.*$/, "") }; }
   if (st.href.includes("/learn")) return { kind: "lesson", who: stageOf(st).label, sub: st.minutes ? `${st.minutes} min left` : "Your team's material" };
   if (st.href.includes("/attest")) return { kind: "cert", who: "Every objective passed", sub: "Your certificate is ready" };
   return { kind: "call", who: "Practice call", sub: "not graded", role: "doctor" };
 }
 
-type Visual = { kind: "call" | "lesson" | "cert"; who: string; sub: string; role?: Character };
+type Visual = { kind: "call" | "lesson" | "cert"; who: string; sub: string; role?: Character; name?: string };
 const ROLE_ICON: Record<Character, LucideIcon> = { doctor: Stethoscope, nurse: Syringe, pharmacist: Pill, manager: Briefcase, patient: UserRound };
 
 /**
@@ -267,18 +280,36 @@ function UpNextCard({ tag, due, course, stage, title, practiceOnly, cta, href, m
           <ProgressRing pct={pct}><span className="flex flex-col items-center leading-none"><span className="text-subhead font-extrabold tabular-nums">{pct}%</span><span className="mt-0.5 text-[10px] font-bold text-white/60">done</span></span></ProgressRing>
         </div>
 
-        {/* What's next, drawn: a call with a live voice, a lesson, or the certificate. */}
-        <div className="flex items-center gap-3 rounded-[20px] bg-white/8 p-3">
-          <span className="relative grid size-12 shrink-0 place-items-center">
-            {visual.kind !== "lesson" && <span className="pulse-ring absolute inset-0 rounded-full bg-white/20" />}
-            <span className={cn("relative grid size-12 place-items-center rounded-full text-white", visual.kind === "cert" ? "bg-sage" : visual.kind === "lesson" ? "bg-lilac" : "bg-peach")}><Who className="size-5" aria-hidden="true" /></span>
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-body font-bold text-white">{visual.who}</span>
-            <span className="truncate text-caption text-white/65">{visual.sub}</span>
-          </span>
-          {visual.kind === "call" && <VoiceWave bars={9} className="h-8 w-16 shrink-0" barClass="bg-white/70" />}
-        </div>
+        {/* What's next, drawn. A call shows as it would ring: who's calling, their voice, and a green button to answer. */}
+        {visual.kind === "call" ? (
+          <div className="flex items-center gap-3 rounded-[26px] bg-white/[0.08] p-2.5 pr-3 ring-1 ring-white/10">
+            <span className="relative grid size-14 shrink-0 place-items-center">
+              <span className="pulse-ring absolute inset-0 rounded-full bg-white/25" />
+              <span className="pulse-ring absolute inset-0 rounded-full bg-white/15" style={{ animationDelay: "0.6s" }} />
+              {visual.name
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={photoFor(visual.name)} alt="" className="relative size-14 rounded-full object-cover ring-2 ring-white/30" />
+                : <span className="relative grid size-14 place-items-center rounded-full bg-peach text-white"><Who className="size-6" aria-hidden="true" /></span>}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/55"><Phone className="size-3" aria-hidden="true" />{visual.who}</span>
+              <span className="truncate text-body-lg font-extrabold leading-tight text-white">{visual.name ?? CHARACTERS[visual.role ?? "doctor"].label}</span>
+              <span className="flex items-center gap-2 truncate text-caption text-white/65">{visual.name ? CHARACTERS[visual.role ?? "doctor"].label : null}{visual.name ? " · " : ""}{visual.sub}</span>
+            </span>
+            <Link href={href} aria-label={cta.split(" · ")[0]} className="relative grid size-12 shrink-0 place-items-center rounded-full bg-[#34c759] text-white shadow-[0_6px_18px_-6px_rgba(52,199,89,.8)] transition-transform active:scale-95">
+              <span className="pulse-ring absolute inset-0 rounded-full bg-[#34c759]/60" />
+              <Phone className="relative size-5 fill-current" aria-hidden="true" />
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-[26px] bg-white/[0.08] p-2.5 pr-3 ring-1 ring-white/10">
+            <span className={cn("grid size-14 shrink-0 place-items-center rounded-full text-white", visual.kind === "cert" ? "bg-sage" : "bg-lilac")}><Who className="size-6" aria-hidden="true" /></span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-body-lg font-extrabold leading-tight text-white">{visual.who}</span>
+              <span className="truncate text-caption text-white/65">{visual.sub}</span>
+            </span>
+          </div>
+        )}
 
         <JourneySteps steps={steps} />
 

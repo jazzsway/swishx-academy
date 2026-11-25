@@ -1,6 +1,6 @@
 import { nowIso } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
-import type { Character, Course, Objective, Progress, Scenario } from "@/data/types";
+import type { Character, Course, Objective, PracticeSession, Progress, Scenario } from "@/data/types";
 import { characterOf } from "@/lib/scenario-set";
 import { objectiveBank } from "@/lib/objective-call";
 
@@ -112,4 +112,27 @@ export function callPlan(c: Course, p: Progress, presenter = false) {
   }
   for (const call of calls) call.minutes = Math.min(15, Math.max(3, call.items.reduce((a, x) => a + Math.ceil(x.sc.durationMin * 0.7), 0)));
   return { objectives, calls, allPassed: objectives.length > 0 && objectives.every((o) => o.state === "passed") };
+}
+
+/**
+ * How much of an objective the rep has practised: the share of its situations they've taken a practice call
+ * on (any finished call covers its situation). At 100% the objective's final assessment opens.
+ */
+export function coverageOf(c: Course, userId: string, bank: Scenario[], practice: PracticeSession[]) {
+  const ids = new Set(bank.map((x) => x.id));
+  const sessions = practice
+    .filter((x) => x.userId === userId && x.kind === "roleplay" && x.result && x.setup?.courseId === c.id && !!x.setup.scenarioId && ids.has(x.setup.scenarioId))
+    .sort((a, b) => a.at.localeCompare(b.at));
+  /* A call covers its situation once the rep has actually said something; one ended straight away doesn't. */
+  const counts = (x: PracticeSession) => !!x.result?.transcript.some((t) => t.speaker === "rep");
+  const done = new Set(sessions.filter(counts).map((x) => x.setup!.scenarioId!));
+  /* Coverage after each session, oldest first, for the past-practice list. */
+  const seen = new Set<string>();
+  const after = new Map(sessions.map((x) => { if (counts(x)) seen.add(x.setup!.scenarioId!); return [x.id, bank.length ? Math.round((seen.size / bank.length) * 100) : 0]; }));
+  return {
+    sessions: [...sessions].reverse(), after, covered: done.size, total: bank.length,
+    pct: bank.length ? Math.round((done.size / bank.length) * 100) : 0,
+    /* The next practice call: a situation not practised yet, or (all covered) the one practised longest ago. */
+    next: bank.find((b) => !done.has(b.id)) ?? bank.find((b) => b.id === sessions[0]?.setup?.scenarioId) ?? bank[0],
+  };
 }

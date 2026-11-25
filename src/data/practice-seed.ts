@@ -15,6 +15,41 @@ const result = (lines: [Turn["speaker"], string][], criteria: RoleplayResult["cr
 };
 
 export const PRIYA_PRACTICE: PracticeSession[] = [
+  /* Practising Psorivex objective 1 ("Find the patient who isn't at goal"): two of its four situations covered. */
+  {
+    id: "ps-priya-sw-brooks", userId: "u-priya", at: "2026-11-05T17:05:00", kind: "roleplay", title: "The patient still flaring after a year", deletesAt: "2026-12-05",
+    setup: { specialty: "Dermatologist", traits: ["Time-pressed", "Sceptical"], objectionIds: [], callType: "Follow-up visit", assisted: true, role: "doctor", persona: "Dr. Owen Brooks", minutes: 5, source: "training", courseId: "c-switch", scenarioId: "sc-sw-2" },
+    result: result([
+      ["hcp", "I've got about five minutes before my next patient. Go on, tell me about Psorivex."],
+      ["rep", "Before that, you mentioned a patient still flaring on his first biologic. How much of his skin is still involved?"],
+      ["hcp", "About 8% body surface area. He's frustrated, and so am I."],
+      ["rep", "For adults with moderate-to-severe plaque psoriasis who are candidates for systemic therapy, Psorivex is an option. In the studies, many reached almost clear skin at week 16."],
+      ["hcp", "Any infection risk I should know about?"],
+      ["rep", "Upper respiratory infections were the most common side effect. Patients should be checked for TB before starting."],
+      ["hcp", "Okay. I'll think about him."],
+      ["rep", "Would you consider Psorivex for him at his next visit?"],
+    ], [
+      { id: "c1", label: "Asks about patients not at goal before naming the product", met: true, quote: "How much of his skin is still involved" },
+      { id: "c2", label: "Names the patient type the label supports", met: true, quote: "moderate-to-severe plaque psoriasis" },
+      { id: "c3", label: "Gives the safety information alongside any benefit", met: true, quote: "Upper respiratory infections" },
+    ], 84),
+  },
+  {
+    id: "ps-priya-sw-hale", userId: "u-priya", at: "2026-11-04T09:30:00", kind: "roleplay", title: "Two minutes in the corridor", deletesAt: "2026-12-04",
+    setup: { specialty: "Dermatologist", traits: ["Time-pressed"], objectionIds: [], callType: "Follow-up visit", assisted: true, role: "doctor", persona: "Dr. Marcus Hale", minutes: 5, source: "training", courseId: "c-switch", scenarioId: "sc-sw-3" },
+    result: result([
+      ["hcp", "I'm between rooms. You've got two minutes."],
+      ["rep", "Psorivex gives great results for psoriasis patients, most of them clear up quickly."],
+      ["hcp", "Most of them? Which patients are we talking about?"],
+      ["rep", "Sorry, let me start again. Which of your psoriasis patients still aren't clear at their last visit?"],
+      ["hcp", "A couple. Come back Thursday and we'll talk."],
+    ], [
+      { id: "c1", label: "Asks about patients not at goal before naming the product", met: false },
+      { id: "c2", label: "Names the patient type the label supports", met: false },
+      { id: "c3", label: "Gives the safety information alongside any benefit", met: false },
+      { id: "c4", label: "Earns a next step", met: true, quote: "Which of your psoriasis patients still aren't clear" },
+    ], 41),
+  },
   {
     id: "ps-priya-rao", userId: "u-priya", at: "2026-11-05T19:20:00", kind: "roleplay", title: "Dr. Priyanka Rao · follow-up", deletesAt: "2026-12-05",
     setup: { specialty: "Dermatologist", traits: ["Sceptical", "Cost-focused"], objectionIds: ["ob-cost", "ob-eyes"], callType: "Follow-up", assisted: true, role: "doctor", productId: "p-lumora", minutes: 5, persona: "Dr. Priyanka Rao", source: "rehearsal" },

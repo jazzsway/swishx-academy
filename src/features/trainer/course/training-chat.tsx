@@ -26,7 +26,7 @@ const SUGGEST = {
   test: ["Next"],
   objectives: ["Add an objective: reps explain the missed-dose guidance to nurses", "Remove objective 3", "Next"],
   objective: ["Good looks like: quotes the label word for word", "Put 40% on objection handling", "Rename this objective to “Quote the label exactly”"],
-  situations: ["Add a situation: a patient asks if it's safe long term", "Write situations for the rest", "Next"],
+  situations: ["Add a question: a patient asks if it's safe long term", "Add a situation: the doctor has two minutes", "Next"],
   settings: ["Turn on hints for the scored call", "Recertify every 6 months", "Next"],
   assign: ["Publish", "What happens to people on the old version?"],
 };
@@ -124,8 +124,9 @@ export function TrainingChat({ course }: { course: Course }) {
     if (n === 5) return `${of} · Test the calls. Take any call as a rep would, or open its flow to see how it goes. Nothing is saved. Say “next” to publish.`;
     n -= 1;
     if (n === 1) return obs ? `${of} · Objectives. ${obs} objective${obs === 1 ? "" : "s"}. Tell me what to add, change or remove, or open one to sharpen it. Say “next” for the situations.` : `${of} · Objectives. Describe what reps should be able to do and I'll add it, tied to your files.`;
-    if (n === 2) return situations ? `${of} · Situations. ${situations} situation${situations === 1 ? "" : "s"} across ${obs} objective${obs === 1 ? "" : "s"}, one tab each. Describe another to add it, or say “next”.`
-      : `${of} · Situations. I'm writing a few for each of the ${obs} objectives now, one tab each: the moments on a call where each is tested. Add your own any time.`;
+    if (n === 2) return situations ? `${of} · Situations & questions. ${situations} across ${obs} objective${obs === 1 ? "" : "s"}, one tab each. Describe a situation or question you want tested, or say “next”.`
+      : obs ? `${of} · Situations & questions. I'm writing a few for each of the ${obs} objective${obs === 1 ? "" : "s"}, one tab each: scenes the rep walks into and questions they'll get asked. Add the ones you most want tested.`
+      : `${of} · Situations & questions. As soon as your objectives are drafted, I'll write a few for each: scenes the rep walks into and questions they'll get asked.`;
     if (n === 3) return `${of} · Settings. Hints on the scored call ${c.settings.finalNoHints === false ? "on" : "off"}, screening ${c.settings.screening ? "on" : "off"}, recertify every ${c.settings.recertMonths} months. Change anything, or say “next”.`;
     return data?.lv ? `${of} · Publish. v${data.cur.version} replaces v${data.lv.version}: check it, choose what happens to the people on v${data.lv.version}, and publish.` : `${of} · Publish. Check what goes live and publish. You choose who takes it right after.`;
   }
@@ -142,7 +143,7 @@ export function TrainingChat({ course }: { course: Course }) {
     }
     const id = turnId("a");
     chat.push(course.id, { id, from: "ai", text: "", steps: [], at: 0 });
-    addScenario(prompt.replace(/^(add|new|create)\s+(a\s+)?(situation|scenario|case)\s*(:|-)?\s*/i, ""), (steps, at) => useTrainingChat.getState().patch(course.id, id, { steps, at }), (d) => {
+    addScenario(prompt.replace(/^(add|new|create)\s+(a\s+)?(situation|scenario|case|question)\s*(:|-)?\s*/i, ""), (steps, at) => useTrainingChat.getState().patch(course.id, id, { steps, at }), (d) => {
       useTrainingChat.getState().patch(course.id, id, { steps: undefined, text: `Added “${d.title}” with ${d.persona.name} under “${under!.title}”, scored on its criteria.`, link: { href: `${base}/situations?obj=${under!.id}`, label: "Show it" } });
       useTrainingChat.getState().setAdded(d.id);
       router.replace(`${base}/situations?obj=${under!.id}`, { scroll: false });
@@ -187,7 +188,7 @@ export function TrainingChat({ course }: { course: Course }) {
       return say("Here's what goes live, and who gets it. Check both, then publish from the bar at the bottom.");
     }
     if (pending === "objective" || /\b(add|create|new|another)\b.{0,12}\bobjective\b/.test(l)) return addObjective(prompt);
-    if (pending === "situation" || (/\b(add|create|new|another|draft)\b.{0,12}\b(situation|scenario|case)s?\b/.test(l) && !/screening/.test(l))) return draftSituation(prompt, open);
+    if (pending === "situation" || (/\b(add|create|new|another|draft)\b.{0,12}\b(situation|scenario|case|question)s?\b/.test(l) && !/screening/.test(l))) return draftSituation(prompt, open);
 
     const name = prompt.match(/(?:rename|call)\s+(?:the\s+|this\s+)?training\s+(?:to\s+)?["“]?(.+?)["”]?\.?$/i)?.[1];
     if (name) {
@@ -377,7 +378,7 @@ export function TrainingChat({ course }: { course: Course }) {
       <div className="flex flex-col gap-2 border-t border-hair p-3">
         {started && editable && !drafting && <Suggestions items={suggestions} onPick={send} variant="row" />}
         <Composer id="training-chat" value={text} onChange={setText} onSend={() => send(text)} busy={busy} locked={drafting} onAttach={attach}
-          placeholder={drafting ? "Drafting your objectives…" : chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `Describe a situation for “${ob.title}”` : "Describe a situation to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : ctx === "material" ? "Attach a file, or ask about your material" : ctx === "test" ? "Ask about a call, or say next" : "Turn hints on or off, or set how often reps recertify"}
+          placeholder={drafting ? "Drafting your objectives…" : chat.asked?.kind === "objective" ? "Describe the objective" : chat.asked?.kind === "situation" ? "Describe the situation or question" : ctx === "objectives" ? "Describe an objective to add, or say what to change" : ctx === "objective" ? "Sharpen this objective: what good looks like, who, criteria" : ctx === "situations" ? (ob ? `A situation or question for “${ob.title}”` : "Describe a situation or question to add") : ctx === "assign" ? "Ask to publish, or about who should take it" : ctx === "material" ? "Attach a file, or ask about your material" : ctx === "test" ? "Ask about a call, or say next" : "Turn hints on or off, or set how often reps recertify"}
           hint={drafting ? "You can talk to the agent as soon as it's done." : `On ${where}. Every change can be undone.`} />
       </div>
     </div>

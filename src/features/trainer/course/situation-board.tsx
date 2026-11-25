@@ -62,11 +62,13 @@ export function SituationBoard() {
   /* The chat's "generate". */
   useEffect(() => { if (asked !== seen.current) { seen.current = asked; startGen(); } }); // eslint-disable-line react-hooks/exhaustive-deps
   /* Arriving with no situations at all: SwishX starts writing them straight away. */
+  /* The objectives can land after the trainer gets here (setup still drafting): it starts once they do. */
+  const obCount = course?.objectives?.length ?? 0;
   useEffect(() => {
-    if (auto.current || !data?.editable || !course) return;
+    if (auto.current || !data?.editable || !course || !obCount) return;
     auto.current = true;
-    if ((course.objectives ?? []).length && !scs.length) startGen();
-  }, [data?.editable]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!scs.length) startGen();
+  }, [data?.editable, obCount]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!gen) return;
     const t = window.setTimeout(() => {
@@ -109,7 +111,7 @@ export function SituationBoard() {
     const all = gen.plan.flatMap((p) => p.scs);
     const c = useApp.getState().courses.find((x) => x.id === id);
     if (c && !c.settings.screeningIds?.length) updateSettings(c.id, { screening: true, screeningCall: true, screeningIds: all.slice(0, 2).map((x) => x.id), baseline: true });
-    useTrainingChat.getState().push(id, { id: turnId("a"), from: "ai", text: `Wrote ${all.length} situations across ${gen.plan.length} objective${gen.plan.length === 1 ? "" : "s"}. Open one to read it in full, test it, or tell me another to add. Say “next” for the settings.` });
+    useTrainingChat.getState().push(id, { id: turnId("a"), from: "ai", text: `Wrote ${all.length} situations and questions across ${gen.plan.length} objective${gen.plan.length === 1 ? "" : "s"}. Open one to read it in full, or tell me a situation or question you want tested. Say “next” for the settings.` });
     setGen(null);
   }
   function toggleScreen(scId: string) {
@@ -125,13 +127,13 @@ export function SituationBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <StageHeader n={3} sub="Where each objective gets tested on a call."
-        actions={editable && !gen && bare.length > 0 && scs.length > 0 ? <Button size="sm" onClick={() => startGen()}><AgentIcon className="size-4" aria-hidden="true" />Write situations for {bare.length} more</Button> : undefined} />
+      <StageHeader n={3} title="Situations & questions" sub="The moments on a call where each objective gets tested: a scene the rep walks into, or a question a doctor, nurse or patient asks. Add the ones you most want reps ready for."
+        actions={editable && !gen && bare.length > 0 && scs.length > 0 ? <Button size="sm" onClick={() => startGen()}><AgentIcon className="size-4" aria-hidden="true" />Write for {bare.length} more objective{bare.length === 1 ? "" : "s"}</Button> : undefined} />
 
       {gen && (
         <section className="squircle flex flex-wrap items-center gap-3 rounded-panel border border-tint-line bg-tint/60 px-4 py-3">
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Text size="body" weight="semibold">Writing situations for {gen.plan.length} objective{gen.plan.length === 1 ? "" : "s"} · <span className="tabular-nums">{Math.floor(gen.left / 60)}:{String(gen.left % 60).padStart(2, "0")}</span> left</Text>
+            <Text size="body" weight="semibold">Writing situations and questions for {gen.plan.length} objective{gen.plan.length === 1 ? "" : "s"} · <span className="tabular-nums">{Math.floor(gen.left / 60)}:{String(gen.left % 60).padStart(2, "0")}</span> left</Text>
             <span className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]"><span className="block h-full rounded-full bg-brand transition-all" style={{ width: `${((gen.total - gen.left) / gen.total) * 100}%` }} /></span>
           </span>
           <Button size="sm" variant="secondary" onClick={() => finishGen()}>Skip ahead</Button>
@@ -149,7 +151,7 @@ export function SituationBoard() {
       {obs.length === 0 ? (
         <section className="squircle flex flex-col items-center gap-2 rounded-card border border-dashed border-hair-3 bg-card px-6 py-10 text-center">
           <Text size="title" weight="bold">No objectives yet</Text>
-          <Text size="body" tone="muted">Situations test objectives. Add the objectives first.</Text>
+          <Text size="body" tone="muted">Situations and questions test objectives. Add the objectives first.</Text>
           <Link href={`${base}/roleplay`} className="mt-1 text-body font-semibold text-brand-deep hover:underline">Go to objectives</Link>
         </section>
       ) : (() => {
@@ -193,7 +195,7 @@ export function SituationBoard() {
                       <Mic className="size-3.5" aria-hidden="true" />Test
                     </Link>
                   )}
-                  {editable && <Button size="sm" onClick={() => addTo(cur)} disabled={!!drafting}><Plus className="size-4" aria-hidden="true" />Add a situation</Button>}
+                  {editable && <Button size="sm" onClick={() => addTo(cur)} disabled={!!drafting}><Plus className="size-4" aria-hidden="true" />Add a situation or question</Button>}
                 </div>
               </div>
 
@@ -244,15 +246,15 @@ export function SituationBoard() {
                 {editable && mine.length > 0 && !drafting && (
                   <li>
                     <button type="button" onClick={() => addTo(cur)} className="squircle flex size-full min-h-[150px] flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed border-hair-3 text-caption font-semibold text-ink-3 transition-colors hover:border-brand hover:bg-tint/50 hover:text-brand-deep">
-                      <Plus className="size-5" aria-hidden="true" />Add a situation<span className="font-normal text-ink-4">Describe it in the chat</span>
+                      <Plus className="size-5" aria-hidden="true" />Add a situation or question<span className="font-normal text-ink-4">Describe it in the chat</span>
                     </button>
                   </li>
                 )}
               </ul>
               {!mine.length && !waiting(cur) && !drafting && (
                 <div className="squircle flex flex-col items-center gap-2 rounded-panel border border-dashed border-hair-3 px-4 py-10 text-center">
-                  <Text size="body" weight="semibold">No situations for this objective yet</Text>
-                  <Text size="caption" tone="subtle">SwishX can write a few, or describe one in the chat.</Text>
+                  <Text size="body" weight="semibold">Nothing for this objective yet</Text>
+                  <Text size="caption" tone="subtle">SwishX can write a few, or describe a situation or question in the chat.</Text>
                   {editable && !gen && <Button size="sm" onClick={() => startGen(cur)}><AgentIcon className="size-3.5" aria-hidden="true" />Write a few</Button>}
                 </div>
               )}

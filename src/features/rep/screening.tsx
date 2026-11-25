@@ -117,7 +117,7 @@ export function Screening() {
         <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
         <BottomBar>
           <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume the call" : "Go to the call"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? "Skip it and go to the assessments" : "Skip it and take every lesson"}</Button>
+          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? "Skip it and go to practice" : "Skip it and take every lesson"}</Button>
         </BottomBar>
       </div>
     );
@@ -193,12 +193,12 @@ export function ScreeningResults() {
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="flex items-center gap-1.5 text-caption font-bold text-[#7ee2b0]"><Check className="size-3.5" aria-hidden="true" />Screening done</span>
             <Text size="title" weight="extrabold" tone="inverse" className="leading-tight">Your baseline</Text>
-            <Text size="caption" tone="inverse" className="opacity-60">Where you start. Your assessments show how far you&apos;ve come.</Text>
+            <Text size="caption" tone="inverse" className="opacity-60">Where you start. Your practice shows how far you&apos;ve come.</Text>
           </div>
         </div>
         {/* No material, or optional material: no path to show; the assessments come next. */}
         {(noMaterial(c) || materialOptional(c, p) || !mods.length) ? (
-          <Text size="body" tone="inverse" className="border-t border-white/10 pt-4 opacity-80">Next: your assessments, one call per objective.</Text>
+          <Text size="body" tone="inverse" className="border-t border-white/10 pt-4 opacity-80">Next: practise each objective, then take its final.</Text>
         ) : (
         <div className="flex flex-col gap-2.5 border-t border-white/10 pt-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -280,7 +280,7 @@ export function ScreeningResults() {
         </section>
       )}
       <Text size="caption" tone="subtle" className="text-center">Your trainer sees these scores, not your call recording.</Text>
-      <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />{noMaterial(c) || materialOptional(c, p) || !mods.length ? "On to the assessments" : "Start my path"}</Button></BottomActions>
+      <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />{noMaterial(c) || materialOptional(c, p) || !mods.length ? "On to practice" : "Start my path"}</Button></BottomActions>
     </div>
   );
 }

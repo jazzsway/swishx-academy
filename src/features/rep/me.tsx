@@ -18,7 +18,6 @@ import { Ring, Avatar } from "@/components/patterns/academy";
 import { Field } from "@/components/ui/field";
 import { BottomActions } from "@/features/shell/bottom-actions";
 import { BrandMark } from "@/features/shell/brand";
-import { RankTile } from "./leaderboard";
 import { useRep } from "./use-rep";
 
 export function RepMe() {
@@ -37,10 +36,10 @@ export function RepMe() {
   const scored = active.find((p) => p.screening);
   const latest = scored ? (scored.attempts.at(-1)?.competencyScores ?? scored.screening!.scores) : undefined;
   const focus = latest ? Object.entries(latest).sort((a, b) => a[1] - b[1]).slice(0, 4) : [];
-  const readiness = latest ? Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / Object.values(latest).length) : undefined;
+  // v1-hidden (readiness tile): const readiness = latest ? Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / Object.values(latest).length) : undefined;
 
   /* Practice calls: private to the rep, kept 30 days. */
-  const calls = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay" && x.result);
+  const calls = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay" && x.result?.transcript.some((t) => t.speaker === "rep")); /* Calls where nothing was said don't count. */
   const week = calls.filter((x) => Date.now() - new Date(x.at).getTime() < 7 * 864e5).length;
   const best = calls.length ? Math.max(...calls.map((x) => x.result!.score)) : undefined;
 
@@ -56,14 +55,8 @@ export function RepMe() {
         <span className="grid size-10 shrink-0 place-items-center rounded-full bg-subtle text-ink-2"><ChevronRight className="size-5" aria-hidden="true" /></span>
       </Link>
 
-      {/* Your numbers: whole-colour tiles. */}
-      <section aria-label="Your numbers" className="flex flex-col gap-3">
-        <Text as="h2" size="title" weight="extrabold" tracking="tight">Your numbers</Text>
-        <div className="grid grid-cols-2 gap-3">
-          <ReadinessTile score={readiness} source={scored ? (scored.attempts.length ? "Last assessment" : "Screening") : undefined} href={scored ? `/rep/course/${scored.courseId}` : "/rep"} />
-          <RankTile />
-        </div>
-      </section>
+      {/* v1-hidden: "Your numbers" (readiness and team rank). Team rank moved to Home; readiness wasn't useful.
+      <ReadinessTile score={readiness} source={...} href={...} /> <RankTile /> */}
 
       {/* Certifications: a rail of certificates; See all opens them all in a sheet. */}
       <section className="flex flex-col gap-3">
@@ -110,7 +103,7 @@ export function RepMe() {
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
             <Text as="h2" size="title" weight="extrabold" tracking="tight">Where to focus</Text>
-            <Text size="caption" tone="subtle">{scored!.attempts.length ? "From your last assessment" : "From your screening"}</Text>
+            <Text size="caption" tone="subtle">{scored!.attempts.length ? "From your last final assessment" : "From your screening"}</Text>
           </div>
           {focus.map(([k, v]) => {
             const tone = v >= 80 ? { bg: "bg-sage-bg", fg: "text-ok", bar: "bg-sage" } : v >= 50 ? { bg: "bg-sun-bg", fg: "text-warn", bar: "bg-sun" } : { bg: "bg-peach-bg", fg: "text-brand-deep", bar: "bg-peach" };
@@ -191,7 +184,8 @@ export function RepMe() {
 }
 
 /** Home-style tile: the rep's average score on their main training. */
-function ReadinessTile({ score, source, href }: { score?: number; source?: string; href: string }) {
+/** v1-hidden: off Profile; kept for when readiness comes back. */
+export function ReadinessTile({ score, source, href }: { score?: number; source?: string; href: string }) {
   return (
     <Link href={href} className="focus-ring relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-card bg-sage p-4 text-white shadow-soft transition-transform active:scale-[0.98]">
       <span className="flex items-center gap-1.5 text-body font-bold"><Target className="size-4" aria-hidden="true" />Readiness</span>
