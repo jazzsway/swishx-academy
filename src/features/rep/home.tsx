@@ -14,6 +14,7 @@ import { allScenarios } from "@/data/scenarios";
 import { callPlan } from "./situations";
 import { JourneySteps, ProgressRing, VoiceWave, photoFor, type JourneyStep } from "./hero-visuals";
 import { RankTile } from "./leaderboard";
+import { FocusSection, PracticeCallsSection } from "./me";
 import { libraryCourses } from "@/features/library/library-data";
 // v1-hidden: import { allScenarios } from "@/data/scenarios";
 import { Text } from "@/components/ui/text";
@@ -79,6 +80,9 @@ export function RepHome() {
         <RankTile />
         <PractiseCard last={lastCall?.result ? { id: lastCall.id, score: lastCall.result.score, title: lastCall.title } : undefined} />
       </div>
+
+      <PracticeCallsSection />
+      <FocusSection />
 
       {library.length > 0 && (
         <Rail title="From the library" href="/rep/learn#library" all="Browse all">

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Award, Flame, ChevronRight, LogOut, Mail, MapPin, Mic, Camera, Trash2, UserRound, Bell, Target, BadgeCheck, Download, Share } from "lucide-react"; // v1-hidden: Lock (badges)
+import { Award, Flame, ChevronRight, LogOut, Mail, MapPin, Mic, Camera, Trash2, Bell, Target, BadgeCheck, Download, Share } from "lucide-react"; // v1-hidden: Lock (badges)
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { useMe, xpFor, fmtDate, LEVELS } from "@/store/selectors";
@@ -21,7 +21,7 @@ import { BrandMark } from "@/features/shell/brand";
 import { useRep } from "./use-rep";
 
 export function RepMe() {
-  const { me, s, active } = useRep();
+  const { me, s } = useRep();
   const [cert, setCert] = useState<Progress | null>(null);
   const [allCerts, setAllCerts] = useState(false);
   const xp = xpFor(s, me.id);
@@ -32,16 +32,8 @@ export function RepMe() {
   const router = useRouter();
   const [confirmOut, setConfirmOut] = useState(false);
 
-  /* Where they stand: the latest scores on their main training, weakest first. */
-  const scored = active.find((p) => p.screening);
-  const latest = scored ? (scored.attempts.at(-1)?.competencyScores ?? scored.screening!.scores) : undefined;
-  const focus = latest ? Object.entries(latest).sort((a, b) => a[1] - b[1]).slice(0, 4) : [];
-  // v1-hidden (readiness tile): const readiness = latest ? Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / Object.values(latest).length) : undefined;
+  // v1-hidden (readiness tile, needs scored/latest from FocusSection): const readiness = latest ? Math.round(Object.values(latest).reduce((a, b) => a + b, 0) / Object.values(latest).length) : undefined;
 
-  /* Practice calls: private to the rep, kept 30 days. */
-  const calls = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay" && x.result?.transcript.some((t) => t.speaker === "rep")); /* Calls where nothing was said don't count. */
-  const week = calls.filter((x) => Date.now() - new Date(x.at).getTime() < 7 * 864e5).length;
-  const best = calls.length ? Math.max(...calls.map((x) => x.result!.score)) : undefined;
 
   return (
     <div className="flex flex-col gap-7 px-4 pb-4 pt-3">
@@ -58,68 +50,7 @@ export function RepMe() {
       {/* v1-hidden: "Your numbers" (readiness and team rank). Team rank moved to Home; readiness wasn't useful.
       <ReadinessTile score={readiness} source={...} href={...} /> <RankTile /> */}
 
-      {/* Certifications: a rail of certificates; See all opens them all in a sheet. */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <Text as="h2" size="title" weight="extrabold" tracking="tight">Certifications</Text>
-          {certs.length > 0 && <button type="button" onClick={() => setAllCerts(true)} className="flex items-center gap-0.5 text-body font-bold text-brand-deep">See all {certs.length}<ChevronRight className="size-4" aria-hidden="true" /></button>}
-        </div>
-        {certs.length ? (
-          <div className="-mx-4 -my-3 flex snap-x gap-3 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {certs.map((p) => <CertCard key={p.id} p={p} onOpen={() => setCert(p)} />)}
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 rounded-panel bg-card p-4 shadow-hair">
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-subtle text-ink-3"><Award className="size-5" aria-hidden="true" /></span>
-            <Text size="body" tone="subtle">Finish a training to earn your first certification.</Text>
-          </div>
-        )}
-      </section>
-
-      {/* Practice calls moved here from their own tab: practising itself starts from SwishX. */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <Text as="h2" size="title" weight="extrabold" tracking="tight">Practice calls</Text>
-          <Link href="/rep/practice" className="flex items-center gap-0.5 text-body font-bold text-brand-deep">{calls.length ? `See all ${calls.length}` : "Open"}<ChevronRight className="size-4" aria-hidden="true" /></Link>
-        </div>
-        <div className="grid grid-cols-3 gap-2.5">
-          {[{ label: "This week", value: week, tile: "bg-lilac" }, { label: "Calls", value: calls.length, tile: "bg-sage" }, { label: "Best", value: best ?? "–", tile: "bg-peach" }].map((t) => (
-            <div key={t.label} className={cn("flex flex-col gap-1 rounded-panel px-3.5 py-3 text-white shadow-soft", t.tile)}>
-              <span className="text-caption font-bold text-white/90">{t.label}</span>
-              <span className="text-display font-extrabold leading-none tabular-nums">{t.value}</span>
-            </div>
-          ))}
-        </div>
-        {calls.slice(0, 2).map((x) => (
-          <Link key={x.id} href={`/rep/practice/session/${x.id}`} className="flex items-center gap-3 rounded-panel bg-card px-4 py-3 shadow-hair">
-            <Ring value={x.result!.score} size={40} stroke={4} label={`${x.result!.score}%`}><Text size="micro" weight="bold">{x.result!.score}</Text></Ring>
-            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold" truncate>{x.title}</Text><Text size="caption" tone="subtle">{fmtDate(x.at)} · only you can see it</Text></span>
-            <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
-          </Link>
-        ))}
-      </section>
-
-      {focus.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between">
-            <Text as="h2" size="title" weight="extrabold" tracking="tight">Where to focus</Text>
-            <Text size="caption" tone="subtle">{scored!.attempts.length ? "From your last final assessment" : "From your screening"}</Text>
-          </div>
-          {focus.map(([k, v]) => {
-            const tone = v >= 80 ? { bg: "bg-sage-bg", fg: "text-ok", bar: "bg-sage" } : v >= 50 ? { bg: "bg-sun-bg", fg: "text-warn", bar: "bg-sun" } : { bg: "bg-peach-bg", fg: "text-brand-deep", bar: "bg-peach" };
-            return (
-              <div key={k} className="flex items-center gap-3 rounded-panel bg-card p-3 pr-4 shadow-hair">
-                <span className={cn("grid size-12 shrink-0 place-items-center rounded-full text-body-lg font-extrabold tabular-nums", tone.bg, tone.fg)}>{v}</span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <span className="truncate text-body-lg font-bold text-ink">{competency(k)?.name}</span>
-                  <div className="h-2 overflow-hidden rounded-full bg-subtle"><div className={cn("h-full rounded-full", tone.bar)} style={{ width: `${v}%` }} /></div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
+      {/* Your level and streak, right under your card. */}
       <section className="flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
         <div className="flex items-center gap-4">
           <Ring value={xp.pctToNext} size={64} stroke={7} tone="white" label={`Level ${xp.level}`}><Text size="display" weight="extrabold" tone="inverse">{xp.level}</Text></Ring>
@@ -132,14 +63,30 @@ export function RepMe() {
         <div className="flex gap-1.5">{LEVELS.map((l, i) => <div key={l.name} className="flex flex-1 flex-col gap-1"><div className={cn("h-1.5 rounded-full", i < xp.level ? "bg-brand-2" : "bg-white/15")} /><span className="text-micro text-white/60">{l.name}</span></div>)}</div>
       </section>
 
+      {/* Certifications: a rail of certificates; See all opens them all in a sheet. */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <Text as="h2" size="title" weight="extrabold" tracking="tight">Certifications</Text>
+          {certs.length > 0 && <button type="button" onClick={() => setAllCerts(true)} className="flex items-center gap-0.5 text-body font-bold text-brand-deep">See all {certs.length}<ChevronRight className="size-4" aria-hidden="true" /></button>}
+        </div>
+        {certs.length ? (
+          <div className="-mx-4 -my-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {certs.map((p) => <CertCard key={p.id} p={p} onOpen={() => setCert(p)} />)}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-panel bg-card p-4 shadow-hair">
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-subtle text-ink-3"><Award className="size-5" aria-hidden="true" /></span>
+            <Text size="body" tone="subtle">Finish a training to earn your first certification.</Text>
+          </div>
+        )}
+      </section>
+
+      {/* Practice calls and Where to focus moved to Home. */}
+
       <section className="flex flex-col gap-3">
         <Text as="h2" size="title" weight="extrabold" tracking="tight">Settings</Text>
         <div className="flex flex-col divide-y divide-hair overflow-hidden rounded-panel bg-card shadow-hair">
-          <Link href="/rep/me/profile" className="flex items-center gap-3 px-4 py-3.5 hover:bg-subtle">
-            <span className="grid size-9 place-items-center rounded-full bg-subtle text-ink-2"><UserRound className="size-4.5" aria-hidden="true" /></span>
-            <span className="flex flex-1 flex-col"><Text size="body-lg" weight="semibold">Profile</Text><Text size="caption" tone="subtle">Name, email, position and photo</Text></span>
-            <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
-          </Link>
+          {/* The profile opens from the card at the top; no second way in here. */}
           <div className="flex items-center gap-3 px-4 py-3.5">
             <span className="grid size-9 place-items-center rounded-full bg-subtle text-ink-2"><Mic className="size-4.5" aria-hidden="true" /></span>
             <span className="flex flex-1 flex-col"><Text size="body-lg" weight="semibold">Use my microphone</Text><Text size="caption" tone="subtle">For calls and talking to SwishX. Off means you type.</Text></span>
@@ -338,5 +285,73 @@ export function RepProfile() {
         <Button size="lg" className="flex-1" disabled={!ok || !dirty || saved} onClick={save}>{saved ? "Saved" : "Save changes"}</Button>
       </BottomActions>
     </div>
+  );
+}
+
+/** The rep's practice calls: this week, how many, the best, and the last two. Private to them. On Home. */
+export function PracticeCallsSection() {
+  const { me, s } = useRep();
+  /* Calls where nothing was said don't count. */
+  const calls = s.practice.filter((x) => x.userId === me.id && x.kind === "roleplay" && x.result?.transcript.some((t) => t.speaker === "rep"));
+  const week = calls.filter((x) => Date.now() - new Date(x.at).getTime() < 7 * 864e5).length;
+  const best = calls.length ? Math.max(...calls.map((x) => x.result!.score)) : undefined;
+  return (
+    <>
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <Text as="h2" size="title" weight="extrabold" tracking="tight">Practice calls</Text>
+          <Link href="/rep/practice" className="flex items-center gap-0.5 text-body font-bold text-brand-deep">{calls.length ? `See all ${calls.length}` : "Open"}<ChevronRight className="size-4" aria-hidden="true" /></Link>
+        </div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[{ label: "This week", value: week, tile: "bg-lilac" }, { label: "Calls", value: calls.length, tile: "bg-sage" }, { label: "Best", value: best ?? "–", tile: "bg-peach" }].map((t) => (
+            <div key={t.label} className={cn("flex flex-col gap-1 rounded-panel px-3.5 py-3 text-white shadow-soft", t.tile)}>
+              <span className="text-caption font-bold text-white/90">{t.label}</span>
+              <span className="text-display font-extrabold leading-none tabular-nums">{t.value}</span>
+            </div>
+          ))}
+        </div>
+        {calls.slice(0, 2).map((x) => (
+          <Link key={x.id} href={`/rep/practice/session/${x.id}`} className="flex items-center gap-3 rounded-panel bg-card px-4 py-3 shadow-hair">
+            <Ring value={x.result!.score} size={40} stroke={4} label={`${x.result!.score}%`}><Text size="micro" weight="bold">{x.result!.score}</Text></Ring>
+            <span className="flex min-w-0 flex-1 flex-col"><Text size="body-lg" weight="bold" truncate>{x.title}</Text><Text size="caption" tone="subtle">{fmtDate(x.at)} · only you can see it</Text></span>
+            <ChevronRight className="size-4 text-ink-4" aria-hidden="true" />
+          </Link>
+        ))}
+      </section>
+
+    </>
+  );
+}
+
+/** Where to focus: the rep's weakest skills from their last scores on their main training. On Home. */
+export function FocusSection() {
+  const { active } = useRep();
+  const scored = active.find((p) => p.screening);
+  const latest = scored ? (scored.attempts.at(-1)?.competencyScores ?? scored.screening!.scores) : undefined;
+  const focus = latest ? Object.entries(latest).sort((a, b) => a[1] - b[1]).slice(0, 4) : [];
+  return (
+    <>
+      {focus.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+            <Text as="h2" size="title" weight="extrabold" tracking="tight">Where to focus</Text>
+            <Text size="caption" tone="subtle">{scored!.attempts.length ? "From your last final assessment" : "From your screening"}</Text>
+          </div>
+          {focus.map(([k, v]) => {
+            const tone = v >= 80 ? { bg: "bg-sage-bg", fg: "text-ok", bar: "bg-sage" } : v >= 50 ? { bg: "bg-sun-bg", fg: "text-warn", bar: "bg-sun" } : { bg: "bg-peach-bg", fg: "text-brand-deep", bar: "bg-peach" };
+            return (
+              <div key={k} className="flex items-center gap-3 rounded-panel bg-card p-3 pr-4 shadow-hair">
+                <span className={cn("grid size-12 shrink-0 place-items-center rounded-full text-body-lg font-extrabold tabular-nums", tone.bg, tone.fg)}>{v}</span>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <span className="truncate text-body-lg font-bold text-ink">{competency(k)?.name}</span>
+                  <div className="h-2 overflow-hidden rounded-full bg-subtle"><div className={cn("h-full rounded-full", tone.bar)} style={{ width: `${v}%` }} /></div>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+    </>
   );
 }
