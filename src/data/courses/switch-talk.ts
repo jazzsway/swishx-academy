@@ -34,7 +34,7 @@ export const SWITCH_OBJECTIVES: Objective[] = [
     [{ competency: "c-opening", pct: 45 }, { competency: "c-disease", pct: 30 }, { competency: "c-safety", pct: 25 }],
     ["Asks about patients not at goal before naming the product", "Names the patient type the label supports", "Gives the safety information alongside any benefit"],
     ["up-sw-profiles", 2, "still not clear or almost clear after 16 weeks"]),
-  ob("ob-sw-push", "Handle “my patients are fine on what they take”", ["doctor"],
+  ob("ob-sw-push", "Keep the call going when a doctor is happy with current treatment", ["doctor"],
     "Reps acknowledge the pushback, answer it with the label's data and without comparing to the doctor's current choice, and ask for one patient to try.",
     [{ competency: "c-objections", pct: 50 }, { competency: "c-competitive", pct: 30 }, { competency: "c-safety", pct: 20 }],
     ["Acknowledges the pushback before answering", "Makes no head-to-head claims", "Asks for one patient who fits"],
@@ -96,7 +96,7 @@ function situation([obId, character, name, title, description]: Sit, id: string)
 }
 
 export const SWITCH_SCENARIOS: Scenario[] = SITUATIONS.map((x, i) => situation(x, `sc-sw-${i + 1}`));
-/** The screening call is one of the situations above, as the trainer picks them: short and not graded. */
+/** The screening call is one of the situations above, as the trainer picks them: short, and scored only as a baseline. */
 const SCREEN = "sc-sw-1";
 
 export function switchCourse(settings: Course["settings"]): Course {

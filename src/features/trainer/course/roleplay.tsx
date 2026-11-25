@@ -178,7 +178,7 @@ export function RoleplaySetup() {
               <Text as="h1" size="display" weight="extrabold" tracking="tight">{sc.persona.name}</Text>
               {roles.final && <span className="rounded-chip bg-brand px-2.5 py-1 text-caption font-bold text-white">Final assessment</span>}
               {roles.final && roles.practice && <span className="rounded-chip bg-tint px-2.5 py-1 text-caption font-bold text-brand-deep">Reps can practise it</span>}
-              {roles.screening && <span className="rounded-chip bg-info-bg px-2.5 py-1 text-caption font-bold text-info">Screening call · not graded</span>}
+              {roles.screening && <span className="rounded-chip bg-info-bg px-2.5 py-1 text-caption font-bold text-info">Screening call · sets the baseline</span>}
               {!sc.custom && <Chip size="sm" iconLeft={<Lock className="size-3" aria-hidden="true" />}>Approved package</Chip>}
             </div>
             <Text size="body-lg" tone="muted">{sc.persona.specialty} · {sc.persona.setting} · about {sc.durationMin} min</Text>
@@ -718,7 +718,7 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
     ["Voice", `${cfg.voice.gender === "male" ? "Male" : "Female"}, ${cfg.voice.accent}, ${cfg.voice.pace} pace`],
     ["Language", cfg.language],
     ["Help", roles.screening ? "None: screening is a clean first call" : "Assisted prompts in practice; never in the final call"],
-    ["Scoring", roles.screening ? "Not graded · sets the rep's baseline" : `Pass ${st.passRoleplay} · ${st.attempts} attempts · ${st.cooldownHours} h between attempts`],
+    ["Scoring", roles.screening ? "Scored · sets the rep's baseline, doesn't count toward passing" : `Pass ${st.passRoleplay} · ${st.attempts} attempts · ${st.cooldownHours} h between attempts`],
   ];
   return (
     <div className="border-t border-hair">
@@ -764,7 +764,7 @@ function HowItWorks({ sc, course, roles, canEdit, flash, onChat, onPreview }: {
           <Text size="micro" weight="bold" tone="subtle" uppercase tracking="wider" className="border-t border-hair pt-3">What reps see before the call</Text>
           <div className="flex flex-wrap items-start gap-4">
             <div className="squircle flex w-full max-w-[340px] flex-col gap-2.5 rounded-[22px] bg-ink p-4 text-white shadow-float">
-              <span className="text-micro font-bold uppercase tracking-wider text-white/60">{roles.screening ? "Screening call · not graded" : "Before your call"}</span>
+              <span className="text-micro font-bold uppercase tracking-wider text-white/60">{roles.screening ? "Screening call · sets your baseline" : "Before your call"}</span>
               <span className="flex items-center gap-2.5"><span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-brand-2 to-brand text-body font-extrabold">{initials(sc.persona.name)}</span><span className="flex flex-col"><b className="text-body-lg">{sc.persona.name}</b><span className="text-caption text-white/70">{sc.persona.specialty} · {cfg.callType.toLowerCase()}, {cfg.place.toLowerCase()}</span></span></span>
               <span className="text-caption text-white/60">YOUR GOAL</span>
               <span className="text-body">{sc.objective}</span>

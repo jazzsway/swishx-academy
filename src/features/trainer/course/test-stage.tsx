@@ -7,13 +7,13 @@ import { ChevronDown, GitBranch, Layers, Mic, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
-import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
 import { useCourse } from "./use-course";
 import { StageHeader } from "./stage-ui";
 import { ROLE_ICON } from "./scenarios";
 import { ObjectiveFlow } from "./roleplay";
-import { objectiveBank } from "@/lib/objective-call";
+import { objectiveBank, screeningMinutes, screeningSet } from "@/lib/objective-call";
 
 /**
  * Test the calls, before publishing. A call is per objective, as reps get it: one of the objective's
@@ -32,7 +32,7 @@ export function TestStage() {
   const test = `/trainer/courses/${course.id}/roleplay/test`;
   /* Screening-only situations set the baseline; they're never drawn for an objective's call. */
   const scored = scs.filter((x) => !x.use.includes("screening") || x.use.includes("assessment"));
-  const screen = course.settings.screening ? screeningOf(course, scs) : [];
+  const screen = course.settings.screening ? screeningSet(course, scs) : [];
   /* Every objective has a call; with no situations, it's made from the objective itself. */
   const obs = (course.objectives ?? []).map((ob, i) => ({ ob, i, list: scored.filter((x) => x.objectiveId === ob.id), bank: objectiveBank(course, ob, scored) }));
   const pass = course.settings.passRoleplay;
@@ -50,7 +50,7 @@ export function TestStage() {
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-info-bg text-info"><ShieldCheck className="size-5" aria-hidden="true" /></span>
           <span className="flex min-w-0 flex-1 flex-col">
             <Text size="body-lg" weight="bold">Screening call</Text>
-            <Text size="caption" tone="subtle">About 3 min · not graded · {screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
+            <Text size="caption" tone="subtle">About {screeningMinutes(screen.length)} min · sets the baseline · one question per objective</Text>
           </span>
           <Link href={`${test}?run=screening&from=test`} className={callBtn}><Mic className="size-3.5" aria-hidden="true" />Call</Link>
         </section>

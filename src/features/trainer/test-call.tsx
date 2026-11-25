@@ -18,9 +18,9 @@ import { Scorecard } from "@/features/roleplay/scorecard";
 import { useVoice } from "@/features/roleplay/use-voice";
 import { ScenarioRun } from "@/features/roleplay/scenario-run";
 import { CriteriaScores } from "@/features/roleplay/criteria-scores";
-import { CHARACTERS, characterOf, scenarioScore, screeningOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf, scenarioScore } from "@/lib/scenario-set";
 import type { Scenario } from "@/data/types";
-import { isObjectiveCall, objectiveBank } from "@/lib/objective-call";
+import { isObjectiveCall, objectiveBank, screeningSet } from "@/lib/objective-call";
 
 const PASS = 75;
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
@@ -318,7 +318,7 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" | "assessme
   const everyOne = course.settings.situationsPerObjective === "all";
   /* An objective's situations, or (with none) its own call. */
   const bankOf = (obId2: string) => { const o = course.objectives?.find((x) => x.id === obId2); return o ? objectiveBank(course, o, scored) : []; };
-  const list = kind === "screening" ? screeningOf(course, all).map((x, _i, a) => ({ ...x, durationMin: Math.max(1, Math.round(3 / a.length)) }))
+  const list = kind === "screening" ? screeningSet(course, all).map((x, _i, a) => ({ ...x, durationMin: Math.max(1, Math.round(3 / a.length)) }))
     /* A training that scores every situation (Settings) has no draw: the objective's call is all of them. */
     : kind === "objective" ? (!ob ? [] : everyOne ? bankOf(ob.id) : bankOf(ob.id).length ? [draw(bankOf(ob.id), 0)] : [])
     : kind === "assessment" ? (course.objectives ?? []).flatMap((o, k) => (everyOne ? bankOf(o.id) : bankOf(o.id).length ? [draw(bankOf(o.id), k)] : []))
@@ -351,7 +351,7 @@ function RunTest({ kind }: { kind: "all" | "screening" | "objective" | "assessme
       {top}
       <div className="flex flex-col gap-1">
         <Text as="h1" size="display-lg" weight="extrabold" tracking="tight">Your results</Text>
-        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Not graded. It sets a rep's baseline." : `Pass mark ${pass}%.`}</Text>
+        <Text size="body-lg" tone="subtle">{kind === "screening" ? "Scored. It sets a rep's baseline and doesn't count toward passing." : `Pass mark ${pass}%.`}</Text>
       </div>
       <ol className="flex flex-col gap-2.5">
         {list.map((sc, i) => {

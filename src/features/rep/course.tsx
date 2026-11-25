@@ -220,12 +220,12 @@ export function RepCourse() {
       {!scheduled && p.state === "not_started" && c.settings.screening && locked.length === 0 && c.origin !== "direct" && (
         <div className="squircle flex flex-col gap-4 rounded-card bg-ink p-5 text-white">
           <Text size="display" weight="extrabold" tone="inverse">Get certified</Text>
-          <Text size="body-lg" tone="inverse" className="opacity-80">{c.items.some((i) => i.pool === "screening") ? "A short quiz and a 5-minute call first." : "A 5-minute call first."} Not graded: it skips what you already know.</Text>
+          <Text size="body-lg" tone="inverse" className="opacity-80">{c.items.some((i) => i.pool === "screening") ? "A short quiz and a 5-minute call first." : "A 5-minute call first."} Your score sets your baseline and skips what you already know.</Text>
           <div className="flex flex-wrap gap-2 text-caption">
             <span className="rounded-chip bg-white/10 px-2.5 py-1">Full training {pr.fullMinutes} min</span>
             <span className="rounded-chip bg-white/10 px-2.5 py-1">{mods.length} lessons</span>
           </div>
-          <button type="button" onClick={() => { s.skipScreening(p.id); }} className="self-start text-body font-semibold text-white/70 underline">Take the full training instead</button>
+          {/* v1-hidden: "Take the full training instead". Screening is required when it's on. */}
         </div>
       )}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { screeningMinutes, screeningSet } from "@/lib/objective-call";
 import { materialOptional, noMaterial } from "@/lib/direct-material";
 
 import { useApp, live, current } from "@/store/app-store";
@@ -11,7 +12,7 @@ import { libraryCourses, unmetPrereqs } from "@/features/library/library-data";
 import { product } from "@/data/org";
 import { blockCards } from "@/lib/short-form";
 import { allScenarios } from "@/data/scenarios";
-import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf } from "@/lib/scenario-set";
 import { callPlan, coverageOf } from "./situations";
 
 /** Short form reads at about 20 seconds a card; long form uses each block's own minutes. */
@@ -100,11 +101,11 @@ export function directNext(p: Progress, c: Course): NextStep | null {
   const step = (title: string, why: string, cta: string, href: string, minutes?: number): NextStep => ({ progress: p, course: c, eyebrow: c.title, title, why, cta, href, minutes });
   const screens = c.settings.screening && p.mode !== "practice";
   if (screens && !p.screening) {
-    const all = screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id)));
+    const all = screeningSet(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id)));
     const done = p.screeningPart?.length ?? 0;
     if (all.length) return done
-      ? step("Resume your screening", `${done} of ${all.length} done. What you've done is saved.`, `Resume screening · ${all.length - done} left`, `${base}/screening`, 3)
-      : step("Start with a screening call", pathModules(p, c).length ? "About 3 minutes, not graded. It decides which lessons you can skip." : "About 3 minutes, not graded. It sets your baseline.", "Start with screening", `${base}/screening`, 3);
+      ? step("Resume your screening", `${done} of ${all.length} done. What you've done is saved.`, `Resume screening · ${all.length - done} left`, `${base}/screening`, screeningMinutes(all.length - done))
+      : step("Start with a screening call", pathModules(p, c).length ? `About ${screeningMinutes(all.length)} minutes, a short question on each objective. Your score sets your baseline and decides which lessons you can skip.` : `About ${screeningMinutes(all.length)} minutes, a short question on each objective. Your score sets your baseline.`, "Start with screening", `${base}/screening`, screeningMinutes(all.length));
   }
   /* Optional material is there to look through, not a step: the calls come next. */
   const nb = materialOptional(c, p) ? null : nextBlock(p, c);

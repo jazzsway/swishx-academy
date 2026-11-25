@@ -236,7 +236,7 @@ function journeyOf(p: Progress, c: Course): JourneyStep[] {
 /** What the next step looks like: a call (who, how long), a lesson, or the certificate. */
 function visualOf(st: NextStep): Visual {
   const who = st.href.match(/call=([a-z]+)/)?.[1] as Character | undefined;
-  if (st.href.includes("/screening")) return { kind: "call", who: "Screening call", sub: `${st.minutes ?? 3} min · not graded`, role: "doctor" };
+  if (st.href.includes("/screening")) return { kind: "call", who: "Screening call", sub: `${st.minutes ?? 3} min · sets your baseline`, role: "doctor" };
   if (st.href.includes("/assessment")) {
     /* Who the final is with: the objective's situation for that person, when there is one. */
     const ob = st.href.match(/ob=([^&]+)/)?.[1];

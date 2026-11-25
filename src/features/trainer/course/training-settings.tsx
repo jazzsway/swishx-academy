@@ -1,5 +1,6 @@
 "use client";
 
+import { screeningMinutes } from "@/lib/objective-call";
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -171,7 +172,7 @@ function Rules({ course }: { course: Course }) {
         <Line label="Assisted mode" hint={st.finalNoHints === false ? "A hint button on assessment calls. It doesn't change the score." : "No hints on assessment calls."}>
           <Toggle label="Assisted mode" on={st.finalNoHints === false} onChange={(v) => set({ finalNoHints: !v })} />
         </Line>
-        <Line label="Screening call" hint={st.screening ? `3 min, not graded. Sets the baseline${noMaterial(course) || st.materialOptional ? "" : " and skips material reps already know"}.` : "Off. No baseline."}>
+        <Line label="Screening call" hint={st.screening ? `About ${screeningMinutes(course.objectives?.length ?? 0)} min, a question per objective, scored. Sets the baseline${noMaterial(course) || st.materialOptional ? "" : " and skips material reps already know"}.` : "Off. No baseline."}>
           <Toggle label="Screening" on={st.screening} onChange={(v) => { set(v ? { screening: true, screeningCall: true, baseline: true } : { screening: false, screeningCall: false, baseline: false }); updateCourse(course.id, { type: v ? "personalised" : "linear" }); }} />
         </Line>
         <Line label="Recertify" hint="The certificate lapses unless reps pass again.">

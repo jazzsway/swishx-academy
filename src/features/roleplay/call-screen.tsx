@@ -26,7 +26,7 @@ export type CallMode = "screening" | "assessment" | "practice" | "test";
 export type CallOutcome = ReturnType<typeof scoreCall>;
 
 const MODE: Record<CallMode, { label: string; tone: string }> = {
-  screening: { label: "Screening call · not graded", tone: "bg-white/10 text-white" },
+  screening: { label: "Screening call · sets your baseline", tone: "bg-white/10 text-white" },
   assessment: { label: "Scored call · recorded", tone: "bg-brand text-white" },
   practice: { label: "Practice · only you can see this", tone: "bg-white/10 text-white" },
   test: { label: "Trainer test call · not saved", tone: "bg-white/10 text-white" },
@@ -234,7 +234,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
             <Mic className="size-5 text-brand" aria-hidden="true" />Start call<span className="font-semibold text-ink-3">· {minutes} min</span>
           </button>
           <Text size="caption" tone="inverse" className="text-center opacity-60">
-            {mode === "assessment" ? "Scored · off-label statements fail" : mode === "screening" ? "Not graded" : mode === "practice" ? "Private · only you see it" : "Scored"}
+            {mode === "assessment" ? "Scored · off-label statements fail" : mode === "screening" ? "Scored for your baseline" : mode === "practice" ? "Private · only you see it" : "Scored"}
             {!voiceAllowed ? " · you'll tap your answers" : voice.supported ? "" : " · you'll tap your answers"}
           </Text>
         </div>
@@ -398,7 +398,7 @@ export function CallScreen({ scenario, objectionIds, mode, voiceAllowed, onCompl
                 <span className="h-9 w-px bg-white/15" aria-hidden="true" />
                 <Stat label="Your turns">{repTurns}</Stat>
                 <span className="h-9 w-px bg-white/15" aria-hidden="true" />
-                {mode === "screening" || !outcome ? <Stat label="Score">Not graded</Stat> : (
+                {!outcome ? <Stat label="Score">–</Stat> : (
                   <Stat label="Score"><span className="flex items-center gap-1.5"><span className={cn("size-2 rounded-full", critical ? "bg-danger" : outcome.score >= 70 ? "bg-ok" : "bg-warn")} aria-hidden="true" />{outcome.score}/100</span></Stat>
                 )}
               </div>

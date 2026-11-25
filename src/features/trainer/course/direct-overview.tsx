@@ -9,7 +9,6 @@ import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import { source, TODAY } from "@/data/org";
 import type { Course, Scenario, Source } from "@/data/types";
-import { screeningOf } from "@/lib/scenario-set";
 import { Text } from "@/components/ui/text";
 import { Card, VersionChip } from "@/components/patterns/academy";
 import { FORMAT_ICON, SourcePreview } from "../source-preview";
@@ -17,7 +16,7 @@ import { directKind } from "../materials";
 import { People } from "./scenarios";
 import { useCourse } from "./use-course";
 import { ObjectiveFlow } from "./roleplay";
-import { objectiveBank } from "@/lib/objective-call";
+import { objectiveBank, screeningMinutes, screeningSet } from "@/lib/objective-call";
 
 const day = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const iconOf = (s: Source) => FORMAT_ICON[s.uploaded?.format ?? (s.type === "Visual aid" ? "slides" : "pdf")];
@@ -54,7 +53,7 @@ export function DirectOverview() {
   const optional = !!st.materialOptional;
   const materials = { key: "materials", icon: BookOpen, label: "Materials", on: true, main: `${plural(lessons.length, "file")} · ${optional ? "optional" : "mandatory"}`, sub: `${lessonMin} min` };
   const journey = [
-    { key: "screen", icon: ShieldCheck, label: "Screening call", on: st.screening, main: st.screening ? "About 3 min" : "Off", sub: st.screening ? "Not graded" : "" },
+    { key: "screen", icon: ShieldCheck, label: "Screening call", on: st.screening, main: st.screening ? `About ${screeningMinutes(obs.length)} min` : "Off", sub: st.screening ? "A question per objective · sets the baseline" : "" },
     ...(lessons.length && !optional ? [materials] : []),
     { key: "calls", icon: Mic, label: "Assessments", on: obs.length > 0, main: `${plural(obs.length, "objective")} · one call each`, sub: `Pass ${st.passRoleplay}% · ${st.attempts === 1 ? "1 try" : `${st.attempts} tries`}` },
     ...(lessons.length && optional ? [materials] : []),
@@ -250,7 +249,7 @@ function TestMenu({ course, scs }: { course: Course; scs: Scenario[] }) {
   /* Screening-only situations set the baseline; they're not part of an objective's test. */
   const scored = scs.filter((x) => !x.use.includes("screening") || x.use.includes("assessment"));
   const obs = (course.objectives ?? []).map((ob, i) => ({ ob, i, n: scored.filter((x) => x.objectiveId === ob.id).length }));
-  const screen = course.settings.screening ? screeningOf(course, scs) : [];
+  const screen = course.settings.screening ? screeningSet(course, scs) : [];
   const go = (href: string) => { setOpen(false); router.push(`${href}&back=${encodeURIComponent(base)}`); };
   const row = "flex w-full items-center gap-3 rounded-control px-2.5 py-2 text-left transition-colors hover:bg-subtle";
   const badge = "grid size-8 shrink-0 place-items-center rounded-full";
@@ -272,7 +271,7 @@ function TestMenu({ course, scs }: { course: Course; scs: Scenario[] }) {
             {screen.length > 0 && (
               <button type="button" role="menuitem" onClick={() => go(`${test}?run=screening`)} className={row}>
                 <span className={cn(badge, "bg-info-bg text-info")}><ShieldCheck className="size-4" aria-hidden="true" /></span>
-                <span className="flex min-w-0 flex-1 flex-col"><span className="text-body font-semibold text-ink">Screening call</span><span className="text-caption text-ink-3">About 3 min · not graded</span></span>
+                <span className="flex min-w-0 flex-1 flex-col"><span className="text-body font-semibold text-ink">Screening call</span><span className="text-caption text-ink-3">About {screeningMinutes(screen.length)} min · sets the baseline</span></span>
               </button>
             )}
             {obs.length > 0 && <span className="px-2.5 pb-1 pt-2 text-micro font-bold uppercase tracking-wider text-ink-4">One objective</span>}

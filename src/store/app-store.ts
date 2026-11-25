@@ -738,11 +738,11 @@ export const useApp = create<AppState>()(
     {
       name: "swishx-academy-v1",
       /* Bump when seed content changes shape; older demo state is replaced with a fresh seed. */
-      version: 44,
+      version: 45,
       /* From v29: keep everything a trainer made. To v33: give the field kit its objectives, the practice manager and assisted mode.
          To v35: the people in situations speak in their own voice: an opening written for the situation, a patient's own side-effect line, no "our product". */
       migrate: (persisted, from) => {
-        if (from < 29 || from > 43) return initial() as unknown as AppState;
+        if (from < 29 || from > 44) return initial() as unknown as AppState;
         let st = persisted as AppState;
         if (from <= 32) {
           const scenarios = [...st.scenarios.filter((x) => x.courseId !== FIELD_KIT_ID), FIELD_KIT_SCREENER, FIELD_KIT_SCENARIO, FIELD_KIT_MANAGER, FIELD_KIT_SAFETY];
@@ -799,6 +799,17 @@ export const useApp = create<AppState>()(
         }
         /* v42–43: Priya's past practice calls, with transcripts, for the Practice tab (replaced, so they're current). */
         if (from <= 43) st = { ...st, practice: [...st.practice.filter((p) => !PRIYA_PRACTICE.some((x) => x.id === p.id)), ...PRIYA_PRACTICE] };
+        /* v45: demo objectives named as one-line objectives, not "Handle …" (only where the title is still the old one). */
+        if (from <= 44) {
+          const RENAME: Record<string, [string, string]> = {
+            "ob-lod-cost": ["Handle “it's too expensive”", "Answer cost concerns without promising coverage"],
+            "ob-lod-topical": ["Handle “the topical works fine”", "Find the patients the topical isn't controlling"],
+            "ob-lod-safety": ["Handle side-effect worries", "Give safety information exactly as the PI states it"],
+            "ob-sw-push": ["Handle “my patients are fine on what they take”", "Keep the call going when a doctor is happy with current treatment"],
+          };
+          st = { ...st, courses: st.courses.map((c) => !c.objectives?.some((o) => RENAME[o.id]?.[0] === o.title) ? c
+            : { ...c, objectives: c.objectives.map((o) => (RENAME[o.id]?.[0] === o.title ? { ...o, title: RENAME[o.id][1] } : o)) }) };
+        }
         return { ...st, scenarios: st.scenarios.map((sc) => ownVoice(sc, st.courses)) };
       },
       storage: createJSONStorage(() => localStorage),

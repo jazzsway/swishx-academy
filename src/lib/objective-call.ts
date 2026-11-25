@@ -1,6 +1,6 @@
 import type { Course, Objective, Scenario } from "@/data/types";
 import { registerObjectiveCall } from "@/data/scenarios";
-import { CHARACTERS, build } from "./scenario-set";
+import { CHARACTERS, build, screeningOf } from "./scenario-set";
 
 /*
  * An objective is a call. Its situations are the specific moments and edge cases a call can be about; an
@@ -34,3 +34,21 @@ export function objectiveBank(course: Course, ob: Objective, scs: Scenario[]): S
 
 /** True when the objective's call is its own (no situations written for it). */
 export const isObjectiveCall = (sc: Scenario) => sc.id.startsWith("sc-ob-");
+
+/**
+ * The screening call touches every objective: one situation each, as a short question. The trainer's
+ * screening pick for that objective if there is one, else its first situation, else the objective's own
+ * call. A training without objectives screens the old way.
+ */
+export function screeningSet(course: Course, scs: Scenario[]): Scenario[] {
+  const obs = course.objectives ?? [];
+  if (!obs.length) return screeningOf(course, scs);
+  const ids = course.settings.screeningIds ?? [];
+  return obs.map((ob) => {
+    const mine = scs.filter((x) => x.objectiveId === ob.id);
+    return mine.find((x) => ids.includes(x.id)) ?? mine[0] ?? objectiveCall(course, ob);
+  });
+}
+
+/** How long screening runs: about a minute per objective's question, three minutes at the least. */
+export const screeningMinutes = (n: number) => Math.max(3, n * Math.max(1, Math.round(3 / Math.max(1, n))));

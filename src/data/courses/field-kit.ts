@@ -38,7 +38,7 @@ export const FIELD_KIT_SCENARIO: Scenario = {
   description: "Dr. Kim has five minutes between patients and is happy with what she prescribes. Open on the right patient, handle the pushback on cost, and ask for a next step.",
 };
 
-/** The screening actor: a separate, shorter first call. Not graded; it decides which files each rep skips. */
+/** The screening actor: a separate, shorter first call. Scored only as a baseline; it decides which files each rep skips. */
 export const FIELD_KIT_SCREENER: Scenario = {
   ...withWeights(draftScenario({ courseId: FIELD_KIT_ID, productId: "p-lumora", sources: ROLEPLAY_DOCS.map(src), sellingModelId: "src-selling", id: FIELD_KIT_SCREENER_ID, name: "Dr. Elena Ruiz", createdAt: "2026-11-05T10:06:00" }),
     [{ competency: "c-opening", pct: 40 }, { competency: "c-objections", pct: 35 }, { competency: "c-safety", pct: 25 }]),

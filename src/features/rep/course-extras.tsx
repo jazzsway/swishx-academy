@@ -1,9 +1,10 @@
 "use client";
 
+import { screeningMinutes, screeningSet } from "@/lib/objective-call";
 import { Children, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Award, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, Film, Headphones, History, Image as ImageIcon, Lock, Mic, Pill, Presentation, Sparkles, Stethoscope, Syringe, TrendingUp, Trophy, Zap, UserRound } from "lucide-react";
+import { Award, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, Film, Headphones, History, Image as ImageIcon, Lock, Mic, Pill, Presentation, Phone, Stethoscope, Syringe, TrendingUp, Trophy, Zap, UserRound } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { Sheet } from "@/components/ui/sheet";
 import { lookForsOf } from "@/lib/objectives";
@@ -12,9 +13,10 @@ import { fileLength } from "@/features/media/file-view";
 import { modulesOf } from "./use-rep";
 import { cn } from "@/lib/cn";
 import { allScenarios } from "@/data/scenarios";
-import { CHARACTERS, characterOf, screeningOf } from "@/lib/scenario-set";
+import { CHARACTERS, characterOf } from "@/lib/scenario-set";
 import { callPlan, coverageOf, scenarioStatus, type ObjectivePlanState, type PlannedCall } from "./situations";
 import { PracticeCallTabs } from "./session-replay";
+import { ScreeningBrief } from "./screening";
 import type { Character, Course, Module, Progress } from "@/data/types";
 import { Text } from "@/components/ui/text";
 
@@ -158,6 +160,7 @@ function Stage({ n, title, status, done, current, locked, last, summary, childre
 export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const presenter = useApp((x) => x.presenter);
   const practice = useApp((x) => x.practice);
+  const [screenOpen, setScreenOpen] = useState(false);
   /* Back from a practice call on an objective (?ob=…): that objective opens again, with its new coverage. */
   const openOb = useSearchParams().get("ob");
   const mods = modulesOf(c);
@@ -168,7 +171,7 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const certified = p.state === "certified";
   const screens = c.settings.screening && !practiceOnly;
   const run = scenarioStatus(c, p);
-  const screen = screeningOf(c, run.scs);
+  const screen = screeningSet(c, run.scs);
   const part = p.screeningPart ?? [];
   const screened = !!p.screening;
   const pathIds = p.path?.moduleIds;
@@ -205,14 +208,6 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
   const cur = nodes.findIndex((x) => !x.done);
   /* Overall: each node counts the same; an objective's practice gets it halfway, its final the rest. */
   const overall = Math.round((nodes.reduce((sum, x) => sum + (x.done ? 1 : x.kind === "ob" ? x.pct / 200 : x.kind === "files" ? x.pct / 100 : 0), 0) / nodes.length) * 100);
-  const curNode = nodes[cur];
-  const left = curNode?.kind === "ob" ? obCovs[(curNode.n ?? 1) - 1].total - obCovs[(curNode.n ?? 1) - 1].covered : 0;
-  const hint = !curNode ? "Every step done. You're certified."
-    : curNode.kind === "screen" ? "Take a 3-minute call to set your baseline. It isn't graded."
-    : curNode.kind === "files" ? `Finish ${needed.length - lessonsDone} more material${needed.length - lessonsDone === 1 ? "" : "s"} to open practice.`
-    : curNode.kind === "cert" ? "Every objective passed. Collect your certificate."
-    : curNode.pct >= 100 ? `Objective ${curNode.n}'s final assessment is unlocked. Take it when you're ready.`
-    : `Practise ${left} more situation${left === 1 ? "" : "s"} to unlock Objective ${curNode.n}'s final assessment.`;
 
   return (
     <section className="flex flex-col gap-3" aria-label="Your journey">
@@ -241,28 +236,35 @@ export function DirectJourney({ c, p }: { c: Course; p: Progress }) {
           </span>
           <span className={cn("grid size-6 shrink-0 place-items-center rounded-full", certified ? "bg-white text-sage" : "bg-white/20")}><Trophy className="size-3.5" aria-hidden="true" /></span>
         </div>
-        <div className="relative flex items-start gap-2 text-caption font-semibold leading-snug">
-          <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1 text-white/95">{hint}</span>
-          {plan.objectives.length > 0 && <span className="shrink-0 tabular-nums text-white/80">{passedObs}/{plan.objectives.length} passed</span>}
-        </div>
       </div>
       <ol className="flex flex-col gap-3">
-        {screens && screen.length > 0 && (
-          <Stage n={++n} title="Screening call" done={screened} current={!screened} summary={screened ? `Baseline ${p.screening!.overall}` : "3 min · not graded"}
+        {screens && screen.length > 0 && (<>
+          <Stage n={++n} title="Screening call" done={screened} current={!screened} summary={screened ? `Baseline ${p.screening!.overall}` : `${screeningMinutes(screen.length)} min · sets your baseline`}
             status={screened ? <Pill_ tone="ok">Baseline {p.screening!.overall}</Pill_> : part.length ? <Pill_ tone="warn">Paused · {part.length} of {screen.length}</Pill_> : <Pill_ tone="brand">Up next</Pill_>}>
-            <div className="flex items-center gap-3 rounded-panel bg-subtle/70 p-3">
-              <span className="flex -space-x-2">{screen.map((x) => { const I = ROLE[characterOf(x)]; return <span key={x.id} className="grid size-10 place-items-center rounded-full border-2 border-card bg-peach text-white"><I className="size-4.5" aria-hidden="true" /></span>; })}</span>
+            <div onClick={() => { if (!screened) setScreenOpen(true); }} className={cn("flex items-center gap-3 rounded-panel bg-subtle/70 p-3", !screened && "cursor-pointer")}>
+              {/* Like the screening screen: what the call is, not who's on it. */}
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-peach text-white"><Phone className="size-4.5" aria-hidden="true" /></span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <Text size="body" weight="semibold" truncate>{screen.map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ")}</Text>
-                <Text size="caption" tone="subtle">{screened ? (optionalMaterial || !needed.length && !skipped.length ? "Baseline set" : skipped.length ? `Skips ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you know` : "Every lesson stays") : part.length ? `${part.length} of ${screen.length} done · saved` : "3 min · not graded"}</Text>
+                <Text size="body" weight="semibold" truncate>{screen.length > 1 ? `Covers all ${screen.length} objectives` : "One short call"}</Text>
+                <Text size="caption" tone="subtle">{screened ? (optionalMaterial || !needed.length && !skipped.length ? "Baseline set" : skipped.length ? `Skips ${skipped.length} lesson${skipped.length === 1 ? "" : "s"} you know` : "Every lesson stays") : part.length ? `${part.length} of ${screen.length} done · saved` : `${screeningMinutes(screen.length)} min · sets your baseline`}</Text>
               </span>
               {screened
                 ? <Link href={`${base}/results`} className="shrink-0 text-caption font-bold text-brand-deep hover:underline">Results</Link>
-                : <Link href={`${base}/screening`} className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-cta px-4 text-body font-bold text-white"><Mic className="size-4" aria-hidden="true" />{part.length ? "Resume" : "Start"}</Link>}
+                : <button type="button" onClick={() => setScreenOpen(true)} aria-haspopup="dialog" className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-cta px-4 text-body font-bold text-white"><Mic className="size-4" aria-hidden="true" />{part.length ? "Resume" : "Start"}</button>}
             </div>
           </Stage>
-        )}
+          {/* The screening call, like an objective: a sheet with what it is, and one way in. */}
+          {!screened && (
+            <Sheet open={screenOpen} onClose={() => setScreenOpen(false)} label="Screening call"
+              title={<span className="flex flex-col gap-1"><span className="text-micro font-bold uppercase tracking-wider text-ink-3">Step 1 · before practice</span><span className="text-title font-extrabold leading-snug text-ink">Start with a short call</span></span>}
+              footer={<Link href={`${base}/screening?start=1`} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-cta text-body-lg font-bold text-white"><Mic className="size-4.5" aria-hidden="true" />{part.length ? "Resume screening" : "Start screening"}</Link>}>
+              <div className="flex flex-col gap-5 pb-2">
+                {part.length > 0 && <span className="self-start rounded-chip bg-ok-bg px-2.5 py-1 text-caption font-bold text-ok">{part.length} of {screen.length} done · saved</span>}
+                <ScreeningBrief c={c} p={p} minutes={screeningMinutes(screen.length)} />
+              </div>
+            </Sheet>
+          )}
+        </>)}
 
         {/* Mandatory material is a step between screening and the assessments. None, or optional: no step here. */}
         {!practiceOnly && !optionalMaterial && needed.length > 0 && (

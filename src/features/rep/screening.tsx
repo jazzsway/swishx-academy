@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { screeningSet } from "@/lib/objective-call";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { X, Lock, ArrowRight, Check, ChevronDown, Play } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { X, Lock, ArrowRight, Check, ChevronDown, Play, Phone } from "lucide-react";
 import { CallPlayback } from "@/features/roleplay/call-playback";
 import { BottomActions } from "@/features/shell/bottom-actions";
 import { AgentIcon } from "@/components/ui/logo-mark";
@@ -12,7 +13,7 @@ import { useApp } from "@/store/app-store";
 import { useMe } from "@/store/selectors";
 import { competency, COMPETENCIES } from "@/data/org";
 import { scenario as getScenario } from "@/data/scenarios";
-import type { Item, Scenario } from "@/data/types";
+import type { Course, Item, Progress, Scenario } from "@/data/types";
 import { blendScores, scoreItems, bandOf, BAND_LABEL, pathMinutes } from "@/lib/learning";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ import { BandChip, Meter, EmptyState } from "@/components/patterns/academy";
 import { CallScreen, type CallOutcome } from "@/features/roleplay/call-screen";
 import { ScenarioRun, combineOutcomes } from "@/features/roleplay/scenario-run";
 import { allScenarios } from "@/data/scenarios";
-import { CRITERIA, screeningOf } from "@/lib/scenario-set";
+import { CRITERIA } from "@/lib/scenario-set";
 import { modulesOf } from "./use-rep";
 import { materialOptional, noMaterial } from "@/lib/direct-material";
 
@@ -52,10 +53,19 @@ export function Screening() {
   const outcomes = useRef<CallOutcome[]>([]);
   /* The situations this call runs, fixed when it starts: saving one as it ends mustn't reshuffle the run. */
   const [running, setRunning] = useState<Scenario[] | null>(null);
+  /* From the training page's sheet ("Start screening"): straight into the call, no start screen. */
+  const auto = useSearchParams().get("start") === "1";
+  useEffect(() => {
+    if (!auto || running || !c || !p || c.origin !== "direct" || pool.length) return;
+    const left = screeningSet(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id)))
+      .map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) }))
+      .filter((x) => !(p.screeningPart ?? []).some((d) => d.scenarioId === x.id));
+    if (left.length) { setRunning(left); setPhase("call"); }
+  }, [auto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p || !c) return <div className="p-4"><EmptyState title="Not assigned" /></div>;
   /* A training with the trainer's own material screens with a short call built from its scenarios. */
-  const screenAll = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) })) : [];
+  const screenAll = c.origin === "direct" ? screeningSet(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x, _i, all) => ({ ...x, durationMin: Math.max(1, Math.round(3 / all.length)) })) : [];
   /* Stopped partway last time: only the situations not taken yet. */
   const part = p.screeningPart ?? [];
   const screenRun = screenAll.filter((x) => !part.some((d) => d.scenarioId === x.id));
@@ -100,6 +110,10 @@ export function Screening() {
   if (phase === "call" && sc)
     return <CallScreen scenario={sc} mode="screening" voiceAllowed={!!s.voiceConsent[me.id]} onExit={() => router.push(`/rep/course/${c.id}`)} onComplete={(r) => finish(answers, r)} />;
 
+  /* The start screen: what the call is, why, and what it covers. */
+  const people = screenRun.length ? screenRun : sc ? [sc] : [];
+
+  if (phase === "bridge" && auto && c.origin === "direct" && !pool.length && screenRun.length) return null;
   if (phase === "bridge")
     return (
       <div className="flex min-h-full flex-1 flex-col gap-5 px-5 pt-5">
@@ -107,17 +121,11 @@ export function Screening() {
           leading={pool.length > 0 ? undefined : <Link href={`/rep/course/${c.id}`} aria-label="Exit" className="focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-hair-3 bg-card/60"><X className="size-5" /></Link>}
           eyebrow={pool.length > 0 ? <Chip tone="ok" size="md">Quiz done · {total} questions</Chip> : undefined} />
         {part.length > 0 && <span className="flex items-center gap-1.5 self-start rounded-chip bg-ok-bg px-2.5 py-1 text-caption font-bold text-ok">{part.length} of {screenAll.length} done · {screenRun.length} left</span>}
-        <Text size="subhead" tone="muted" className="leading-relaxed">{part.length ? `Next up: ${screenRun.map((x) => x.persona.name).join(" and ")}. What you've done is saved.` : screenRun.length > 1 ? `You'll meet ${screenRun.map((x) => x.persona.name).join(" and ")}, back to back.` : `You'll talk to ${sc?.persona.name}, an AI ${sc?.persona.specialty.toLowerCase() ?? "doctor"}.`} Treat it like a real first call.</Text>
-        {/* What it does, as three short facts rather than a paragraph. */}
-        <ul className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
-          {[["Not graded", "Nothing here counts against you"], ...(pool.length || noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? [] : [["Shortens your path", "Skip the lessons you already know"]]), ["About 3 minutes", "Stop any time; it's saved"]].map(([t, d]) => (
-            <li key={t} className="flex flex-col px-4 py-3"><Text size="body-lg" weight="bold">{t}</Text><Text size="caption" tone="subtle">{d}</Text></li>
-          ))}
-        </ul>
-        <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
+
+        <ScreeningBrief c={c} p={p} minutes={Math.max(1, people.reduce((n, x) => n + x.durationMin, 0) || 3)} />
         <BottomBar>
-          <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume the call" : "Go to the call"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
-          <Button size="lg" fullWidth variant="ghost" onClick={() => finish(answers)}>{pool.length ? "Skip the call for now" : noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length ? "Skip it and go to practice" : "Skip it and take every lesson"}</Button>
+          <Button size="lg" fullWidth onClick={() => { setRunning(screenRun); setPhase("call"); }}>{part.length ? "Resume screening" : "Start screening"}<ArrowRight className="size-4" aria-hidden="true" /></Button>
+          {/* No skip: when a training has screening on, the call is required. The ✕ leaves it for later. */}
         </BottomBar>
       </div>
     );
@@ -128,7 +136,7 @@ export function Screening() {
       <div className="flex items-center gap-3">
         <Link href={`/rep/course/${c.id}`} aria-label="Save and exit" className="grid size-10 place-items-center rounded-full bg-subtle"><X className="size-5" /></Link>
         <div className="flex flex-1 flex-col gap-1">
-          <div className="flex justify-between text-caption text-ink-3"><span>Screening · not graded</span><span>{asked.length + 1} of {total}</span></div>
+          <div className="flex justify-between text-caption text-ink-3"><span>Screening · sets your baseline</span><span>{asked.length + 1} of {total}</span></div>
           <Meter value={(asked.length / total) * 100} height={6} label="Screening progress" />
         </div>
       </div>
@@ -168,7 +176,7 @@ export function ScreeningResults() {
   const skipped = mods.filter((m) => !p.path!.moduleIds.includes(m.id));
   const mins = pathMinutes(mods, p.path.moduleIds);
   const required = mods.filter((m) => m.required && p.path!.moduleIds.includes(m.id));
-  const screenNames = c.origin === "direct" ? screeningOf(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ") || "the AI doctor" : getScenario(c.settings.screeningScenarioId ?? "")?.persona.name ?? "the AI doctor";
+  const screenNames = c.origin === "direct" ? screeningSet(c, allScenarios().filter((x) => c.scenarioIds.includes(x.id))).map((x) => x.persona.name.replace(/,.*$/, "")).join(" and ") || "the AI doctor" : getScenario(c.settings.screeningScenarioId ?? "")?.persona.name ?? "the AI doctor";
 
   /* Three things to work on, most important first: a compliance flag, then the weakest criteria, each with what to say and where it's covered. */
   type Tip = { key: string; eyebrow: string; title: string; why: string; say?: string; danger?: boolean; lesson?: { id: string; title: string } };
@@ -282,5 +290,58 @@ export function ScreeningResults() {
       <Text size="caption" tone="subtle" className="text-center">Your trainer sees these scores, not your call recording.</Text>
       <BottomActions><Button size="lg" fullWidth onClick={() => router.push(`/rep/course/${c.id}`)}><AgentIcon className="size-4" aria-hidden="true" />{noMaterial(c) || materialOptional(c, p) || !mods.length ? "On to practice" : "Start my path"}</Button></BottomActions>
     </div>
+  );
+}
+
+/**
+ * What the screening call is, the same on its start screen and in the sheet on the training page: the call
+ * at a glance, why it matters, the objectives it covers, and who sees what.
+ */
+export function ScreeningBrief({ c, p, minutes }: { c: Course; p: Progress; minutes: number }) {
+  const me = useMe();
+  const voice = useApp((x) => !!x.voiceConsent[me.id]);
+  const pool = c.items.filter((i) => i.pool === "screening");
+  const shortens = !(pool.length || noMaterial(c) || materialOptional(c, p) || !modulesOf(c).length);
+  /* The call asks a short question on every objective. */
+  const covers = c.objectives ?? [];
+  return (
+    <>
+      {/* The call itself: what it is, at a glance. */}
+      <section className="flex shrink-0 flex-col gap-3 rounded-card bg-card p-4 shadow-hair">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-peach text-white"><Phone className="size-5" aria-hidden="true" /></span>
+          <span className="flex min-w-0 flex-col">
+            <Text size="body-lg" weight="bold">Screening call</Text>
+            <Text size="caption" tone="subtle">{covers.length > 1 ? `A short question on each of your ${covers.length} objectives, back to back` : "One short call with an AI doctor"}</Text>
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {[`About ${minutes} min`, "Scored for your baseline", "Stop any time, it's saved", voice ? "Voice call" : "Typed call"].map((x) => (
+            <span key={x} className="rounded-full bg-subtle px-2.5 py-1 text-micro font-bold text-ink-2">{x}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">Why this call</Text>
+        <Text size="body" tone="muted" className="leading-relaxed">It sets your baseline: where you start before practice.{shortens ? " Your path then skips the lessons you already know." : ""} Your final assessments later show how far you&apos;ve come.</Text>
+      </section>
+
+      {covers.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <Text size="caption" weight="bold" tone="subtle" uppercase tracking="wider">What it covers</Text>
+          <ol className="flex flex-col divide-y divide-hair overflow-hidden rounded-card bg-card shadow-hair">
+            {covers.map((o) => (
+              <li key={o.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tint text-caption font-extrabold tabular-nums text-brand-deep">{(c.objectives ?? []).indexOf(o) + 1}</span>
+                <Text size="body" weight="semibold" className="leading-snug">{o.title}</Text>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <div className="squircle flex items-start gap-3 rounded-panel bg-subtle p-4"><Lock className="mt-0.5 size-4 shrink-0 text-ink-3" aria-hidden="true" /><Text size="body" tone="muted">Your trainer sees your scores by criterion, not the recording.</Text></div>
+    </>
   );
 }

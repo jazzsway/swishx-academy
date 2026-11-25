@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { useApp } from "@/store/app-store";
 import { allScenarios } from "@/data/scenarios";
 import type { Objective, Scenario } from "@/data/types";
-import { screeningOf } from "@/lib/scenario-set"; // v1-hidden: CHARACTERS, characterOf
+// v1-hidden: import { CHARACTERS, characterOf } from "@/lib/scenario-set";
 import { exampleSituations } from "@/lib/objectives";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { People, SituationDetail, removeSituation, useHomeStrays } from "./scena
 import { askFor, turnId, useTrainingChat } from "./training-chat-store";
 import { ObjectiveFlow } from "./roleplay";
 import { Segmented, SegmentedButton } from "@/components/patterns/segmented";
-import { objectiveBank } from "@/lib/objective-call";
+import { objectiveBank, screeningSet } from "@/lib/objective-call";
 
 const GENERATE_SECONDS = 120;
 /** v1-hidden: trainers picking which situations go into screening. SwishX sets screening up. */
@@ -85,7 +85,7 @@ export function SituationBoard() {
   const { editable } = data;
   const base = `/trainer/courses/${course.id}`;
   const obs = course.objectives ?? [];
-  const screen = screeningOf(course, scs);
+  const screen = screeningSet(course, scs);
   const inScreen = new Set(screen.map((x) => x.id));
   const screening = course.settings.screening && scs.length > 0;
   const bare = obs.filter((o) => !scs.some((x) => x.objectiveId === o.id));
@@ -143,7 +143,7 @@ export function SituationBoard() {
       {(screening || scs.length > 0) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption text-ink-3">
           {/* v1-hidden: which situations screening uses. SwishX sets screening up.
-          {screening && <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-info" aria-hidden="true" /><b className="text-ink-2">Screening</b> uses {screen.length} of these, a 3-minute call before the lessons. Not graded.</span>} */}
+          {screening && <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-info" aria-hidden="true" /><b className="text-ink-2">Screening</b> uses {screen.length} of these, a 3-minute call before the lessons. Sets the baseline.</span>} */}
           <span>{one ? "One situation drawn per rep. A retry draws another." : "Every situation is scored."}</span>
         </div>
       )}

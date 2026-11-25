@@ -232,7 +232,7 @@ export function TrainingChat({ course }: { course: Course }) {
       const first = Number(l.match(/first\s*(\d)/)?.[1]);
       const nums = first ? Array.from({ length: first }, (_, i) => i + 1) : [...l.matchAll(/\b(\d)\b/g)].map((m) => Number(m[1]));
       const pick = nums.map((n) => scs[n - 1]).filter(Boolean);
-      if (!pick.length) return say(`Screening is a short call, about 3 minutes, built from ${st.screeningIds?.length ?? 2} of your scenarios. Say which, like “use scenarios 1 and 3 in screening”.`);
+      if (!pick.length) return say(`Screening asks one short question on each objective, about a minute each. Say which situation to use for one, like “use scenarios 1 and 3 in screening”.`);
       const prev = st.screeningIds;
       updateSettings(c.id, { screeningIds: pick.map((x) => x.id) });
       return say(`Screening now uses ${pick.map((x) => `“${x.title}”`).join(" and ")}.`, { undo: () => updateSettings(c.id, { screeningIds: prev }) });
